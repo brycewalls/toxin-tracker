@@ -284,6 +284,12 @@
 .fm-stage{position:relative}
 .fm-stage svg{display:block;width:100%;height:100%;overflow:hidden;-webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none}
 .fm[data-mode=edit] .fm-stage svg{touch-action:pan-y;cursor:crosshair}
+.fm.fm-zoomed .fm-stage svg{touch-action:none}
+.fm-zbar{position:absolute;right:6px;top:6px;display:flex;align-items:center;background:var(--card);border:1px solid var(--line);border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,.08);overflow:hidden;z-index:2}
+.fm-zbar[hidden]{display:none}
+.fm-zbar button{min-width:40px;height:40px;font-size:20px;line-height:1;color:var(--accent);display:grid;place-items:center}
+.fm-zbar button[data-z=lvl]{font-size:12px;min-width:44px;color:var(--muted);font-variant-numeric:tabular-nums;border-left:1px solid var(--line);border-right:1px solid var(--line)}
+.fm-zbar button:disabled{color:var(--faint);opacity:.6}
 .fm[data-mode=edit] .fm-pt,.fm[data-mode=edit] .fm-rm{touch-action:none;cursor:grab}
 .fm[data-mode=display].tap .fm-stage svg{cursor:pointer}
 .fm-skin{fill:var(--fm-skin);stroke:var(--fm-stroke);stroke-width:1.1;stroke-linejoin:round}
@@ -397,6 +403,12 @@
     let heat = opts.heat || null;
     let hov = null; // {muscle, caution}
     let mscale = opts.markerScale || 1, showMus = true, lastW = 0, drag = null;
+    // Zoom (#11): edit maps zoom by narrowing the SVG viewBox, so taps still land in face
+    // coordinates through getScreenCTM. Not on photo overlays, where the photo would not follow.
+    let zk = 1, zx = VB[0] + VB[2] / 2, zy = VB[1] + VB[3] / 2, pz = null, pinched = false;
+    const touches = new Map();
+    const ZMAX = 4;
+    const zoomable = () => opts.zoom !== false && !opts.overlay && opts.mode === 'edit';
     const wantCap = opts.caption == null ? opts.mode === 'edit' : !!opts.caption;
     const wantTog = opts.toggle == null ? opts.mode === 'edit' && !opts.overlay : !!opts.toggle;
 
@@ -462,7 +474,7 @@
 
     function ptMarkup(p, m) {
       const sel = p.id === selId, edit = isEdit();
-      const ms = Math.max(0.55, Math.min(1.6, 1 / mscale));
+      const ms = Math.max(0.55, Math.min(1.6, 1 / mscale)) / zk;
       const r = (m.lab ? 4.2 : 4.6) * ms, side = p.x >= 150 ? 1 : -1;
       const u = num(p.units);
       const lab = m.lab ? '' : `<text class="lab" x="${r1(side * (r + 2.2))}" y="${r1(3 * ms)}" text-anchor="${side > 0 ? 'start' : 'end'}" style="font-size:${r1(8.4 * ms)}px">${esc(u)}</text>`;
@@ -471,7 +483,7 @@
         (edit ? `<circle class="hit" r="${r1(12 * ms)}"/>` : '') + '</g>';
     }
     function rmMarkup(p) {
-      const ms = Math.max(0.55, Math.min(1.6, 1 / mscale)), side = p.x >= 150 ? 1 : -1;
+      const ms = Math.max(0.55, Math.min(1.6, 1 / mscale)) / zk, side = p.x >= 150 ? 1 : -1;
       const x = r1(p.x - side * 11 * ms), y = r1(p.y - 11 * ms), k = 2.3 * ms;
       return `<g class="fm-rm" data-rm="1" transform="translate(${x} ${y})" role="button" aria-label="Remove point"><circle class="bg" r="${r1(6 * ms)}"/><path class="x" d="M${-k} ${-k}L${k} ${k}M${k} ${-k}L${-k} ${k}"/><circle class="hit" r="${r1(11 * ms)}"/></g>`;
     }
@@ -581,9 +593,57 @@
       opts.onSelect && opts.onSelect(null);
     }
 
+    /* zoom */
+    let zbar = null;
+    function applyView() {
+      if (!zoomable()) { zk = 1; }
+      const w = VB[2] / zk, h = VB[3] / zk;
+      zx = Math.max(VB[0] + w / 2, Math.min(VB[0] + VB[2] - w / 2, zx));
+      zy = Math.max(VB[1] + h / 2, Math.min(VB[1] + VB[3] - h / 2, zy));
+      svg.setAttribute('viewBox', zk > 1.001 ? `${r1(zx - w / 2)} ${r1(zy - h / 2)} ${r1(w)} ${r1(h)}` : VB.join(' '));
+      root.classList.toggle('fm-zoomed', zk > 1.001);
+      if (zbar) { zbar.hidden = !zoomable(); zbar.querySelector('[data-z=lvl]').textContent = (Math.round(zk * 10) / 10) + 'x'; zbar.querySelector('[data-z=out]').disabled = zk <= 1.001; zbar.querySelector('[data-z=in]').disabled = zk >= ZMAX - 0.001; }
+    }
+    // Zoom to k keeping face point (ax, ay) under the screen fraction (fx, fy) of the map.
+    function zoomAt(k, ax, ay, fx, fy) {
+      zk = Math.max(1, Math.min(ZMAX, k));
+      const w = VB[2] / zk, h = VB[3] / zk;
+      zx = ax - fx * w + w / 2; zy = ay - fy * h + h / 2;
+      applyView(); render();
+    }
+    const frac = (cx, cy) => { const r = svg.getBoundingClientRect(); return { fx: (cx - r.left) / (r.width || 1), fy: (cy - r.top) / (r.height || 1) }; };
+    const raw = (cx, cy) => { const m = svg.getScreenCTM(); return m ? new DOMPoint(cx, cy).matrixTransform(m.inverse()) : null; };
+    function zoomStep(f) { zoomAt(zk * f, zx, zy, 0.5, 0.5); }
+    if (opts.zoom !== false && !opts.overlay) {
+      zbar = document.createElement('div'); zbar.className = 'fm-zbar'; zbar.hidden = true;
+      zbar.innerHTML = '<button type="button" data-z="out" aria-label="Zoom out">&minus;</button><button type="button" data-z="lvl" aria-label="Reset zoom">1x</button><button type="button" data-z="in" aria-label="Zoom in">+</button>';
+      zbar.onclick = (e) => { const b = e.target.closest('[data-z]'); if (!b) return; const z = b.dataset.z; if (z === 'in') zoomStep(1.6); else if (z === 'out') zoomStep(1 / 1.6); else { zk = 1; applyView(); render(); } };
+      stage.appendChild(zbar);
+    }
+    const onWheel = (e) => {
+      if (!zoomable() || !e.ctrlKey) return; // trackpad pinch arrives as ctrl+wheel
+      e.preventDefault();
+      const a = raw(e.clientX, e.clientY), f = frac(e.clientX, e.clientY); if (!a) return;
+      zoomAt(zk * Math.exp(-e.deltaY * 0.01), a.x, a.y, f.fx, f.fy);
+    };
+
     /* pointer handling */
     const onDown = (e) => {
       if (e.button > 0) return;
+      if (zoomable() && e.pointerType === 'touch') {
+        touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
+        try { svg.setPointerCapture(e.pointerId); } catch (x) {}
+        if (touches.size === 2) {
+          // Second finger: this is a pinch. Undo any point drag the first finger started.
+          if (drag && drag.id && drag.moved && drag.orig) { const p = pts.find((q) => q.id === drag.id); if (p) Object.assign(p, drag.orig); render(); }
+          drag = null; pinched = true;
+          const [a, b] = [...touches.values()], mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2, an = raw(mx, my);
+          pz = { d0: Math.hypot(a.x - b.x, a.y - b.y) || 1, k0: zk, ax: an ? an.x : zx, ay: an ? an.y : zy };
+          return;
+        }
+        if (touches.size > 2) return;
+      }
+      if (pinched) return;
       const rm = e.target.closest('.fm-rm'), pe = e.target.closest('.fm-pt');
       drag = { pid: e.pointerId, sx: e.clientX, sy: e.clientY, id: isEdit() && pe ? pe.dataset.id : null, rm: isEdit() && !!rm, moved: false, orig: null };
       if (drag.id) {
@@ -592,6 +652,22 @@
       }
     };
     const onMove = (e) => {
+      if (touches.has(e.pointerId)) touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      if (pz && touches.size >= 2) {
+        const [a, b] = [...touches.values()], mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2, f = frac(mx, my);
+        zoomAt(pz.k0 * (Math.hypot(a.x - b.x, a.y - b.y) / pz.d0), pz.ax, pz.ay, f.fx, f.fy);
+        return;
+      }
+      if (drag && drag.pid === e.pointerId && !drag.id && zk > 1.001) {
+        // One finger on empty space while zoomed pans the view.
+        if (!drag.moved && Math.hypot(e.clientX - drag.sx, e.clientY - drag.sy) > 6) { drag.moved = true; drag.zx = zx; drag.zy = zy; }
+        if (drag.moved) {
+          const r = svg.getBoundingClientRect(), u = VB[2] / zk / (r.width || 1);
+          zx = drag.zx - (e.clientX - drag.sx) * u; zy = drag.zy - (e.clientY - drag.sy) * u;
+          applyView();
+        }
+        return;
+      }
       if (drag && drag.pid === e.pointerId) {
         if (!drag.moved && Math.hypot(e.clientX - drag.sx, e.clientY - drag.sy) > 6) drag.moved = true;
         if (drag.moved && drag.id) {
@@ -614,6 +690,9 @@
       }
     };
     const onUp = (e) => {
+      touches.delete(e.pointerId);
+      if (touches.size < 2) pz = null;
+      if (pinched) { if (!touches.size) pinched = false; drag = null; return; } // a pinch never drops a point
       const d = drag; drag = null;
       if (!d || d.pid !== e.pointerId) return;
       if (d.moved && !d.id) return; // the page scrolled or panned
@@ -629,6 +708,7 @@
       if (h.muscle) { hov = h; paintStates(); caption(); opts.onTapMuscle(h.muscle); }
     };
     const onCancel = (e) => {
+      touches.delete(e.pointerId); if (touches.size < 2) pz = null; if (!touches.size) pinched = false;
       if (drag && drag.pid === e.pointerId && drag.id && drag.moved && drag.orig) {
         const p = pts.find((q) => q.id === drag.id); if (p) Object.assign(p, drag.orig);
         drag = null; render(); return;
@@ -646,6 +726,7 @@
     };
     const onLabel = (e) => { const t = e.target.closest('.fm-lab'); if (t && opts.onTapMuscle && t.dataset.id) opts.onTapMuscle(t.dataset.id); };
     svg.addEventListener('pointerdown', onDown);
+    svg.addEventListener('wheel', onWheel, { passive: false });
     svg.addEventListener('pointermove', onMove);
     svg.addEventListener('pointerup', onUp);
     svg.addEventListener('pointercancel', onCancel);
@@ -655,20 +736,22 @@
 
     let ro = null;
     if (window.ResizeObserver) { ro = new ResizeObserver(() => { if (Math.abs(root.clientWidth - lastW) > 1) render(); }); ro.observe(el); }
+    applyView();
     render();
 
     return {
       setPoints(points) { pts = norm(points); if (selId && !pts.some((p) => p.id === selId)) selId = null; render(); },
       getPoints() { return pts.map((p) => ({ ...p })); },
       select(id) { selId = id && pts.some((p) => p.id === id) ? id : null; hov = null; render(); },
-      setMode(mode) { opts.mode = mode; selId = mode === 'edit' ? selId : null; hov = null; render(); },
+      setMode(mode) { opts.mode = mode; selId = mode === 'edit' ? selId : null; hov = null; zk = 1; applyView(); render(); },
+      resetZoom() { zk = 1; applyView(); render(); },
       setHeat(h) { heat = h || null; render(); },
       setMarkerScale(k) { const n = +k || 1; if (Math.abs(n - mscale) > 0.02) { mscale = n; render(); } },
       // older callers
       setSelected(map) { pts = norm(fromMap(map)); render(); },
       destroy() {
         ro && ro.disconnect();
-        svg.removeEventListener('pointerdown', onDown); svg.removeEventListener('pointermove', onMove); svg.removeEventListener('pointerup', onUp);
+        svg.removeEventListener('pointerdown', onDown); svg.removeEventListener('wheel', onWheel); svg.removeEventListener('pointermove', onMove); svg.removeEventListener('pointerup', onUp);
         svg.removeEventListener('pointercancel', onCancel); svg.removeEventListener('pointerleave', onLeave); svg.removeEventListener('keydown', onKey);
         labs.removeEventListener('click', onLabel);
         el.innerHTML = '';
