@@ -1,3 +1,8 @@
 tools/smoke/
 node_modules/
 .DS_Store
+
+# Hosted build output (tools/build.mjs)
+dist/
+.firebase/
+firebase-debug.log

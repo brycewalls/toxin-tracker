@@ -131,7 +131,9 @@
 
   let col = null; // db collection for this user, or null
   const LS = 'bt-v1';
-  const lsWrite = () => { try { localStorage.setItem(LS, JSON.stringify(BT.data)); } catch (e) {} };
+  // The hosted app keeps no localStorage copy: Firestore's own offline cache covers it, and a
+  // shared device must never carry one account's log into another's.
+  const lsWrite = () => { if (window.BT_CLOUD) return; try { localStorage.setItem(LS, JSON.stringify(BT.data)); } catch (e) {} };
   const lsRead = () => { try { return JSON.parse(localStorage.getItem(LS) || 'null'); } catch (e) { return null; } };
 
   BT.save = (kind, rec) => {
@@ -158,7 +160,21 @@
   }
 
   BT.storage = 'device';
+  // Load every record of one user's collection into BT.data.
+  const loadAll = (snap) => {
+    const fresh = { injections: [], vials: [], reactions: [], photos: [], moods: [] };
+    snap.docs.forEach((d) => { const v = d.data(); if (!v) return; if (v.kind === 'settings') BT.data.settings = { ...BT.data.settings, ...v.rec }; else if (fresh[v.kind]) fresh[v.kind].push(v.rec); });
+    Object.assign(BT.data, fresh);
+  };
   BT.init = async function () {
+    // Hosted web app: Firebase Auth + Firestore users/{uid}/records (app/cloud.js).
+    if (window.BT_CLOUD) {
+      const c = await window.BT_CLOUD.ready;
+      col = c.col; BT.account = c.user; BT.storage = 'firebase';
+      try { loadAll(await col.get()); } catch (e) { console.warn('firestore read', e); BT.toast('Could not load your log. Check your connection.'); }
+      BT.emit('change', 'all');
+      return;
+    }
     const local = lsRead();
     if (local) Object.assign(BT.data, local);
     try {
@@ -168,9 +184,7 @@
         col = db.collection('data/users/' + uid);
         const snap = await col.get();
         if (!snap.empty) {
-          const fresh = { injections: [], vials: [], reactions: [], photos: [], moods: [] };
-          snap.docs.forEach((d) => { const v = d.data(); if (!v) return; if (v.kind === 'settings') BT.data.settings = { ...BT.data.settings, ...v.rec }; else if (fresh[v.kind]) fresh[v.kind].push(v.rec); });
-          Object.assign(BT.data, fresh); lsWrite();
+          loadAll(snap); lsWrite();
         } else if (local) {
           // first sign-in on this device: push local records up
           for (const k of KINDS) for (const r of BT.data[k]) persist(k, r.id, r);
@@ -184,7 +198,8 @@
 
   /* ---------- photos ----------
      BT.photo.pick({capture}) -> Promise<File|null>; BT.photo.store(file) -> Promise<src string>
-     Uses the assets capability when granted, else a downscaled JPEG data URL. */
+     Uses the assets capability when granted, else a downscaled JPEG data URL (always on the
+     hosted app, where the photo lives inside its Firestore record; Storage needs the Blaze plan). */
   BT.photo = {
     pick({ capture } = {}) {
       return new Promise((res) => {
@@ -207,7 +222,7 @@
     async store(file) {
       const canvas = await this.downscale(file, 1400);
       try {
-        const assets = await window.claude?.use?.('assets');
+        const assets = window.BT_CLOUD ? null : await window.claude?.use?.('assets');
         if (assets) {
           const blob = await new Promise((r) => canvas.toBlob(r, 'image/jpeg', 0.85));
           const up = await assets.upload(blob);

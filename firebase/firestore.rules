@@ -1,0 +1,13 @@
+rules_version = '2';
+// Each signed-in person reads and writes only their own records: users/{uid}/records/{kind__id}.
+// Nothing else in the database is reachable from the app.
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /users/{uid}/records/{docId} {
+      allow read, delete: if request.auth != null && request.auth.uid == uid;
+      allow create, update: if request.auth != null && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(['kind', 'rec'])
+        && request.resource.data.kind in ['injections', 'vials', 'reactions', 'photos', 'moods', 'settings'];
+    }
+  }
+}
