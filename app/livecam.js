@@ -16,7 +16,13 @@
    the 300x400 drawing. Those points plus a ring of outer points (placed by a least-squares similarity
    fit, so the forehead edge and neck move with the head) are triangulated once in drawing space. Every
    muscle vertex and injection point keeps its triangle and barycentric weights, so a frame only moves the
-   triangle corners. A tap runs the same map backwards to get drawing coordinates. */
+   triangle corners. A tap runs the same map backwards to get drawing coordinates.
+
+   Frozen zoom (#27): once frozen, pinch, ctrl+wheel and the - / 1x / + bar zoom 1x to 4x, and one finger
+   pans while zoomed. The video sits in a wrapper that gets one CSS transform (translate, then scale from
+   the top left). The overlay canvas is not scaled by CSS: draw() and the tap mapping run every point
+   through the same zoom, so lines stay sharp, dots and labels keep their screen size, and a tap maps
+   back through the zoom to the face point under the finger. Unfreezing or destroy resets to 1x. */
 (function () {
   const BT = window.BT;
   if (!BT) return;
@@ -160,6 +166,24 @@
     return loading;
   }
 
+  // Zoom bar, same look as facemap.js .fm-zbar, kept here because the camera view can mount without a face map.
+  function injectCSS() {
+    if (document.getElementById('lc-css')) return;
+    const st = document.createElement('style');
+    st.id = 'lc-css';
+    st.textContent = `
+.lc-zw{position:absolute;inset:0;transform-origin:0 0;will-change:transform}
+.lc-zbar{position:absolute;right:8px;bottom:8px;top:auto;display:flex;align-items:center;background:var(--card);border:1px solid var(--line);border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,.08);overflow:hidden;z-index:2}
+.lc-zbar[hidden]{display:none}
+.lc-zbar button{min-width:40px;height:40px;font-size:20px;line-height:1;color:var(--accent);display:grid;place-items:center}
+.lc-zbar button[data-z=lvl]{font-size:12px;min-width:44px;color:var(--muted);font-variant-numeric:tabular-nums;border-left:1px solid var(--line);border-right:1px solid var(--line)}
+.lc-zbar button:disabled{color:var(--faint);opacity:.6}
+.fm-cam.lc-frozen canvas{touch-action:none}
+.fm-cam.lc-zoomed canvas{cursor:grab}
+`;
+    document.head.appendChild(st);
+  }
+
   const supported = () => !!(window.isSecureContext && navigator.mediaDevices && navigator.mediaDevices.getUserMedia && window.WebAssembly);
 
   function mount(el, opts) {
@@ -168,7 +192,11 @@
     const video = document.createElement('video');
     video.setAttribute('playsinline', ''); video.muted = true; video.autoplay = true;
     const canvas = document.createElement('canvas');
-    el.append(video, canvas);
+    injectCSS();
+    const zw = document.createElement('div'); zw.className = 'lc-zw'; zw.appendChild(video);
+    const zbar = document.createElement('div'); zbar.className = 'fm-zbar lc-zbar'; zbar.hidden = true;
+    zbar.innerHTML = '<button type="button" data-z="out" aria-label="Zoom out">&minus;</button><button type="button" data-z="lvl" aria-label="Reset zoom">1x</button><button type="button" data-z="in" aria-label="Zoom in">+</button>';
+    el.append(zw, canvas, zbar);
     const ctx = canvas.getContext('2d');
     canvas.style.opacity = opts.opacity;
 
@@ -234,12 +262,41 @@
       draw();
     }
 
-    // camera pixel -> on-screen CSS pixel (object-fit: cover, mirrored like a selfie view)
+    // camera pixel -> on-screen CSS pixel (object-fit: cover, mirrored like a selfie view), then the frozen zoom
     function view() {
       const W = el.clientWidth, H = el.clientHeight, vw = video.videoWidth || 1, vh = video.videoHeight || 1;
-      const s = Math.max(W / vw, H / vh), ox = (W - vw * s) / 2, oy = (H - vh * s) / 2;
-      return { W, H, s, ox, oy, to: ([x, y]) => [W - (ox + x * s), oy + y * s], from: (x, y) => [(W - x - ox) / s, (y - oy) / s] };
+      const s = Math.max(W / vw, H / vh), ox = (W - vw * s) / 2, oy = (H - vh * s) / 2, { k, x: zx, y: zy } = Z;
+      return { W, H, s, ox, oy, to: ([x, y]) => [zx + k * (W - (ox + x * s)), zy + k * (oy + y * s)], from: (x, y) => [(W - (x - zx) / k - ox) / s, ((y - zy) / k - oy) / s] };
     }
+
+    /* frozen zoom: screen = Z.k * unzoomed + (Z.x, Z.y), in CSS pixels of el */
+    const ZMAX = 4, Z = { k: 1, x: 0, y: 0 };
+    function applyZoom() {
+      const W = el.clientWidth, H = el.clientHeight;
+      Z.k = Math.max(1, Math.min(ZMAX, Z.k));
+      Z.x = Math.min(0, Math.max(W - Z.k * W, Z.x)); Z.y = Math.min(0, Math.max(H - Z.k * H, Z.y));
+      const on = Z.k > 1.001;
+      if (!on) { Z.k = 1; Z.x = 0; Z.y = 0; }
+      zw.style.transform = on ? `translate(${Z.x}px, ${Z.y}px) scale(${Z.k})` : '';
+      el.classList.toggle('lc-zoomed', on);
+      zbar.querySelector('[data-z=lvl]').textContent = Math.round(Z.k * 10) / 10 + 'x';
+      zbar.querySelector('[data-z=out]').disabled = !on;
+      zbar.querySelector('[data-z=in]').disabled = Z.k >= ZMAX - 0.001;
+    }
+    // Zoom to k keeping unzoomed point (ax, ay) under screen point (sx, sy), all relative to el.
+    function zoomAt(k, ax, ay, sx, sy) {
+      Z.k = Math.max(1, Math.min(ZMAX, k));
+      Z.x = sx - Z.k * ax; Z.y = sy - Z.k * ay;
+      applyZoom();
+    }
+    const unzoom = (sx, sy) => [(sx - Z.x) / Z.k, (sy - Z.y) / Z.k];
+    function zoomStep(f) { const cx = el.clientWidth / 2, cy = el.clientHeight / 2, [ax, ay] = unzoom(cx, cy); zoomAt(Z.k * f, ax, ay, cx, cy); }
+    function resetZoom() { Z.k = 1; applyZoom(); }
+    zbar.onclick = (e) => {
+      const b = e.target.closest('[data-z]'); if (!b || !frozen) return;
+      const z = b.dataset.z;
+      if (z === 'in') zoomStep(1.6); else if (z === 'out') zoomStep(1 / 1.6); else resetZoom();
+    };
 
     function draw() {
       const v = view(), dpr = Math.min(2, window.devicePixelRatio || 1);
@@ -282,12 +339,52 @@
       });
     }
 
-    /* taps: select a nearby point, or add one where the face is */
-    let down = null;
-    const onDown = (e) => { if (e.button > 0) return; down = { id: e.pointerId, x: e.clientX, y: e.clientY }; };
+    /* taps: select a nearby point, or add one where the face is. While frozen, two fingers pinch-zoom and
+       one finger pans once zoomed; a pinch or a pan never adds a point. */
+    let down = null, pz = null, pinched = false;
+    const touches = new Map();
+    const local = (e) => { const r = el.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; };
+    const onDown = (e) => {
+      if (e.button > 0) return;
+      if (frozen && e.pointerType === 'touch') {
+        touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
+        if (touches.size === 2) {
+          down = null; pinched = true;
+          const r = el.getBoundingClientRect(), [a, b] = [...touches.values()];
+          const [ax, ay] = unzoom((a.x + b.x) / 2 - r.left, (a.y + b.y) / 2 - r.top);
+          pz = { d0: Math.hypot(a.x - b.x, a.y - b.y) || 1, k0: Z.k, ax, ay };
+          return;
+        }
+        if (touches.size > 2) return;
+      }
+      if (pinched) return;
+      down = { id: e.pointerId, x: e.clientX, y: e.clientY, moved: false };
+      try { canvas.setPointerCapture(e.pointerId); } catch (x) {}
+    };
+    const onMove = (e) => {
+      if (touches.has(e.pointerId)) touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      if (pz && touches.size >= 2) {
+        const r = el.getBoundingClientRect(), [a, b] = [...touches.values()];
+        zoomAt(pz.k0 * (Math.hypot(a.x - b.x, a.y - b.y) / pz.d0), pz.ax, pz.ay, (a.x + b.x) / 2 - r.left, (a.y + b.y) / 2 - r.top);
+        return;
+      }
+      const d = down;
+      if (!d || d.id !== e.pointerId || !frozen || Z.k <= 1.001) return;
+      if (!d.moved && Math.hypot(e.clientX - d.x, e.clientY - d.y) > 6) { d.moved = true; d.zx = Z.x; d.zy = Z.y; }
+      if (d.moved) { Z.x = d.zx + (e.clientX - d.x); Z.y = d.zy + (e.clientY - d.y); applyZoom(); }
+    };
+    const onWheel = (e) => {
+      if (!frozen || !e.ctrlKey) return; // a trackpad pinch arrives as ctrl+wheel
+      e.preventDefault();
+      const [sx, sy] = local(e), [ax, ay] = unzoom(sx, sy);
+      zoomAt(Z.k * Math.exp(-e.deltaY * 0.01), ax, ay, sx, sy);
+    };
     const onUp = (e) => {
+      touches.delete(e.pointerId);
+      if (touches.size < 2) pz = null;
+      if (pinched) { if (!touches.size) pinched = false; down = null; return; }
       const d = down; down = null;
-      if (!d || d.id !== e.pointerId || Math.hypot(e.clientX - d.x, e.clientY - d.y) > 8) return;
+      if (!d || d.id !== e.pointerId || d.moved || Math.hypot(e.clientX - d.x, e.clientY - d.y) > 8) return;
       if (!mesh) { BT.toast(status === 'loading' ? 'Face tracking is still loading' : 'Hold the phone so your whole face is in view'); return; }
       const r = el.getBoundingClientRect(), v = view(), tx = e.clientX - r.left, ty = e.clientY - r.top;
       let near = null, nd = 24;
@@ -305,10 +402,12 @@
       opts.onChange && opts.onChange(plain());
       opts.onSelect && opts.onSelect(sel);
     };
-    const onCancel = () => (down = null);
+    const onCancel = (e) => { down = null; touches.delete(e.pointerId); if (touches.size < 2) pz = null; if (!touches.size) pinched = false; };
     canvas.addEventListener('pointerdown', onDown);
+    canvas.addEventListener('pointermove', onMove);
     canvas.addEventListener('pointerup', onUp);
     canvas.addEventListener('pointercancel', onCancel);
+    canvas.addEventListener('wheel', onWheel, { passive: false });
     const plain = () => pts.map(({ b, ...p }) => p);
 
     // Release the camera while the app is in the background.
@@ -320,7 +419,9 @@
       dead = true; stop();
       document.removeEventListener('visibilitychange', onVis);
       video.srcObject = null;
-      video.remove(); canvas.remove();
+      resetZoom();
+      zw.remove(); canvas.remove(); zbar.remove();
+      el.classList.remove('lc-frozen', 'lc-zoomed');
     }
 
     start();
@@ -330,6 +431,10 @@
       setOpacity(k) { canvas.style.opacity = k; },
       setFrozen(f) {
         frozen = !!f;
+        touches.clear(); pz = null; pinched = false; down = null;
+        resetZoom();
+        zbar.hidden = !frozen;
+        el.classList.toggle('lc-frozen', frozen);
         if (frozen) video.pause(); else { video.play().catch(() => {}); lastT = -1; }
         if (stream) setStatus(frozen ? 'frozen' : mesh ? 'tracking' : 'searching');
       },
