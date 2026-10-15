@@ -213,7 +213,9 @@
       selId = id || null;
       markSel();
       if (!fromMap && map && map.select) { try { map.select(selId); } catch (e) {} }
-      if (selId) {
+      // Placing points on the map never scrolls the sheet (#10): you keep tapping the map and fill
+      // in units afterward. Only a tap on a list row scrolls, so its point and row stay in view.
+      if (selId && !fromMap) {
         const r = $$('[data-pt]').find((x) => x.dataset.pt === selId);
         if (r && r.scrollIntoView) r.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
       }
