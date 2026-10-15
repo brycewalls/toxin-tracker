@@ -392,6 +392,8 @@
 .fm-cam video,.fm-cam canvas{position:absolute;inset:0;width:100%;height:100%}
 .fm-cam video{object-fit:cover;transform:scaleX(-1);pointer-events:none}
 .fm-cam canvas{touch-action:pan-y;cursor:crosshair;transition:opacity .18s}
+.fm-frz{position:absolute;left:8px;bottom:8px;z-index:3;min-height:52px;min-width:132px;padding:0 24px;font-size:16px;font-weight:600;box-shadow:0 4px 14px rgba(0,0,0,.28)}
+.fm-frz[aria-pressed=true]{background:var(--card);color:var(--accent);border-color:var(--accent)}
 .fm-camst{position:absolute;left:50%;top:12px;transform:translateX(-50%);z-index:1;max-width:calc(100% - 24px);background:rgba(0,0,0,.55);color:#fff;font-size:12.5px;line-height:1.3;padding:6px 12px;border-radius:999px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;pointer-events:none}
 `;
     document.head.appendChild(st);
@@ -1027,11 +1029,12 @@
   function camBody(body) {
     const L = state.live;
     body.innerHTML = `
-      <div class="fm-live fm-cam"><div class="fm-camst" data-st>Starting the camera</div></div>
+      <div class="fm-live fm-cam"><div class="fm-camst" data-st>Starting the camera</div><button type="button" class="btn primary fm-frz" data-freeze aria-pressed="false">Freeze</button></div>
       <div class="stack" style="margin-top:12px">
         <div class="muted small fm-livecap fm-cap" data-help></div>
+        <div data-patslot style="min-width:0"></div>
         <div class="fm-ctl"><div class="fm-sl" data-sl="op"><span>Opacity</span><input type="range" min="25" max="100" step="1" aria-label="Map opacity"><output></output></div></div>
-        <div class="row gap wrap"><button class="btn sm ghost" data-freeze aria-pressed="false">Freeze</button><button class="btn sm ghost" data-photo>${BT.icon('image', 16)} Use a photo instead</button></div>
+        <div class="row gap wrap"><button class="btn sm ghost" data-photo>${BT.icon('image', 16)} Use a photo instead</button></div>
         <div data-list></div>
         <div class="stack-s"><button class="btn primary" data-log>${BT.icon('syringe', 18)} Save as injection</button><button class="btn" data-before>${BT.icon('image', 18)} Save photo as Before</button></div>
       </div>`;
