@@ -186,8 +186,11 @@
       if (BT.hasSample()) h += `<div class="t-banner"><span>You are looking at sample data</span><button class="btn sm" data-clear>Clear sample</button></div>`;
       h += `<p class="disclaimer">For personal tracking only. Not medical advice.</p>`;
 
+      // One-time "New in x.y" card right under the hero after an update (releases.js, #12).
+      if (BT.whatsNewCard) { const i = h.indexOf('</section>') + '</section>'.length; h = h.slice(0, i) + BT.whatsNewCard() + h.slice(i); }
       root.innerHTML = h;
       root.querySelectorAll('[data-go]').forEach((b) => (b.onclick = () => BT.go(b.dataset.go)));
+      if (BT.bindWhatsNewCard) BT.bindWhatsNewCard(root);
       root.querySelectorAll('[data-inj]').forEach((b) => (b.onclick = () => BT.go('injection', b.dataset.inj)));
       root.querySelectorAll('[data-mood]').forEach((b) => (b.onclick = () => moodSheet(b.dataset.mood)));
       const clr = root.querySelector('[data-clear]'); if (clr) clr.onclick = () => BT.clearSample();
@@ -344,12 +347,14 @@
           <div class="t-set-row"><div><div class="li-title">Default interval</div><div class="li-sub">Weeks between treatments</div></div><span data-step></span></div>
           <div class="stack-s"><div class="li-title">Theme</div><span data-theme></span></div>
         </section>
+        ${BT.VERSION ? `<button class="card row gap t-ver" data-go="whatsnew"><span class="t-ac-ic">${BT.icon('sparkle', 18)}</span><div class="grow" style="text-align:left"><div class="li-title">What's New</div><div class="li-sub">Version ${BT.esc(BT.VERSION)}</div></div>${BT.icon('chevron', 18)}</button>` : ''}
         <section class="card stack">
           <div class="row gap"><span class="t-ac-ic">${BT.icon(cloud ? 'check' : 'info', 18)}</span><div class="grow"><div class="li-title">Storage</div><div class="li-sub">${where}</div></div></div>
           ${acct ? `<div class="row gap"><span class="t-ac-ic">${BT.icon('person', 18)}</span><div class="grow"><div class="li-title">${BT.esc(acct.name || 'Signed in')}</div><div class="li-sub">${BT.esc(acct.email)}</div></div><button class="btn sm" data-signout>Sign out</button></div>` : ''}
           <div class="row gap wrap">${sample ? '<button class="btn grow" data-clear>Clear sample data</button>' : '<button class="btn grow" data-load>Load sample data</button>'}<button class="btn grow" data-export>${BT.icon('edit', 16)} Export CSV</button></div>
         </section>
         <p class="disclaimer">For personal tracking only. Not medical advice.</p>`;
+      root.querySelectorAll('[data-go]').forEach((b) => (b.onclick = () => BT.go(b.dataset.go)));
       const so = root.querySelector('[data-signout]'); if (so) so.onclick = () => window.BT_CLOUD.signOut();
       if (!s.name && acct && acct.name) root.querySelector('#s-name').placeholder = acct.name.split(' ')[0];
       root.querySelector('#s-name').onchange = (e) => BT.save('settings', { name: e.target.value.trim() });
