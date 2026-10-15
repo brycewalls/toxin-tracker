@@ -6,6 +6,16 @@
 (function () {
   BT.RELEASES = [
     {
+      version: '0.8', date: '2026-10-14', title: 'Day 7 check-in',
+      items: [
+        'A week after each treatment, Today shows a check-in: take your after photo, compare it with the before, then log a touch-up or mark that you did not need one.',
+        'Touch-ups link to the original treatment, show a combined total, and do not reset your next-treatment countdown.',
+        'Change the check-in day in Settings. Many injectors judge touch-ups at 10 to 14 days.',
+        'A Save button at the bottom of Log Injection and Log Reaction.',
+        'Mentalis now lists the mental crease as well as a pebbled chin.',
+      ],
+    },
+    {
       version: '0.7', date: '2026-10-14', title: 'Zoom everywhere and a new icon',
       items: [
         'Zoom into the Injection Sites and Frequency maps on the Face Map tab, and the map on a treatment. Labels hide while zoomed and come back at 1x.',
@@ -67,8 +77,6 @@
   ];
   // Planned work, shown under "Coming next". Keep it short and drop items once they ship.
   BT.UPCOMING = [
-    'A day 7 check-in after each treatment: take your after photo and decide on a touch-up.',
-    'A Save button at the bottom of Log Injection.',
     'Work offline and bring over anything logged in the prototype.',
   ];
   BT.VERSION = BT.RELEASES[0].version;
