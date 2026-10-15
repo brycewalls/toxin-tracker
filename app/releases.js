@@ -6,6 +6,15 @@
 (function () {
   BT.RELEASES = [
     {
+      version: '0.13', date: '2026-10-15', title: 'Your progress stays put',
+      items: [
+        'Fixed Academy progress, and other settings, being lost after signing out and back in.',
+        'Lessons and achievements now combine across your phones instead of overwriting each other.',
+        'Signing out waits for your changes to finish syncing, and asks first if something has not synced yet.',
+        'In the Live view, Freeze floats on the camera so it is always in reach, and pattern details fold into one line below.',
+      ],
+    },
+    {
       version: '0.12', date: '2026-10-15', title: 'Muscles molded to your face',
       items: [
         'The Live view now places each muscle from the shape of your own face and shades it so it wraps your brow, cheeks and jaw. No outline art, only the muscle groups.',
