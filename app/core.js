@@ -16,28 +16,54 @@
   ];
   BT.product = (id) => BT.products.find((p) => p.id === id) || BT.products[0];
 
-  // Facial treatment zones. range = common Botox-equivalent unit range per zone (reference only).
-  // view: which face view the zone is visible on. Coordinates live in facemap.js.
-  BT.sites = [
-    { id: 'frontalis', label: 'Forehead', muscle: 'Frontalis', range: [6, 20], view: 'front' },
-    { id: 'glabella', label: 'Glabella (11s)', muscle: 'Procerus', range: [4, 10], view: 'front' },
-    { id: 'corrugator-l', label: 'Left Corrugator', muscle: 'Corrugator', range: [4, 8], view: 'front' },
-    { id: 'corrugator-r', label: 'Right Corrugator', muscle: 'Corrugator', range: [4, 8], view: 'front' },
-    { id: 'brow-l', label: 'Left Brow Tail', muscle: 'Orbicularis oculi', range: [1, 3], view: 'front' },
-    { id: 'brow-r', label: 'Right Brow Tail', muscle: 'Orbicularis oculi', range: [1, 3], view: 'front' },
-    { id: 'crows-l', label: "Left Crow's Feet", muscle: 'Lateral orbicularis', range: [6, 12], view: 'front' },
-    { id: 'crows-r', label: "Right Crow's Feet", muscle: 'Lateral orbicularis', range: [6, 12], view: 'front' },
-    { id: 'bunny', label: 'Bunny Lines', muscle: 'Nasalis', range: [2, 6], view: 'front' },
-    { id: 'lipflip', label: 'Lip Flip', muscle: 'Orbicularis oris', range: [2, 6], view: 'front' },
-    { id: 'gummy', label: 'Gummy Smile', muscle: 'LLSAN', range: [1, 4], view: 'front' },
-    { id: 'dao-l', label: 'Left DAO', muscle: 'Depressor anguli oris', range: [2, 4], view: 'front' },
-    { id: 'dao-r', label: 'Right DAO', muscle: 'Depressor anguli oris', range: [2, 4], view: 'front' },
-    { id: 'mentalis', label: 'Chin', muscle: 'Mentalis', range: [4, 8], view: 'front' },
-    { id: 'masseter-l', label: 'Left Masseter', muscle: 'Masseter', range: [20, 40], view: 'front' },
-    { id: 'masseter-r', label: 'Right Masseter', muscle: 'Masseter', range: [20, 40], view: 'front' },
-    { id: 'platysma', label: 'Neck Bands', muscle: 'Platysma', range: [10, 30], view: 'front' },
+  // Treatable muscles. Injection points are freeform: each point is {id, siteId: muscleId, x, y, units}
+  // where x,y are in the face drawing's viewBox (facemap.js) and siteId is the muscle the point landed on.
+  // range = common Botox-equivalent units for that muscle on one side (or total for midline). Reference only.
+  // side: 'l' | 'r' | 'c' (patient's left/right, or midline). treats = the concern people know it by.
+  BT.muscles = [
+    { id: 'frontalis-l', label: 'Left Frontalis', muscle: 'Frontalis', treats: 'Forehead lines', group: 'Upper face', side: 'l', range: [4, 10], points: '2 to 4', caution: 'Stay 1.5 to 2 cm above the brow to avoid brow drop.' },
+    { id: 'frontalis-r', label: 'Right Frontalis', muscle: 'Frontalis', treats: 'Forehead lines', group: 'Upper face', side: 'r', range: [4, 10], points: '2 to 4', caution: 'Stay 1.5 to 2 cm above the brow to avoid brow drop.' },
+    { id: 'procerus', label: 'Procerus', muscle: 'Procerus', treats: 'Horizontal line at the bridge (glabella)', group: 'Upper face', side: 'c', range: [4, 8], points: '1', caution: '' },
+    { id: 'corrugator-l', label: 'Left Corrugator', muscle: 'Corrugator supercilii', treats: '11 lines (glabella)', group: 'Upper face', side: 'l', range: [4, 10], points: '1 to 2', caution: 'Keep 1 cm above the orbital rim at the midpupil line to avoid eyelid droop.' },
+    { id: 'corrugator-r', label: 'Right Corrugator', muscle: 'Corrugator supercilii', treats: '11 lines (glabella)', group: 'Upper face', side: 'r', range: [4, 10], points: '1 to 2', caution: 'Keep 1 cm above the orbital rim at the midpupil line to avoid eyelid droop.' },
+    { id: 'browtail-l', label: 'Left Brow Tail', muscle: 'Orbicularis oculi (superolateral)', treats: 'Brow lift', group: 'Upper face', side: 'l', range: [1, 4], points: '1 to 2', caution: '' },
+    { id: 'browtail-r', label: 'Right Brow Tail', muscle: 'Orbicularis oculi (superolateral)', treats: 'Brow lift', group: 'Upper face', side: 'r', range: [1, 4], points: '1 to 2', caution: '' },
+    { id: 'oculi-l', label: "Left Crow's Feet", muscle: 'Orbicularis oculi (lateral)', treats: "Crow's feet", group: 'Upper face', side: 'l', range: [6, 15], points: '2 to 4', caution: 'First point 1.5 to 2 cm outside the eye corner, 1 cm from the orbital rim. Too low can affect the smile.' },
+    { id: 'oculi-r', label: "Right Crow's Feet", muscle: 'Orbicularis oculi (lateral)', treats: "Crow's feet", group: 'Upper face', side: 'r', range: [6, 15], points: '2 to 4', caution: 'First point 1.5 to 2 cm outside the eye corner, 1 cm from the orbital rim. Too low can affect the smile.' },
+    { id: 'pretarsal-l', label: 'Left Under-Eye', muscle: 'Orbicularis oculi (pretarsal)', treats: 'Under-eye crepe, jelly roll', group: 'Upper face', side: 'l', range: [1, 2], points: '1', caution: 'Advanced. Can worsen under-eye bags.' },
+    { id: 'pretarsal-r', label: 'Right Under-Eye', muscle: 'Orbicularis oculi (pretarsal)', treats: 'Under-eye crepe, jelly roll', group: 'Upper face', side: 'r', range: [1, 2], points: '1', caution: 'Advanced. Can worsen under-eye bags.' },
+    { id: 'temporalis-l', label: 'Left Temporalis', muscle: 'Temporalis', treats: 'Clenching, tension headaches', group: 'Upper face', side: 'l', range: [10, 25], points: '3 to 4', caution: '' },
+    { id: 'temporalis-r', label: 'Right Temporalis', muscle: 'Temporalis', treats: 'Clenching, tension headaches', group: 'Upper face', side: 'r', range: [10, 25], points: '3 to 4', caution: '' },
+    { id: 'nasalis', label: 'Nasalis', muscle: 'Nasalis', treats: 'Bunny lines', group: 'Mid face', side: 'c', range: [2, 8], points: '1 per side', caution: 'Too low can affect the upper lip.' },
+    { id: 'dsn', label: 'Depressor Septi', muscle: 'Depressor septi nasi', treats: 'Nasal tip droop on smiling', group: 'Mid face', side: 'c', range: [2, 4], points: '1', caution: '' },
+    { id: 'llsan-l', label: 'Left Gummy Smile', muscle: 'Levator labii superioris alaeque nasi', treats: 'Gummy smile', group: 'Mid face', side: 'l', range: [1, 3], points: '1', caution: 'Small doses. Too much flattens the smile.' },
+    { id: 'llsan-r', label: 'Right Gummy Smile', muscle: 'Levator labii superioris alaeque nasi', treats: 'Gummy smile', group: 'Mid face', side: 'r', range: [1, 3], points: '1', caution: 'Small doses. Too much flattens the smile.' },
+    { id: 'oris', label: 'Lip Flip', muscle: 'Orbicularis oris', treats: 'Lip flip, smoker lines', group: 'Lower face', side: 'c', range: [4, 6], points: '4 to 6', caution: 'Very superficial. Can make straws and whistling harder for a few weeks.' },
+    { id: 'dao-l', label: 'Left DAO', muscle: 'Depressor anguli oris', treats: 'Downturned mouth corners', group: 'Lower face', side: 'l', range: [1, 4], points: '1', caution: 'Too medial reaches the lower lip depressor.' },
+    { id: 'dao-r', label: 'Right DAO', muscle: 'Depressor anguli oris', treats: 'Downturned mouth corners', group: 'Lower face', side: 'r', range: [1, 4], points: '1', caution: 'Too medial reaches the lower lip depressor.' },
+    { id: 'mentalis', label: 'Mentalis', muscle: 'Mentalis', treats: 'Pebbled chin', group: 'Lower face', side: 'c', range: [4, 10], points: '1 to 2', caution: '' },
+    { id: 'masseter-l', label: 'Left Masseter', muscle: 'Masseter', treats: 'Jaw slimming, clenching', group: 'Lower face', side: 'l', range: [10, 30], points: '3 to 5', caution: 'Stay in the lower half and behind the front border to protect the smile.' },
+    { id: 'masseter-r', label: 'Right Masseter', muscle: 'Masseter', treats: 'Jaw slimming, clenching', group: 'Lower face', side: 'r', range: [10, 30], points: '3 to 5', caution: 'Stay in the lower half and behind the front border to protect the smile.' },
+    { id: 'platysma-l', label: 'Left Platysma', muscle: 'Platysma', treats: 'Neck bands, jawline', group: 'Neck', side: 'l', range: [8, 18], points: '4 to 9', caution: 'Large doses can affect swallowing.' },
+    { id: 'platysma-r', label: 'Right Platysma', muscle: 'Platysma', treats: 'Neck bands, jawline', group: 'Neck', side: 'r', range: [8, 18], points: '4 to 9', caution: 'Large doses can affect swallowing.' },
   ];
-  BT.site = (id) => BT.sites.find((s) => s.id === id) || { id, label: id, muscle: '', range: [0, 0] };
+  // Muscles usually avoided. Shown as caution zones on the face map.
+  BT.cautionZones = [
+    { id: 'zygomaticus', label: 'Zygomaticus', note: 'Lifts the smile. Toxin here can cause a lopsided smile.' },
+    { id: 'levator-palpebrae', label: 'Upper eyelid', note: 'Toxin spreading here can cause eyelid droop.' },
+    { id: 'risorius', label: 'Risorius', note: 'Widens the smile. Usually avoided.' },
+  ];
+  BT.sites = BT.muscles; // older modules read BT.sites
+  // Ids from the first prototype, kept so older records still resolve.
+  const ALIAS = { frontalis: 'frontalis-l', glabella: 'procerus', 'brow-l': 'browtail-l', 'brow-r': 'browtail-r', 'crows-l': 'oculi-l', 'crows-r': 'oculi-r', bunny: 'nasalis', lipflip: 'oris', gummy: 'llsan-l', platysma: 'platysma-l' };
+  BT.site = (id) => BT.muscles.find((s) => s.id === (ALIAS[id] || id)) || { id, label: id || 'General', muscle: '', treats: '', range: [0, 0], side: 'c' };
+  BT.muscle = BT.site;
+  // Group an injection's points by muscle: [{muscle, units, points:[...]}]
+  BT.byMuscle = (inj) => {
+    const m = new Map();
+    (inj.sites || []).forEach((p) => { const k = BT.site(p.siteId).id; const e = m.get(k) || { muscle: BT.site(k), units: 0, points: [] }; e.units += +p.units || 0; e.points.push(p); m.set(k, e); });
+    return [...m.values()];
+  };
 
   // Aftercare windows, counted from the injection time.
   BT.aftercare = [
@@ -321,11 +347,13 @@
     const v1 = BT.save('vials', { productId: 'botox', unitsTotal: 100, dilutionMl: 2.5, lot: 'C6123C3', clinic: 'Glow Med Spa', expiresAt: now + 120 * d, openedAt: now - 100 * d, cost: 520, sample: true });
     const v2 = BT.save('vials', { productId: 'dysport', unitsTotal: 300, dilutionMl: 3, lot: 'D-2210K', clinic: 'Glow Med Spa', expiresAt: now + 200 * d, openedAt: null, cost: 0, sample: true });
     const mk = (daysAgo, productId, vialId, sites, provider, extra = {}) => BT.save('injections', { at: now - daysAgo * d - 3 * BT.HOUR, productId, vialId, sites, provider, sample: true, ...extra });
-    const i1 = mk(98, 'botox', v1.id, [{ siteId: 'glabella', units: 10 }, { siteId: 'corrugator-l', units: 5 }, { siteId: 'corrugator-r', units: 5 }, { siteId: 'frontalis', units: 10 }], 'Dr. Patel', { notes: 'First full treatment.', cost: 280 });
-    const i2 = mk(9, 'botox', v1.id, [{ siteId: 'glabella', units: 10 }, { siteId: 'corrugator-l', units: 5 }, { siteId: 'corrugator-r', units: 5 }, { siteId: 'frontalis', units: 8 }, { siteId: 'crows-l', units: 8 }, { siteId: 'crows-r', units: 8 }], 'Dr. Patel', { notes: 'Added crow\'s feet this round.', cost: 400 });
-    BT.save('reactions', { injectionId: i2.id, at: i2.at + 6 * BT.HOUR, kind: 'Bruising', severity: 2, siteId: 'crows-l', resolvedAt: i2.at + 4 * d, notes: 'Small bruise, gone in 4 days', sample: true });
-    BT.save('reactions', { injectionId: i2.at ? i2.id : '', at: i2.at + 20 * BT.HOUR, kind: 'Headache', severity: 1, siteId: 'frontalis', resolvedAt: i2.at + 1.5 * d, notes: '', sample: true });
-    BT.save('reactions', { injectionId: i1.id, at: i1.at + 2 * BT.HOUR, kind: 'Redness', severity: 1, siteId: 'glabella', resolvedAt: i1.at + 5 * BT.HOUR, notes: '', sample: true });
+    // Points without x,y are placed on the muscle's typical pattern by facemap.js.
+    const pts = (spec) => spec.flatMap(([siteId, n, units]) => Array.from({ length: n }, () => ({ id: BT.uid(), siteId, units })));
+    const i1 = mk(98, 'botox', v1.id, pts([['procerus', 1, 4], ['corrugator-l', 2, 4], ['corrugator-r', 2, 4], ['frontalis-l', 2, 2.5], ['frontalis-r', 2, 2.5]]), 'Dr. Patel', { notes: 'First full treatment.', cost: 280 });
+    const i2 = mk(9, 'botox', v1.id, pts([['procerus', 1, 4], ['corrugator-l', 2, 4], ['corrugator-r', 2, 4], ['frontalis-l', 3, 2], ['frontalis-r', 3, 2], ['oculi-l', 3, 4], ['oculi-r', 3, 4]]), 'Dr. Patel', { notes: 'Added crow\'s feet this round. Lighter on the forehead.', cost: 400 });
+    BT.save('reactions', { injectionId: i2.id, at: i2.at + 6 * BT.HOUR, kind: 'Bruising', severity: 2, siteId: 'oculi-l', resolvedAt: i2.at + 4 * d, notes: 'Small bruise, gone in 4 days', sample: true });
+    BT.save('reactions', { injectionId: i2.id, at: i2.at + 20 * BT.HOUR, kind: 'Headache', severity: 1, siteId: 'frontalis-l', resolvedAt: i2.at + 1.5 * d, notes: '', sample: true });
+    BT.save('reactions', { injectionId: i1.id, at: i1.at + 2 * BT.HOUR, kind: 'Redness', severity: 1, siteId: 'procerus', resolvedAt: i1.at + 5 * BT.HOUR, notes: '', sample: true });
     for (let k = 0; k < 7; k++) BT.save('moods', { date: new Date(now - k * d).toISOString().slice(0, 10), score: [4, 5, 4, 3, 4, 2, 3][k], sample: true });
     BT.save('settings', { sampleLoaded: true });
   };
