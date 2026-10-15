@@ -41,7 +41,8 @@ const head = `<!doctype html>
 <link rel="manifest" href="manifest.webmanifest">
 <style>
 /* Same reset the claude.ai artifact shell applies, so the page renders identically in both. */
-:root { color-scheme: light; padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }
+/* Top inset only. The bottom inset is already handled by .tabbar and #view; padding the root as well left a strip below the tab bar (#25). */
+:root { color-scheme: light; padding-top: env(safe-area-inset-top, 0px); }
 body { margin: 0; font: 14px system-ui, sans-serif; }
 img { max-width: 100%; }
 [hidden] { display: none !important; }
