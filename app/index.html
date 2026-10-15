@@ -173,7 +173,8 @@ textarea.input { min-height: 84px; resize: vertical; }
   let rt; BT.on('change', () => { clearTimeout(rt); rt = setTimeout(() => { if (!document.querySelector('.sheet-wrap')) BT.render(); }, 30); });
   BT.render();
   BT.init().then(() => {
-    if (!BT.data.injections.length && !BT.data.settings.sampleCleared && !BT.data.settings.sampleLoaded) BT.loadSample();
+    // The artifact opens with marked sample data; the hosted app starts empty (Settings can load the sample).
+    if (!window.BT_CLOUD && !BT.data.injections.length && !BT.data.settings.sampleCleared && !BT.data.settings.sampleLoaded) BT.loadSample();
     // Sample data v2 uses muscles and freeform points; refresh older sample records.
     else if (BT.hasSample() && BT.data.settings.sampleVersion !== 2) { BT.clearSample(); BT.save('settings', { sampleCleared: false }); BT.loadSample(); }
     if (BT.hasSample()) BT.save('settings', { sampleVersion: 2 });

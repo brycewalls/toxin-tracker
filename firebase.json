@@ -1,0 +1,17 @@
+{
+  "firestore": {
+    "database": "(default)",
+    "location": "nam5",
+    "rules": "firebase/firestore.rules"
+  },
+  "hosting": {
+    "public": "dist",
+    "cleanUrls": true,
+    "ignore": ["firebase.json", "**/.*"],
+    "predeploy": ["node \"$PROJECT_DIR/tools/build.mjs\""],
+    "headers": [
+      { "source": "**/*.@(html|js)", "headers": [{ "key": "Cache-Control", "value": "no-cache" }] },
+      { "source": "**", "headers": [{ "key": "X-Content-Type-Options", "value": "nosniff" }, { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" }] }
+    ]
+  }
+}
