@@ -2,12 +2,15 @@
 // app/index.html is a page body (the artifact host adds the document shell), so this wraps it in a
 // full document, adds the Firebase SDK and app/cloud.js before core.js, adds app/livecam.js after
 // facemap.js, adds app/offline.js (service worker, update pill, offline banner), copies the scripts,
-// and generates dist/sw.js: the offline app shell with a content-hash version stamp (#52).
+// copies the vendored third-party files into dist/vendor/ after checking each against tools/vendor.lock.json
+// (#55: nothing loads from a CDN), and generates dist/sw.js: the offline app shell with a content-hash
+// version stamp (#52).
 // Run: node tools/build.mjs   (firebase deploy runs it as the hosting predeploy step)
-import { readFileSync, writeFileSync, mkdirSync, copyFileSync, readdirSync, rmSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdirSync, copyFileSync, readdirSync, rmSync, statSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { copyVendor, sri384 } from './vendor.mjs';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const app = join(root, 'app'), dist = join(root, 'dist');
@@ -16,11 +19,35 @@ const SDK = '10.14.1'; // Firebase compat SDK, matches the version used by the o
 rmSync(dist, { recursive: true, force: true });
 mkdirSync(dist, { recursive: true });
 
+// Vendored code (#55). Every file is checked against its SHA-256 in tools/vendor.lock.json (fetched once into
+// .vendor-cache/, then offline); a mismatch or a missing entry stops the build here.
+const SDK_PATHS = ['app', 'auth', 'firestore'].map((m) => `firebase/${SDK}/firebase-${m}-compat.js`);
+const LIVE_PATHS = ['tasks-vision/1.0.1/vision_bundle.mjs', 'tasks-vision/1.0.1/wasm/vision_wasm_internal.js',
+  'tasks-vision/1.0.1/wasm/vision_wasm_internal.wasm', 'tasks-vision/1.0.1/wasm/vision_wasm_nosimd_internal.js',
+  'tasks-vision/1.0.1/wasm/vision_wasm_nosimd_internal.wasm', 'models/face_landmarker/float16/1/face_landmarker.task'].map((p) => 'mediapipe/' + p);
+let vendored;
+try { vendored = await copyVendor(dist, [...SDK_PATHS, ...LIVE_PATHS]); } catch (e) {
+  console.error(`\nBUILD FAILED (vendored code): ${e.message}\n`);
+  process.exit(1);
+}
+const vend = new Map(vendored.map((f) => [f.path, f]));
+// app/livecam.js re-checks the wasm and model hashes in the browser; keep its copy in step with the lock.
+{
+  const live = readFileSync(join(app, 'livecam.js'), 'utf8');
+  for (const p of LIVE_PATHS.filter((p) => /\.(wasm|task)$/.test(p))) {
+    const f = vend.get(p);
+    if (!live.includes(`'${f.sha256}'`) || !live.includes(String(f.bytes))) {
+      console.error(`\nBUILD FAILED: app/livecam.js SHA/SIZE for ${p} do not match tools/vendor.lock.json\n`);
+      process.exit(1);
+    }
+  }
+}
+
 let body = readFileSync(join(app, 'index.html'), 'utf8');
 const title = (body.match(/<title>([^<]*)<\/title>/) || [, 'Toxin Tracker'])[1];
 body = body.replace(/<title>[^<]*<\/title>\s*/, '');
-const SDK_URLS = ['app', 'auth', 'firestore'].map((m) => `https://www.gstatic.com/firebasejs/${SDK}/firebase-${m}-compat.js`);
-const firebase = SDK_URLS.map((u) => `<script src="${u}"></script>`).join('\n');
+// Same-origin, with Subresource Integrity computed from the verified files.
+const firebase = SDK_PATHS.map((p) => `<script src="vendor/${p}" integrity="${sri384(vend.get(p).buf)}"></script>`).join('\n');
 if (!body.includes('<script src="core.js"></script>')) throw new Error('app/index.html no longer loads core.js; update tools/build.mjs');
 body = body.replace('<script src="core.js"></script>', `${firebase}\n<script src="core.js"></script>\n<script src="cloud.js"></script>\n<script src="offline.js"></script>`);
 // Live camera face mapping (app/livecam.js) needs a camera, which the claude.ai artifact does not have.
@@ -62,14 +89,20 @@ for (const f of readdirSync(join(root, 'web'))) copyFileSync(join(root, 'web', f
 // Service worker (#52). The version is a hash of every built file, so any change to the app ships a new
 // worker, and the precache holds the whole shell from one build (no mix of old and new scripts).
 // The page itself is precached as './' because Firebase Hosting's cleanUrls redirects /index.html.
-const files = readdirSync(dist).filter((f) => f !== 'index.html' && f !== 'sw.js').sort();
+// The Firebase SDK is part of the shell (the sign-in gate needs it). The MediaPipe files are not precached:
+// about 27 MB that most visits never use would be downloaded on install and again on every deploy. The worker
+// caches them on first Live use instead (see tools/sw.template.js). Vendored files enter the version hash by
+// their pinned SHA-256, so the 27 MB is not re-read here.
+const files = [...readdirSync(dist).filter((f) => f !== 'index.html' && f !== 'sw.js' && statSync(join(dist, f)).isFile()).sort(),
+  ...SDK_PATHS.map((p) => 'vendor/' + p)];
 const hash = createHash('sha256');
-for (const f of ['index.html', ...files]) hash.update(f + '\0').update(readFileSync(join(dist, f)));
+for (const f of ['index.html', ...files.filter((f) => !f.startsWith('vendor/'))]) hash.update(f + '\0').update(readFileSync(join(dist, f)));
+for (const f of vendored) hash.update('vendor/' + f.path + '\0' + f.sha256);
 const version = hash.digest('hex').slice(0, 12);
 const sw = readFileSync(join(root, 'tools', 'sw.template.js'), 'utf8')
   .replace("'__VERSION__'", JSON.stringify(version))
-  .replace("'__SHELL__'", JSON.stringify(['./', ...files]))
-  .replace("'__SDK__'", JSON.stringify(SDK_URLS));
-if (sw.includes('__VERSION__') || sw.includes('__SHELL__') || sw.includes('__SDK__')) throw new Error('tools/sw.template.js placeholders changed; update tools/build.mjs');
+  .replace("'__SHELL__'", JSON.stringify(['./', ...files]));
+if (sw.includes('__VERSION__') || sw.includes('__SHELL__')) throw new Error('tools/sw.template.js placeholders changed; update tools/build.mjs');
 writeFileSync(join(dist, 'sw.js'), sw);
-console.log('Built dist/ version ' + version + ' (' + readdirSync(dist).join(', ') + ')');
+const mb = (vendored.reduce((n, f) => n + f.bytes, 0) / 1048576).toFixed(1);
+console.log('Built dist/ version ' + version + ' (' + readdirSync(dist).join(', ') + '; ' + vendored.length + ' vendored files, ' + mb + ' MB, hashes verified)');

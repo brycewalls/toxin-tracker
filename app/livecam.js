@@ -41,18 +41,23 @@
   const BT = window.BT;
   if (!BT) return;
 
-  // Pinned: tasks-vision 1.0.1 (2026-07-31) and the float16 v1 face landmarker model. Sizes drive the progress bar.
-  const CDN = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@1.0.1';
-  const MODEL = 'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task';
+  // Pinned: tasks-vision 1.0.1 (2026-07-31) and the float16 v1 face landmarker model, served from our own host
+  // (#55): tools/build.mjs copies them into dist/vendor/ from tools/vendor.lock.json after checking each SHA-256.
+  // Nothing here loads from a CDN. Sizes drive the progress bar; SHA is checked again on a network fetch, before
+  // the file is stored, and tools/build.mjs fails if these values drift from the lock.
+  const VENDOR = new URL('vendor/mediapipe/', document.baseURI).href;
+  const LIB = VENDOR + 'tasks-vision/1.0.1';
+  const MODEL = VENDOR + 'models/face_landmarker/float16/1/face_landmarker.task';
   const SIZE = { model: 3758596, 'vision_wasm_internal.wasm': 11756954, 'vision_wasm_nosimd_internal.wasm': 10960242 };
-  const CACHE = 'bt-live-1.0.1-f16v1'; // Cache Storage bucket for the two pinned files; a new pin gets a new name
+  const SHA = {
+    model: '64184e229b263107bc2b804c6625db1341ff2bb731874b0bcc2fe6544e0bc9ff',
+    'vision_wasm_internal.wasm': '8da277a733926eacd0474b8704b36742d6ec3231c57a860c5b889dff8f1df886',
+    'vision_wasm_nosimd_internal.wasm': 'a28483cd42e74e855bf5ebdb6b40d9b66a5b49e35e95020bc97669e6822a3192',
+  };
+  // Cache Storage bucket for the wasm binary and the model; a new pin or a new origin for them gets a new name,
+  // and older bt-live-* buckets are dropped the first time the tracker loads.
+  const CACHE = 'bt-live-1.0.1-f16v1-self';
   const DEBUG = /[?&]lcdebug\b/.test(location.search);
-
-  // Open the connections early; the bundle, wasm and model come from these two hosts.
-  ['https://cdn.jsdelivr.net', 'https://storage.googleapis.com'].forEach((href) => {
-    if (document.querySelector(`link[rel=preconnect][href="${href}"]`)) return;
-    const l = document.createElement('link'); l.rel = 'preconnect'; l.href = href; l.crossOrigin = 'anonymous'; document.head.appendChild(l);
-  });
 
   /* ---------- landmark anchors ----------
      [patient-left index, patient-right index, x, y]: x is the patient's left (viewer's right, x > 150) and
@@ -360,14 +365,13 @@
   const emit = () => prog.subs.forEach((f) => f());
 
   // Fetch a pinned file with byte progress, from Cache Storage when an earlier visit stored it.
-  async function getBytes(url, size) {
+  async function getBytes(url, size, sha) {
     let cache = null, res = null, from = 'network';
     try { cache = await caches.open(CACHE); res = await cache.match(url); } catch (e) { cache = null; }
     if (res) { from = 'cache'; prog.cached++; }
     else {
-      res = await fetch(url, { mode: 'cors', credentials: 'omit' });
+      res = await fetch(url, { credentials: 'omit' });
       if (!res.ok) throw new Error(`${url} answered ${res.status}`);
-      if (cache) cache.put(url, res.clone()).catch((e) => console.warn('Could not cache', url, e));
     }
     const reader = res.body && res.body.getReader && res.body.getReader();
     if (!reader) { const b = new Uint8Array(await res.arrayBuffer()); prog.got += b.length; emit(); return { bytes: b, from }; }
@@ -380,7 +384,21 @@
     if (size && n !== size) console.warn(`[live] ${url.split('/').pop()} is ${n} bytes, expected ${size}`);
     const bytes = new Uint8Array(n);
     let o = 0; parts.forEach((p) => { bytes.set(p, o); o += p.length; });
+    if (from === 'network') {
+      // Verify before storing, so a damaged or swapped download is never used or kept. Cache hits were checked
+      // when they were stored. crypto.subtle needs a secure context (https or localhost), which the camera does too.
+      if (sha && crypto.subtle) {
+        const got = [...new Uint8Array(await crypto.subtle.digest('SHA-256', bytes))].map((b) => b.toString(16).padStart(2, '0')).join('');
+        if (got !== sha) throw new Error(`${url.split('/').pop()} failed its integrity check`);
+      }
+      if (cache) cache.put(url, new Response(bytes, { headers: { 'content-type': res.headers.get('content-type') || 'application/octet-stream' } })).catch((e) => console.warn('Could not cache', url, e));
+    }
     return { bytes, from };
+  }
+
+  // Drop Cache Storage buckets from earlier pins (and from when these files came from the CDN).
+  function dropOldBuckets() {
+    try { caches.keys().then((keys) => keys.forEach((k) => { if (k.startsWith('bt-live-') && k !== CACHE) caches.delete(k); })).catch(() => {}); } catch (e) {}
   }
 
   function delegates() {
@@ -406,14 +424,15 @@
       loading = (async () => {
         T0 = performance.now(); stats.log.length = 0;
         Object.assign(prog, { phase: 'download', got: 0, cached: 0 }); emit();
-        const modelP = getBytes(MODEL, SIZE.model).then((r) => { mark(`model fetch (${r.from}, ${(r.bytes.length / 1048576).toFixed(1)} MB)`, T0); return r; });
+        dropOldBuckets();
+        const modelP = getBytes(MODEL, SIZE.model, SHA.model).then((r) => { mark(`model fetch (${r.from}, ${(r.bytes.length / 1048576).toFixed(1)} MB)`, T0); return r; });
         modelP.catch(() => {});
-        const vision = await import(CDN + '/vision_bundle.mjs');
+        const vision = await import(LIB + '/vision_bundle.mjs');
         let t = mark('import tasks-vision', T0);
-        const files = await vision.FilesetResolver.forVisionTasks(CDN + '/wasm');
+        const files = await vision.FilesetResolver.forVisionTasks(LIB + '/wasm');
         const name = files.wasmBinaryPath.split('/').pop();
         prog.total = SIZE.model + (SIZE[name] || SIZE['vision_wasm_internal.wasm']); emit();
-        const wasmP = getBytes(files.wasmBinaryPath, SIZE[name]).then((r) => { mark(`wasm fetch (${name}, ${r.from}, ${(r.bytes.length / 1048576).toFixed(1)} MB)`, t); return r; });
+        const wasmP = getBytes(files.wasmBinaryPath, SIZE[name], SHA[name]).then((r) => { mark(`wasm fetch (${name}, ${r.from}, ${(r.bytes.length / 1048576).toFixed(1)} MB)`, t); return r; });
         const [wasm, model] = await Promise.all([wasmP, modelP]);
         prog.phase = 'start'; emit();
         // The wasm loader fetches the binary through locateFile, so hand it the bytes already in memory.
