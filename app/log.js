@@ -178,7 +178,13 @@
 
     /* --- step 2 --- */
     const renderProducts = () => {
-      $('[data-products]').innerHTML = BT.products.map((p) => `<button type="button" class="chip lg-chip ${p.id === st.productId ? 'on' : ''}" data-id="${p.id}"><span class="lg-dot" style="background:${p.color}"></span>${esc(p.name)}</button>`).join('');
+      // Products you have vials of come first; the rest stay one tap away under "All products" (#20).
+      const chip = (p) => `<button type="button" class="chip lg-chip ${p.id === st.productId ? 'on' : ''}" data-id="${p.id}"><span class="lg-dot" style="background:${p.color}"></span>${esc(p.name)}</button>`;
+      const stocked = new Set(BT.data.vials.map((v) => BT.product(v.productId).id));
+      const mine = BT.products.filter((p) => stocked.has(p.id) || p.id === st.productId);
+      const rest = BT.products.filter((p) => !mine.includes(p));
+      $('[data-products]').innerHTML = (mine.length ? mine : BT.products).map(chip).join('') +
+        (mine.length && rest.length ? `<details class="lg-more" style="flex-basis:100%"><summary class="tiny muted">All products (${rest.length})</summary><div class="chips" style="margin-top:8px">${rest.map(chip).join('')}</div></details>` : '');
     };
     const renderVials = () => {
       const vs = BT.data.vials.filter((v) => v.productId === st.productId && (adjRemaining(v) > 0 || v.id === st.vialId));

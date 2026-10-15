@@ -12,8 +12,29 @@
     { id: 'xeomin', name: 'Xeomin', generic: 'incobotulinumtoxinA', maker: 'Merz', vialUnits: 100, ratio: 1, onsetDays: 4, peakDays: 14, wearWeeks: 13, color: '#0E9384' },
     { id: 'jeuveau', name: 'Jeuveau', generic: 'prabotulinumtoxinA', maker: 'Evolus', vialUnits: 100, ratio: 1, onsetDays: 2, peakDays: 14, wearWeeks: 13, color: '#DD2590' },
     { id: 'daxxify', name: 'Daxxify', generic: 'daxibotulinumtoxinA', maker: 'Revance', vialUnits: 100, ratio: 2, onsetDays: 2, peakDays: 14, wearWeeks: 24, color: '#F79009' },
-    { id: 'letybo', name: 'Letybo', generic: 'letibotulinumtoxinA', maker: 'Hugel', vialUnits: 50, ratio: 1, onsetDays: 3, peakDays: 14, wearWeeks: 13, color: '#155EEF' },
+    { id: 'letybo', name: 'Letybo', generic: 'letibotulinumtoxinA', maker: 'Hugel', vialUnits: 50, ratio: 1, onsetDays: 3, peakDays: 14, wearWeeks: 13, color: '#155EEF', aka: 'Botulax in Korea' },
+    // Korean toxins (#20). Unit ratio to Botox is about 1:1 for each; reference only.
+    { id: 'botulax', origin: 'Korea', name: 'Botulax', generic: 'letibotulinumtoxinA', maker: 'Hugel', vialUnits: 100, ratio: 1, onsetDays: 3, peakDays: 14, wearWeeks: 13, color: '#0B8A6F', aka: 'Letybo in the US' },
+    { id: 'nabota', origin: 'Korea', name: 'Nabota', generic: 'prabotulinumtoxinA', maker: 'Daewoong', vialUnits: 100, ratio: 1, onsetDays: 2, peakDays: 14, wearWeeks: 13, color: '#C11574', aka: 'Jeuveau in the US' },
+    { id: 'meditoxin', origin: 'Korea', name: 'Meditoxin', generic: 'botulinum toxin type A', maker: 'Medytox', vialUnits: 100, ratio: 1, onsetDays: 3, peakDays: 14, wearWeeks: 13, color: '#4E5BA6', aka: 'Neuronox outside Korea' },
+    { id: 'innotox', origin: 'Korea', name: 'Innotox', generic: 'botulinum toxin type A (liquid)', maker: 'Medytox', vialUnits: 50, ratio: 1, onsetDays: 3, peakDays: 14, wearWeeks: 13, color: '#6172F3', aka: 'Premixed liquid, no saline' },
+    { id: 'coretox', origin: 'Korea', name: 'Coretox', generic: 'botulinum toxin type A', maker: 'Medytox', vialUnits: 100, ratio: 1, onsetDays: 3, peakDays: 14, wearWeeks: 13, color: '#3E4784' },
+    { id: 'hutox', origin: 'Korea', name: 'Hutox', generic: 'botulinum toxin type A', maker: 'Huons', vialUnits: 100, ratio: 1, onsetDays: 3, peakDays: 14, wearWeeks: 13, color: '#B54708' },
+    { id: 'liztox', origin: 'Korea', name: 'Liztox', generic: 'botulinum toxin type A', maker: 'Huons', vialUnits: 100, ratio: 1, onsetDays: 3, peakDays: 14, wearWeeks: 13, color: '#93370D' },
   ];
+  BT.products.forEach((p) => (p.origin ||= 'US'));
+  const BASE_PRODUCTS = BT.products.slice();
+  // Products the user created ("Other" in Add Vial) live in settings.customProducts and are merged in
+  // place, so every module that reads BT.products sees them.
+  BT.refreshProducts = () => {
+    const custom = (BT.data && BT.data.settings && BT.data.settings.customProducts) || [];
+    BT.products.splice(0, BT.products.length, ...BASE_PRODUCTS, ...custom.map((c) => ({ onsetDays: 3, peakDays: 14, wearWeeks: 13, color: '#667085', generic: 'botulinum toxin', ...c, origin: 'Custom' })));
+  };
+  BT.addCustomProduct = ({ name, maker, vialUnits, ratio }) => {
+    const p = { id: 'c-' + BT.uid(), name: String(name).trim(), maker: String(maker || '').trim(), vialUnits: +vialUnits || 100, ratio: +ratio || 1 };
+    BT.save('settings', { customProducts: [...(BT.data.settings.customProducts || []), p] });
+    return BT.product(p.id);
+  };
   BT.product = (id) => BT.products.find((p) => p.id === id) || BT.products[0];
 
   // Treatable muscles. Injection points are freeform: each point is {id, siteId: muscleId, x, y, units}
@@ -139,7 +160,7 @@
   BT.save = (kind, rec) => {
     rec.id ||= BT.uid();
     rec.updatedAt = Date.now();
-    if (kind === 'settings') { BT.data.settings = { ...BT.data.settings, ...rec }; persist('settings', 'settings', BT.data.settings); }
+    if (kind === 'settings') { BT.data.settings = { ...BT.data.settings, ...rec }; persist('settings', 'settings', BT.data.settings); BT.refreshProducts(); }
     else {
       const arr = BT.data[kind], i = arr.findIndex((r) => r.id === rec.id);
       i >= 0 ? (arr[i] = rec) : arr.push(rec);
@@ -172,6 +193,7 @@
       const c = await window.BT_CLOUD.ready;
       col = c.col; BT.account = c.user; BT.storage = 'firebase';
       try { loadAll(await col.get()); } catch (e) { console.warn('firestore read', e); BT.toast('Could not load your log. Check your connection.'); }
+      BT.refreshProducts();
       BT.emit('change', 'all');
       return;
     }
@@ -193,6 +215,7 @@
         BT.storage = 'cloud';
       }
     } catch (e) { console.warn('db unavailable', e); }
+    BT.refreshProducts();
     BT.emit('change', 'all');
   };
 
