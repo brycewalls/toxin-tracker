@@ -1,0 +1,3488 @@
+{
+  "version": 1,
+  "checked": "2026-10-15",
+  "courses": [
+    {
+      "id": "how-neurotoxins-work",
+      "title": "How neurotoxins work",
+      "group": "Foundations",
+      "summary": "What botulinum toxin type A is, how it quiets a muscle, and why the effect is temporary.",
+      "muscleIds": [],
+      "lessons": [
+        {
+          "id": "hnw-mechanism",
+          "title": "From nerve signal to softer line",
+          "minutes": 6,
+          "body": [
+            "Every expression line starts with a muscle. When you frown, a nerve releases a chemical messenger called acetylcholine at the spot where it meets the muscle, and the muscle contracts. Repeat that thousands of times and the skin above it creases.",
+            "Botulinum toxin type A is a purified protein made by the bacterium Clostridium botulinum. Once injected into a muscle, it is taken up by the nerve endings and cuts a protein called SNAP-25 that the nerve needs to release acetylcholine. No release means no signal, so that part of the muscle relaxes (Pirazzini et al., 2017).",
+            "The nerve is not destroyed. Over the following weeks it sprouts new connections and the original junction recovers, which is why the effect fades and movement returns. For facial lines, the FDA labels and most clinic sources describe about 3 to 4 months of effect (Botox Cosmetic label; AAD).",
+            "Because the toxin works on the muscle, it softens dynamic lines, the ones you see when you move. Lines etched into the skin at rest improve more slowly and sometimes need other treatments such as resurfacing or filler (Small, American Family Physician, 2026).",
+            {
+              "type": "callout",
+              "tone": "info",
+              "text": "The same molecule causes botulism when it enters the body in large, uncontrolled amounts. Medical products are measured in tiny, standardized units, made under FDA manufacturing controls, and placed into specific muscles. That control is what separates a treatment from a poisoning (Mayo Clinic)."
+            }
+          ],
+          "resources": [
+            {
+              "type": "paper",
+              "title": "Botulinum Neurotoxins: Biology, Pharmacology, and Toxicology",
+              "url": "https://pubmed.ncbi.nlm.nih.gov/28356439/",
+              "source": "Pirazzini et al., Pharmacological Reviews, 2017",
+              "why": "The definitive review of how the toxin enters nerve endings and cleaves SNAP-25."
+            },
+            {
+              "type": "video",
+              "title": "How does Botox work? Hear from a facial plastic surgeon",
+              "url": "https://www.youtube.com/watch?v=mbmcyGIue24",
+              "source": "YouTube: Dr. Peter Vila, facial plastic surgeon (fellowship-trained; his practice reports double board certification)",
+              "why": "A facial plastic surgeon walks through the mechanism in plain language."
+            },
+            {
+              "type": "article",
+              "title": "Botox injections",
+              "url": "https://www.mayoclinic.org/tests-procedures/botox/about/pac-20384658",
+              "source": "Mayo Clinic",
+              "why": "Mayo Clinic's overview of what Botox is and why medical-grade toxin is controlled."
+            },
+            {
+              "type": "paper",
+              "title": "Botulinum toxin",
+              "url": "https://pubmed.ncbi.nlm.nih.gov/20418969/",
+              "source": "Nigam and Nigam, Indian Journal of Dermatology, 2010",
+              "why": "A readable dermatology review of history, mechanism and uses."
+            }
+          ],
+          "quiz": [
+            {
+              "q": "Which chemical messenger does botulinum toxin type A stop nerves from releasing?",
+              "choices": [
+                "Dopamine",
+                "Acetylcholine",
+                "Serotonin",
+                "Histamine"
+              ],
+              "answer": 1,
+              "explain": "The toxin cleaves SNAP-25, a protein the nerve ending needs to release acetylcholine at the neuromuscular junction."
+            },
+            {
+              "q": "Why does the effect wear off after a few months?",
+              "choices": [
+                "The body grows new nerve connections and the junction recovers",
+                "The muscle dies and is replaced",
+                "The skin thickens",
+                "The toxin turns into filler"
+              ],
+              "answer": 0,
+              "explain": "The nerve is not destroyed. It sprouts and the original junction recovers, so movement gradually returns."
+            },
+            {
+              "q": "Which kind of line responds best to a neurotoxin?",
+              "choices": [
+                "Lines from sun spots",
+                "Dynamic lines that appear with movement",
+                "Stretch marks",
+                "Lines caused by volume loss only"
+              ],
+              "answer": 1,
+              "explain": "Toxin relaxes the muscle, so lines made by muscle movement improve most. Deep lines at rest may need other treatments."
+            }
+          ]
+        },
+        {
+          "id": "hnw-uses-history",
+          "title": "Cosmetic and medical uses",
+          "minutes": 5,
+          "body": [
+            "Botulinum toxin was a medical drug before it was a cosmetic one. OnabotulinumtoxinA (Botox) is FDA approved for conditions including chronic migraine, cervical dystonia, blepharospasm, overactive bladder and severe underarm sweating, under a separate label from Botox Cosmetic (Botox label).",
+            "The first cosmetic approval came in 2002 for glabellar lines, the 11s between the brows. Botox Cosmetic has since added crow's feet, forehead lines and, in October 2024, platysma bands of the neck (Botox Cosmetic label).",
+            "Many popular treatments, such as the lip flip, masseter slimming, gummy smile and chin treatments, are off-label. Off-label means a licensed prescriber uses an approved drug for a purpose or site that is not on the label. It is legal and common, but the doses come from studies and expert consensus rather than FDA review, so ranges vary more between injectors (Sundaram et al., 2016).",
+            "Knowing whether a treatment is on-label helps you ask better questions. For a labeled area you can read the exact studied dose. For an off-label area, ask your injector what dose range they use and why."
+          ],
+          "resources": [
+            {
+              "type": "label",
+              "title": "Botox Cosmetic (onabotulinumtoxinA) prescribing information",
+              "url": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=485d9b71-6881-42c5-a620-a4360c7192ab",
+              "source": "FDA label via DailyMed (NLM), revised 10/2024",
+              "why": "The Botox Cosmetic label lists the four approved cosmetic indications."
+            },
+            {
+              "type": "label",
+              "title": "Botox (onabotulinumtoxinA) prescribing information, therapeutic uses",
+              "url": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=33d066a9-34ff-4a1a-b38b-d10983df3300",
+              "source": "FDA label via DailyMed (NLM)",
+              "why": "The therapeutic Botox label covers migraine, spasticity and other medical uses."
+            },
+            {
+              "type": "paper",
+              "title": "Global Aesthetics Consensus: Botulinum Toxin Type A, Evidence-Based Review, Emerging Concepts, and Consensus Recommendations",
+              "url": "https://pubmed.ncbi.nlm.nih.gov/26910696/",
+              "source": "Sundaram et al., Plastic and Reconstructive Surgery, 2016",
+              "why": "Global consensus on aesthetic use, including off-label areas."
+            },
+            {
+              "type": "video",
+              "title": "Surprising New Ways to Use Botox",
+              "url": "https://www.youtube.com/watch?v=ZmCge3ZBKSk",
+              "source": "YouTube: Dr. Sam Ellis, board-certified dermatologist",
+              "why": "A board-certified dermatologist tours newer cosmetic and medical uses."
+            }
+          ],
+          "quiz": [
+            {
+              "q": "Which of these is an FDA-labeled Botox Cosmetic indication?",
+              "choices": [
+                "Lip flip",
+                "Masseter slimming",
+                "Platysma bands",
+                "Gummy smile"
+              ],
+              "answer": 2,
+              "explain": "Platysma bands were added to the Botox Cosmetic label in October 2024. The others are off-label."
+            },
+            {
+              "q": "What does off-label mean?",
+              "choices": [
+                "The product is counterfeit",
+                "An approved drug used for a site or purpose not on its label",
+                "The product has no label at all",
+                "It is illegal to use"
+              ],
+              "answer": 1,
+              "explain": "Off-label use by a licensed prescriber is legal and common; doses come from studies and consensus rather than the label."
+            },
+            {
+              "q": "When did the first cosmetic approval for glabellar lines happen?",
+              "choices": [
+                "1989",
+                "2002",
+                "2013",
+                "2024"
+              ],
+              "answer": 1,
+              "explain": "Botox Cosmetic was approved for glabellar lines in 2002."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "products-units",
+      "title": "Products, units and conversions",
+      "group": "Foundations",
+      "summary": "The six FDA-approved cosmetic neurotoxins, why their units differ, and how to read a dose.",
+      "muscleIds": [],
+      "lessons": [
+        {
+          "id": "pu-six-products",
+          "title": "The six FDA-approved cosmetic toxins",
+          "minutes": 7,
+          "body": [
+            "As of this writing there are six botulinum toxin type A products with FDA approval for cosmetic use in the United States. All six carry the same boxed warning about distant spread of toxin effect.",
+            {
+              "type": "list",
+              "items": [
+                "Botox Cosmetic (onabotulinumtoxinA, AbbVie): glabellar, crow's feet, forehead and platysma bands.",
+                "Dysport (abobotulinumtoxinA, Galderma): glabellar lines. May contain trace cow's milk protein, which is a listed contraindication for people with that allergy.",
+                "Xeomin (incobotulinumtoxinA, Merz): upper facial lines, meaning glabellar, forehead and crow's feet, up to 64 units when all three are treated.",
+                "Jeuveau (prabotulinumtoxinA-xvfs, Evolus): glabellar lines.",
+                "Daxxify (daxibotulinumtoxinA-lanm, Revance): glabellar lines. Formulated with a 35 amino acid stabilizing peptide (RTP004); its listed ingredients include no human albumin.",
+                "Letybo (letibotulinumtoxinA-wlbg, Hugel): glabellar lines, approved February 29, 2024."
+              ]
+            },
+            "Every one of these labels says the same thing about retreatment: no more often than every 3 months (each product's label).",
+            "Products sold abroad, such as Nabota, Meditoxin, Innotox, Coretox or Hutox, are not FDA approved for use in the U.S. even when a related product is. A vial imported outside the authorized supply chain is unapproved in the U.S. regardless of how it is labeled, which is one reason the FDA and CDC warn against buying toxin online (FDA; CDC MMWR 2025).",
+            {
+              "type": "callout",
+              "tone": "info",
+              "text": "Your tracker lets you log Korean and other non-U.S. products because some people are treated abroad. Logging is not an endorsement. If you were treated outside the U.S., keep the product name, lot number and clinic details in case you ever need them."
+            }
+          ],
+          "resources": [
+            {
+              "type": "label",
+              "title": "Botox Cosmetic (onabotulinumtoxinA) prescribing information",
+              "url": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=485d9b71-6881-42c5-a620-a4360c7192ab",
+              "source": "FDA label via DailyMed (NLM), revised 10/2024",
+              "why": "Botox Cosmetic label: four approved cosmetic areas."
+            },
+            {
+              "type": "label",
+              "title": "Xeomin (incobotulinumtoxinA) prescribing information",
+              "url": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=3f35d6e0-3450-4abc-a0da-cc7b277e7c6e",
+              "source": "FDA label via DailyMed (NLM)",
+              "why": "Xeomin label: upper facial lines and the 64 unit maximum when all three areas are treated."
+            },
+            {
+              "type": "label",
+              "title": "Dysport (abobotulinumtoxinA) prescribing information",
+              "url": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=71313a04-1349-4c26-b840-a39e4a3ddaed",
+              "source": "FDA label via DailyMed (NLM)",
+              "why": "Dysport label: 50 unit glabellar dose and the cow's milk protein contraindication."
+            },
+            {
+              "type": "article",
+              "title": "Letybo is the Latest Botox Alternative to Get FDA Approval",
+              "url": "https://www.americanboardcosmeticsurgery.org/blog/letybo-new-botox-alternative-fda-approval/",
+              "source": "American Board of Cosmetic Surgery",
+              "why": "Plain-language summary of the newest approval, Letybo."
+            },
+            {
+              "type": "video",
+              "title": "How does Botox work? Hear from a facial plastic surgeon",
+              "url": "https://www.youtube.com/watch?v=mbmcyGIue24",
+              "source": "YouTube: Dr. Peter Vila, facial plastic surgeon (fellowship-trained; his practice reports double board certification)",
+              "why": "Overview of how the toxins compare in practice."
+            }
+          ],
+          "quiz": [
+            {
+              "q": "Which product's label lists cow's milk protein allergy as a contraindication?",
+              "choices": [
+                "Botox Cosmetic",
+                "Dysport",
+                "Xeomin",
+                "Letybo"
+              ],
+              "answer": 1,
+              "explain": "The Dysport label says it may contain trace cow's milk protein and is contraindicated with that allergy."
+            },
+            {
+              "q": "What is the minimum retreatment interval on every cosmetic toxin label?",
+              "choices": [
+                "2 weeks",
+                "6 weeks",
+                "3 months",
+                "1 year"
+              ],
+              "answer": 2,
+              "explain": "Each label says retreatment should be no more frequent than every 3 months."
+            },
+            {
+              "q": "Which product is labeled for glabellar, forehead and crow's feet lines together (upper facial lines)?",
+              "choices": [
+                "Xeomin",
+                "Jeuveau",
+                "Daxxify",
+                "Letybo"
+              ],
+              "answer": 0,
+              "explain": "Xeomin's label covers upper facial lines: glabellar, horizontal forehead and lateral canthal lines."
+            },
+            {
+              "q": "Is a Korean-market toxin bought online FDA approved for U.S. use?",
+              "choices": [
+                "Yes, if the brand name matches",
+                "Yes, if it is sealed",
+                "No, it is unapproved in the U.S.",
+                "Only for the forehead"
+              ],
+              "answer": 2,
+              "explain": "Products outside the authorized U.S. supply chain are unapproved here, and the FDA and CDC warn against buying them."
+            }
+          ]
+        },
+        {
+          "id": "pu-units",
+          "title": "Why units are not interchangeable",
+          "minutes": 6,
+          "body": [
+            "A unit of botulinum toxin is a measure of biological activity, not weight. Each company measures its own product with its own assay, so the labels state plainly that units of one product cannot be compared to or converted into units of another (Botox Cosmetic, Xeomin and Jeuveau labels).",
+            "That is why the glabellar dose looks so different on paper: 20 units of Botox Cosmetic, Xeomin, Jeuveau or Letybo, 50 units of Dysport, and 40 units of Daxxify. The patient is not getting more toxin with Dysport; the unit is simply a different size.",
+            "In practice, clinicians use working ratios. Incobotulinum (Xeomin) has performed like onabotulinum (Botox) at about 1 to 1. For abobotulinum (Dysport), a review by Scaglione (2016) suggests about 3 Dysport units to 1 Botox unit or lower for medical uses, and aesthetic practice often uses about 2.5 to 1. These are rules of thumb, not label instructions.",
+            "When you log a treatment, record the product name and the units exactly as your injector told you. The app's Botox-equivalent total is an approximation for comparing your own history over time, not a dosing tool.",
+            {
+              "type": "callout",
+              "tone": "caution",
+              "text": "Never use a conversion ratio to plan a dose. Dosing decisions belong to the licensed injector who examined you."
+            }
+          ],
+          "resources": [
+            {
+              "type": "paper",
+              "title": "Conversion Ratio between Botox, Dysport, and Xeomin in Clinical Practice",
+              "url": "https://pubmed.ncbi.nlm.nih.gov/26959061/",
+              "source": "Scaglione, Toxins, 2016",
+              "why": "The most cited review of conversion ratios between Botox, Dysport and Xeomin."
+            },
+            {
+              "type": "label",
+              "title": "Jeuveau (prabotulinumtoxinA-xvfs) prescribing information",
+              "url": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=17a914c1-e54b-4b50-965d-b0fd9111bba4",
+              "source": "FDA label via DailyMed (NLM)",
+              "why": "Jeuveau label: the standard statement that units cannot be converted."
+            },
+            {
+              "type": "label",
+              "title": "Daxxify (daxibotulinumtoxinA-lanm) prescribing information",
+              "url": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=3aaa6e14-a3f7-4fb2-b9f9-d3a9c3ae1f74",
+              "source": "FDA label via DailyMed (NLM)",
+              "why": "Daxxify label: 40 units across five glabellar sites."
+            },
+            {
+              "type": "video",
+              "title": "How does Botox work? Hear from a facial plastic surgeon",
+              "url": "https://www.youtube.com/watch?v=mbmcyGIue24",
+              "source": "YouTube: Dr. Peter Vila, facial plastic surgeon (fellowship-trained; his practice reports double board certification)",
+              "why": "A surgeon's explanation of why product choice and dose go together."
+            }
+          ],
+          "quiz": [
+            {
+              "q": "A unit of botulinum toxin measures what?",
+              "choices": [
+                "Weight in micrograms",
+                "Biological activity in that maker's assay",
+                "Volume of saline",
+                "Number of injection points"
+              ],
+              "answer": 1,
+              "explain": "Units are defined by each manufacturer's own potency assay, which is why they are product-specific."
+            },
+            {
+              "q": "The labeled glabellar dose for Dysport is:",
+              "choices": [
+                "20 units",
+                "24 units",
+                "40 units",
+                "50 units"
+              ],
+              "answer": 3,
+              "explain": "Dysport's glabellar dose is 50 units in five equal aliquots of 10 units."
+            },
+            {
+              "q": "What does the Daxxify label recommend for glabellar lines?",
+              "choices": [
+                "20 units",
+                "40 units in five sites",
+                "64 units",
+                "100 units"
+              ],
+              "answer": 1,
+              "explain": "Daxxify uses 8 units into each of five sites, 40 units total."
+            },
+            {
+              "q": "Which statement about conversion ratios is accurate?",
+              "choices": [
+                "They are printed on every label",
+                "They are clinical rules of thumb, not label instructions",
+                "They let patients plan their own dose",
+                "They are identical for every product"
+              ],
+              "answer": 1,
+              "explain": "Labels say units cannot be converted. Ratios like 1 to 1 or 2.5 to 1 come from clinical experience and reviews."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "facial-anatomy",
+      "title": "Facial anatomy for neurotoxin treatment",
+      "group": "Foundations",
+      "summary": "The muscles injectors treat, the ones they protect, and the danger zones on your face map.",
+      "muscleIds": [
+        "frontalis-l",
+        "frontalis-r",
+        "procerus",
+        "corrugator-l",
+        "corrugator-r",
+        "oculi-l",
+        "oculi-r",
+        "nasalis",
+        "llsan-l",
+        "llsan-r",
+        "oris",
+        "dao-l",
+        "dao-r",
+        "mentalis",
+        "masseter-l",
+        "masseter-r",
+        "platysma-l",
+        "platysma-r",
+        "zygomaticus",
+        "levator-palpebrae",
+        "risorius"
+      ],
+      "lessons": [
+        {
+          "id": "fa-elevators-depressors",
+          "title": "Elevators, depressors and balance",
+          "minutes": 7,
+          "body": [
+            "The face works in opposing pairs. In the upper face, the frontalis is the only muscle that lifts the brows. Pulling the other way are the brow depressors: the corrugators and procerus between the brows and the outer orbicularis oculi around the eye.",
+            "Neurotoxin treatment is mostly about shifting that balance. Relax the depressors and the brow can rise slightly. Relax too much of the frontalis and the brow can drop. This push and pull explains why forehead and frown lines are planned together (Botox Cosmetic label).",
+            "In the lower face the same logic applies. The depressor anguli oris pulls the mouth corners down, while the zygomaticus major and minor lift the smile. The mentalis pushes the chin up and puckers it. The platysma, a thin sheet in the neck, pulls the jawline and lower face down.",
+            "On your face map, muscles you can tap for treatment are drawn with the concern they are known for. Muscles like the zygomaticus, risorius and the upper eyelid's levator are shown as caution zones: injectors work to keep toxin away from them.",
+            {
+              "type": "list",
+              "items": [
+                "Upper face: frontalis (lifts), corrugator and procerus (pull down and in), orbicularis oculi (closes and squints).",
+                "Mid face: nasalis (bunny lines), levator labii superioris alaeque nasi (lifts the lip and nostril).",
+                "Lower face: orbicularis oris (purses the lips), depressor anguli oris (pulls corners down), mentalis (chin), masseter (chewing).",
+                "Neck: platysma (vertical bands, jawline pull)."
+              ]
+            }
+          ],
+          "resources": [
+            {
+              "type": "video",
+              "title": "Muscles of Facial Expression: Anatomy Tutorial Part 2",
+              "url": "https://www.youtube.com/watch?v=3Z0nbAm2HPw",
+              "source": "YouTube: AnatomyZone, anatomy tutorials made by U.K. medical doctors",
+              "why": "A clear 3D tutorial of the muscles of facial expression."
+            },
+            {
+              "type": "video",
+              "title": "Facial Muscle Anatomy in 10 Minutes",
+              "url": "https://www.youtube.com/watch?v=dPbQWrd6iZs",
+              "source": "YouTube: Dr. Tim Pearce, U.K. physician (MBChB, MRCGP) and aesthetics educator; clinician audience",
+              "why": "Ten-minute tour of the face's muscles from an aesthetics educator."
+            },
+            {
+              "type": "paper",
+              "title": "Consensus recommendations on the use of botulinum toxin type A in facial aesthetics",
+              "url": "https://pubmed.ncbi.nlm.nih.gov/15507786/",
+              "source": "Carruthers et al., Plastic and Reconstructive Surgery, 2004",
+              "why": "The founding consensus paper on facial muscles and toxin treatment."
+            },
+            {
+              "type": "video",
+              "title": "Muscle Anatomy: How to Avoid Side Effects and Maximize Botox Efficiency",
+              "url": "https://www.youtube.com/watch?v=lsyvrIcGZoQ",
+              "source": "YouTube: Dr. Tim Pearce, U.K. physician and aesthetics educator; clinician audience",
+              "why": "How upper-face anatomy explains side effects."
+            }
+          ],
+          "quiz": [
+            {
+              "q": "Which muscle is the only elevator of the brows?",
+              "choices": [
+                "Procerus",
+                "Corrugator",
+                "Frontalis",
+                "Orbicularis oculi"
+              ],
+              "answer": 2,
+              "explain": "The frontalis is the brow's only elevator, which is why over-treating it can drop the brow."
+            },
+            {
+              "q": "Which muscle should stay untouched to avoid a lopsided smile?",
+              "choices": [
+                "Zygomaticus major",
+                "Procerus",
+                "Mentalis",
+                "Platysma"
+              ],
+              "answer": 0,
+              "explain": "The zygomaticus lifts the smile, so injectors keep toxin away from it."
+            },
+            {
+              "q": "Why are forehead lines treated together with frown lines on the label?",
+              "choices": [
+                "To use more product",
+                "To keep the brow from dropping",
+                "Because they are the same muscle",
+                "To speed up onset"
+              ],
+              "answer": 1,
+              "explain": "Treating the depressors between the brows alongside the frontalis reduces the chance of brow ptosis."
+            }
+          ]
+        },
+        {
+          "id": "fa-danger-zones",
+          "title": "Danger zones and safe distances",
+          "minutes": 6,
+          "body": [
+            "Most toxin side effects are predictable from anatomy. The toxin spreads a short distance from where it is placed, so injectors keep set distances from structures they want to protect.",
+            {
+              "type": "list",
+              "items": [
+                "Upper eyelid: the levator palpebrae superioris lifts the lid. The Botox Cosmetic label tells injectors to place lateral corrugator injections at least 1 cm above the bony brow ridge to reduce eyelid ptosis.",
+                "Brow: frontalis points are kept well above the brow, often about 1.5 to 2 cm in consensus papers, so the brow keeps its lift.",
+                "Eye corner: the first crow's feet point on the label sits about 1.5 to 2 cm outside the eye corner and just outside the bony orbital rim, with the needle angled away from the eye.",
+                "Smile: points around the cheek and mouth stay off the diagonal line of the zygomaticus.",
+                "Lower lip: chin and mouth-corner points stay away from the depressor labii inferioris so the lower lip still moves normally.",
+                "Neck: platysma points are kept superficial, because deeper neck muscles control swallowing and voice."
+              ]
+            },
+            "Researchers have also found anatomical shortcuts. A 2021 review describes a supraorbital foramen in some people that can act as a pathway from the brow area toward the muscle that lifts the eyelid (Nestor et al., 2021). That is one reason experienced injectors map each face rather than using one template.",
+            {
+              "type": "callout",
+              "tone": "info",
+              "text": "The app's caution zones are educational markers drawn from the label and consensus papers. They are not a guide for placing injections."
+            }
+          ],
+          "resources": [
+            {
+              "type": "label",
+              "title": "Botox Cosmetic (onabotulinumtoxinA) prescribing information",
+              "url": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=485d9b71-6881-42c5-a620-a4360c7192ab",
+              "source": "FDA label via DailyMed (NLM), revised 10/2024",
+              "why": "Label section 2 lists the steps to reduce ptosis, including the 1 cm rule."
+            },
+            {
+              "type": "paper",
+              "title": "Botulinum toxin-induced blepharoptosis: anatomy, etiology, prevention, and therapeutic options",
+              "url": "https://pubmed.ncbi.nlm.nih.gov/34378298/",
+              "source": "Nestor et al., Journal of Cosmetic Dermatology, 2021",
+              "why": "How toxin reaches the eyelid muscle and how ptosis is managed."
+            },
+            {
+              "type": "video",
+              "title": "Advanced Botox Anatomy: Avoiding Lower-Face Side Effects",
+              "url": "https://www.youtube.com/watch?v=GcRhACNBGnA",
+              "source": "YouTube: Dr. Tim Pearce, U.K. physician and aesthetics educator; clinician audience",
+              "why": "Lower-face anatomy and the side effects it predicts."
+            },
+            {
+              "type": "video",
+              "title": "Muscle Anatomy: How to Avoid Side Effects and Maximize Botox Efficiency",
+              "url": "https://www.youtube.com/watch?v=lsyvrIcGZoQ",
+              "source": "YouTube: Dr. Tim Pearce, U.K. physician and aesthetics educator; clinician audience",
+              "why": "Upper-face danger zones explained."
+            }
+          ],
+          "quiz": [
+            {
+              "q": "What does the Botox Cosmetic label say about lateral corrugator injections?",
+              "choices": [
+                "Place them directly on the eyelid",
+                "Place them at least 1 cm above the bony supraorbital ridge",
+                "Place them below the eyebrow",
+                "Skip them entirely"
+              ],
+              "answer": 1,
+              "explain": "The label lists this step to reduce the chance of eyelid ptosis."
+            },
+            {
+              "q": "Why are platysma injections kept superficial?",
+              "choices": [
+                "Deeper neck muscles help with swallowing and voice",
+                "The skin is thicker there",
+                "It hurts less",
+                "To make results last longer"
+              ],
+              "answer": 0,
+              "explain": "Deep spread can affect swallowing or voice muscles, so neck injections stay shallow."
+            },
+            {
+              "q": "Toxin reaching the levator palpebrae superioris causes:",
+              "choices": [
+                "Brow lift",
+                "Eyelid ptosis",
+                "Gummy smile",
+                "Neck bands"
+              ],
+              "answer": 1,
+              "explain": "The levator lifts the upper lid; weakening it makes the lid droop."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "qualified-injector",
+      "title": "Choosing a qualified injector and legal scope of practice",
+      "group": "Foundations",
+      "summary": "Who can legally inject, what credentials mean, and the questions worth asking at a consultation.",
+      "muscleIds": [],
+      "lessons": [
+        {
+          "id": "qi-who-can-inject",
+          "title": "Who can legally inject",
+          "minutes": 6,
+          "body": [
+            "In every U.S. state, injecting a prescription neurotoxin is treated as the practice of medicine. The details differ by state, but the pattern is consistent (American Med Spa Association; AAFE).",
+            {
+              "type": "list",
+              "items": [
+                "Physicians (MD or DO) can evaluate, prescribe and inject.",
+                "Nurse practitioners can inject within their state's scope; some states require a collaborative agreement with a physician.",
+                "Physician assistants inject under physician supervision or collaboration.",
+                "Registered nurses usually inject under a physician's or NP's order and supervision, after a patient exam.",
+                "Dentists may inject in many states, often limited to the mouth and face area of their practice.",
+                "Estheticians, cosmetologists and unlicensed people cannot inject toxin. A weekend course does not change that."
+              ]
+            },
+            "Certification is not a license. A training certificate shows someone took a course. The license, held by a state board, is what makes injecting legal. The AAFE, a training provider, describes certification as the step after licensure, never a substitute for it.",
+            "Toxin is a prescription drug, so a licensed prescriber must evaluate you, often in person, before it is given. Supervision rules for nurses vary: some states require the physician on site, others allow phone availability. Your state's medical and nursing boards publish the rules.",
+            {
+              "type": "callout",
+              "tone": "info",
+              "text": "For licensed clinicians who want hands-on skills: accredited CME courses from groups such as the American Academy of Facial Esthetics, National Laser Institute and Empire Medical Training, plus manufacturer programs such as the Allergan Medical Institute, teach supervised technique on live models. Check your own state board for what your license allows before enrolling."
+            }
+          ],
+          "resources": [
+            {
+              "type": "article",
+              "title": "What Are the Rules for Who Can Inject Neurotoxins?",
+              "url": "https://www.americanmedspa.org/news/what-are-the-rules-for-who-can-inject-neurotoxins/",
+              "source": "American Med Spa Association, 2021",
+              "why": "A med spa association's summary of who can inject and how delegation works."
+            },
+            {
+              "type": "course",
+              "title": "Qualifications for Administering Botox and Dermal Fillers",
+              "url": "https://facialesthetics.org/patient-info/facial-esthetics/botox-training-dermal-filler-training/",
+              "source": "American Academy of Facial Esthetics (AAFE)",
+              "why": "Who can administer Botox, and how certification differs from a license."
+            },
+            {
+              "type": "course",
+              "title": "American Academy of Facial Esthetics: training for licensed clinicians",
+              "url": "https://facialesthetics.org/",
+              "source": "AAFE",
+              "why": "Accredited hands-on training for licensed clinicians."
+            },
+            {
+              "type": "course",
+              "title": "National Laser Institute: Botox and aesthetics training",
+              "url": "https://nationallaserinstitute.com/",
+              "source": "National Laser Institute",
+              "why": "Another established training program for licensed professionals."
+            },
+            {
+              "type": "course",
+              "title": "Empire Medical Training: hands-on CME courses",
+              "url": "https://www.empiremedicaltraining.com/",
+              "source": "Empire Medical Training",
+              "why": "Hands-on CME courses for physicians, nurses and dentists."
+            }
+          ],
+          "quiz": [
+            {
+              "q": "Can a licensed esthetician legally inject Botox in the U.S.?",
+              "choices": [
+                "Yes, with a weekend certificate",
+                "Yes, in a spa",
+                "No, it is outside their scope",
+                "Only under the eyes"
+              ],
+              "answer": 2,
+              "explain": "Injecting toxin is the practice of medicine. Estheticians cannot inject, with or without a course certificate."
+            },
+            {
+              "q": "What makes injecting legal for a nurse?",
+              "choices": [
+                "A training certificate alone",
+                "A state license plus the required order and supervision",
+                "Buying the product directly",
+                "Social media reviews"
+              ],
+              "answer": 1,
+              "explain": "Certification shows training; the license and state supervision rules make it legal."
+            },
+            {
+              "q": "Where do you find the specific rules for your state?",
+              "choices": [
+                "The product box",
+                "The state medical and nursing boards",
+                "A manufacturer coupon",
+                "An online forum"
+              ],
+              "answer": 1,
+              "explain": "Scope of practice and supervision rules are set by each state's licensing boards."
+            }
+          ]
+        },
+        {
+          "id": "qi-vetting",
+          "title": "Vetting an injector and a clinic",
+          "minutes": 6,
+          "body": [
+            "Skill matters more than the brand of toxin. The American Board of Cosmetic Surgery calls the injector's expertise the single most important factor in a safe, natural result, and the AAD recommends treatment by a board-certified dermatologist or a member of that doctor's staff.",
+            "Board certification is a separate step beyond a license. An ABMS member board, such as the American Board of Dermatology or American Board of Plastic Surgery, certifies that a physician passed an independent evaluation in a specialty. You can check certification through the boards' own lookup tools.",
+            {
+              "type": "list",
+              "items": [
+                "Who will inject me, and what is their license?",
+                "How many of this exact treatment do you do each month?",
+                "Which product will you use, how many units, and can I see the vial?",
+                "Do you buy directly from the manufacturer or an authorized distributor?",
+                "Who do I call if something seems wrong, and do you see patients for a 2-week follow-up?",
+                "Can I see before and after photos of your own patients?"
+              ]
+            },
+            "Red flags include prices far below market, injections at parties or in homes, reluctance to show the vial, no medical history taken, and pressure to treat more areas than you asked about (ABCS; AmSpa; CDC).",
+            "A good consultation includes a medical history, a look at how your face moves, a discussion of risks, and a plan that matches what you want. The provider should be glad to answer questions before anything is drawn up."
+          ],
+          "resources": [
+            {
+              "type": "article",
+              "title": "Botox-type Injectables, Neurotoxins",
+              "url": "https://www.americanboardcosmeticsurgery.org/cosmetic-procedures/non-surgical/botox-type-injectables/",
+              "source": "American Board of Cosmetic Surgery",
+              "why": "Why injector skill is the biggest factor and how to vet credentials."
+            },
+            {
+              "type": "article",
+              "title": "How to Choose a Safe Medspa for Non-Surgical Treatments",
+              "url": "https://www.americanboardcosmeticsurgery.org/blog/how-to-choose-safe-medspa/",
+              "source": "American Board of Cosmetic Surgery",
+              "why": "How to choose a safe med spa for nonsurgical treatments."
+            },
+            {
+              "type": "article",
+              "title": "What is ABMS Board Certification?",
+              "url": "https://abms.org/board-certification/",
+              "source": "American Board of Medical Specialties",
+              "why": "What board certification means and why it is different from a license."
+            },
+            {
+              "type": "video",
+              "title": "How to find a good aesthetic injector",
+              "url": "https://www.youtube.com/watch?v=TOam89Siu4E",
+              "source": "YouTube: Dr. Stefani Kappel, board-certified dermatologist and Mohs surgeon",
+              "why": "A board-certified dermatologist on what to look for in a provider."
+            },
+            {
+              "type": "video",
+              "title": "5 Questions to Ask Before Choosing Your Botox Injector",
+              "url": "https://www.youtube.com/watch?v=RrfHhQ2NfP4",
+              "source": "YouTube: Dr. Sheryl Clark, board-certified dermatologist, New York",
+              "why": "Five questions to ask before you book."
+            }
+          ],
+          "quiz": [
+            {
+              "q": "Which is a red flag when choosing where to get treated?",
+              "choices": [
+                "The injector shows you the sealed vial",
+                "A medical history is taken",
+                "Injections offered at a house party",
+                "A 2-week follow-up is offered"
+              ],
+              "answer": 2,
+              "explain": "The CDC's 2024 cases involved injections in homes and other nonmedical settings."
+            },
+            {
+              "q": "What does board certification add beyond a medical license?",
+              "choices": [
+                "Nothing",
+                "An independent evaluation of specialty knowledge and skill",
+                "Permission to sell product",
+                "A discount"
+              ],
+              "answer": 1,
+              "explain": "ABMS boards independently evaluate physicians in a specialty; a license alone does not show that."
+            },
+            {
+              "q": "According to the ABCS, the most important factor in a safe, natural result is:",
+              "choices": [
+                "The toxin brand",
+                "The price",
+                "The injector's skill and expertise",
+                "The time of day"
+              ],
+              "answer": 2,
+              "explain": "ABCS says the injector's skill matters more than which brand is used."
+            },
+            {
+              "q": "Why ask whether a clinic buys from the manufacturer or an authorized distributor?",
+              "choices": [
+                "To get a coupon",
+                "Because counterfeit product comes from unlicensed sources",
+                "It changes the units",
+                "It is required by insurance"
+              ],
+              "answer": 1,
+              "explain": "FDA found counterfeit Botox was bought from unlicensed sources. Authorized supply chains protect you."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "treatment-day",
+      "title": "Treatment day, aftercare and the results timeline",
+      "group": "Foundations",
+      "summary": "What happens at the appointment, which aftercare rules have evidence, and when to expect results.",
+      "muscleIds": [],
+      "lessons": [
+        {
+          "id": "td-appointment",
+          "title": "What happens at the appointment",
+          "minutes": 5,
+          "body": [
+            "Before treatment, tell your injector about your medications, supplements, any neuromuscular condition, allergies, recent illness, and whether you are pregnant, breastfeeding or planning a pregnancy (AAD Preparation). Blood thinners and some supplements can raise the chance of bruising, but do not stop a prescribed medicine without talking to the doctor who prescribed it.",
+            "A typical visit takes 10 to 30 minutes. The injector watches you frown, raise your brows and smile to see which muscles are strongest, may mark points, cleans the skin, and uses a very fine needle to place small amounts into each muscle. Several areas can be treated in one visit (Cleveland Clinic).",
+            "Ask what product and how many units were used in each area, and write it down or log it in the app right away. That record is what lets your injector adjust next time.",
+            "Taking standardized photos before treatment, at rest and with each expression, makes the day 14 check far more useful. The app's check-in feature is built for this."
+          ],
+          "resources": [
+            {
+              "type": "article",
+              "title": "Botulinum toxin therapy: Preparation",
+              "url": "https://www.aad.org/public/cosmetic/wrinkles/botulinum-toxin-preparation",
+              "source": "American Academy of Dermatology",
+              "why": "What to tell your dermatologist before treatment."
+            },
+            {
+              "type": "video",
+              "title": "Botox injections: What to expect",
+              "url": "https://www.youtube.com/watch?v=NOq3cEtVw2s",
+              "source": "YouTube: UCI Health, University of California, Irvine academic health system",
+              "why": "An academic health system's short guide to what to expect."
+            },
+            {
+              "type": "article",
+              "title": "Botox (Botulinum Toxin): What It Is, Results and Side Effects",
+              "url": "https://my.clevelandclinic.org/health/treatments/8312-botulinum-toxin-injections",
+              "source": "Cleveland Clinic",
+              "why": "Cleveland Clinic's overview of the procedure and recovery."
+            },
+            {
+              "type": "video",
+              "title": "Dermatologist Explains Botox: When to Start, What to Expect, Results",
+              "url": "https://www.youtube.com/watch?v=Jofi6tF0rCI",
+              "source": "YouTube: Dr. Sam Ellis, board-certified dermatologist",
+              "why": "A dermatologist walks through a first treatment start to finish."
+            }
+          ],
+          "quiz": [
+            {
+              "q": "Which should you tell your injector before treatment?",
+              "choices": [
+                "Only your name",
+                "Medications, supplements, conditions, and pregnancy plans",
+                "Nothing, they can tell by looking",
+                "Your favorite product brand only"
+              ],
+              "answer": 1,
+              "explain": "The AAD lists medications, supplements and pregnancy plans as essential to share."
+            },
+            {
+              "q": "Why ask for the product and units used in each area?",
+              "choices": [
+                "For insurance only",
+                "So the next treatment can be adjusted from a known starting point",
+                "It is not useful",
+                "To resell it"
+              ],
+              "answer": 1,
+              "explain": "A clear record lets your injector fine-tune the next session."
+            },
+            {
+              "q": "Should you stop a prescribed blood thinner to avoid bruising?",
+              "choices": [
+                "Yes, always a week ahead",
+                "Only with the prescribing doctor's advice",
+                "Yes, the day before",
+                "Never mention it"
+              ],
+              "answer": 1,
+              "explain": "Stopping some medicines can be dangerous. That decision belongs to the prescriber."
+            }
+          ]
+        },
+        {
+          "id": "td-aftercare-timeline",
+          "title": "Aftercare and the results timeline",
+          "minutes": 6,
+          "body": [
+            "Common aftercare advice includes not rubbing or massaging the treated area, waiting before strenuous exercise, and not pressing makeup in. The AAD says to avoid rubbing and to wait 2 hours before strenuous activity; many clinics add staying upright for about 4 hours.",
+            "How much of this is proven? A 2025 study of about 5,000 upper-face patients who followed only a 10-minute precaution protocol found no eyelid ptosis and high satisfaction, but it had no control group (Santorelli et al., 2025). The fair summary is that most aftercare rules are reasonable caution with limited evidence; technique and dose matter more.",
+            {
+              "type": "list",
+              "items": [
+                "Day 0 to 1: small bumps fade within an hour; redness or tenderness for a few hours.",
+                "Days 2 to 4: most people notice the first change; Daxxify and Dysport are often described as a little faster.",
+                "Days 10 to 14: full effect. The Xeomin label gives a median onset of 2 to 7 days, and Cleveland Clinic and the American Family Physician review put full results at about 2 weeks.",
+                "Weeks 1 to 2: bruises, if any, usually clear within about a week (AAD).",
+                "Months 3 to 4: movement returns for most products; Daxxify averages longer, about 24 weeks in trials (ASPS)."
+              ]
+            },
+            "Wait the full 2 weeks before judging the result or asking for a touch-up. Effects build gradually, and one side can settle a few days later than the other.",
+            {
+              "type": "callout",
+              "tone": "caution",
+              "text": "Trouble swallowing, speaking or breathing after any toxin treatment is a medical emergency. Call 911 or go to the emergency room. The Safety courses cover this in detail."
+            }
+          ],
+          "resources": [
+            {
+              "type": "article",
+              "title": "Botulinum toxin therapy: FAQs",
+              "url": "https://www.aad.org/public/cosmetic/wrinkles/botulinum-toxin-faqs",
+              "source": "American Academy of Dermatology",
+              "why": "AAD's aftercare basics and how long results last."
+            },
+            {
+              "type": "paper",
+              "title": "Are Post-Care Recommendations Following Upper-Face Botulinum Toxin Treatment Scientifically Necessary? A Retrospective Study Based on 5000 Patients",
+              "url": "https://pubmed.ncbi.nlm.nih.gov/40864048/",
+              "source": "Santorelli et al., Toxins, 2025",
+              "why": "The 5,000-patient study that questions extended aftercare rules."
+            },
+            {
+              "type": "video",
+              "title": "Dermatologist on what not to do after your Botox injections",
+              "url": "https://www.youtube.com/watch?v=Jk-8n1RSB1I",
+              "source": "YouTube: Dr. Whitney Bowe, board-certified dermatologist",
+              "why": "A board-certified dermatologist on what to avoid after treatment."
+            },
+            {
+              "type": "label",
+              "title": "Xeomin (incobotulinumtoxinA) prescribing information",
+              "url": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=3f35d6e0-3450-4abc-a0da-cc7b277e7c6e",
+              "source": "FDA label via DailyMed (NLM)",
+              "why": "Label section 2.9: median onset of 2 to 7 days and duration up to 12 to 16 weeks."
+            }
+          ],
+          "quiz": [
+            {
+              "q": "When is the full effect usually visible?",
+              "choices": [
+                "Immediately",
+                "About 10 to 14 days",
+                "After 6 weeks",
+                "After 6 months"
+              ],
+              "answer": 1,
+              "explain": "Most sources put full effect at about 2 weeks."
+            },
+            {
+              "q": "What did the 2025 study of 5,000 patients suggest about aftercare?",
+              "choices": [
+                "Extended restrictions may be unnecessary, though the study had no control group",
+                "Lying down is required",
+                "Exercise doubles results",
+                "Massage prevents ptosis"
+              ],
+              "answer": 0,
+              "explain": "Patients with only a 10-minute protocol had no ptosis, but without a control group the evidence is limited."
+            },
+            {
+              "q": "How long does the AAD say to wait before strenuous activity?",
+              "choices": [
+                "10 minutes",
+                "2 hours",
+                "3 days",
+                "2 weeks"
+              ],
+              "answer": 1,
+              "explain": "The AAD FAQ says to wait two hours before strenuous physical activity."
+            },
+            {
+              "q": "Which symptom needs emergency care after treatment?",
+              "choices": [
+                "A small bump that fades in an hour",
+                "Mild redness",
+                "Trouble swallowing or breathing",
+                "Slight tenderness"
+              ],
+              "answer": 2,
+              "explain": "Swallowing or breathing trouble can signal spread of toxin effect and is an emergency."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "touchups-intervals",
+      "title": "Touch-ups and treatment intervals",
+      "group": "Foundations",
+      "summary": "When a touch-up makes sense, why labels set a 3-month minimum, and how to plan a schedule.",
+      "muscleIds": [],
+      "lessons": [
+        {
+          "id": "ti-touchups",
+          "title": "Touch-ups and the 2-week check",
+          "minutes": 5,
+          "body": [
+            "The 2-week visit is where fine-tuning happens. By then the toxin has reached its full effect, so the injector can see what is still moving and whether both sides match.",
+            "A touch-up is a small additional dose to even out asymmetry or catch a strong area that was missed, such as a lateral brow that lifts too much. It is a judgment call: adding toxin to an area that is still settling can overshoot.",
+            "Some side effects are not fixable with more toxin. A heavy or dropped brow, for example, usually has to wait for the forehead to recover, though a skilled injector may sometimes rebalance nearby muscles (Kassir et al., 2020).",
+            "Record touch-ups as their own entry with the date, product and units. In the app, that keeps your totals and day counts accurate."
+          ],
+          "resources": [
+            {
+              "type": "video",
+              "title": "Dermatologist Explains Botox: When to Start, What to Expect, Results",
+              "url": "https://www.youtube.com/watch?v=Jofi6tF0rCI",
+              "source": "YouTube: Dr. Sam Ellis, board-certified dermatologist",
+              "why": "When to expect results and when a touch-up is reasonable."
+            },
+            {
+              "type": "paper",
+              "title": "Complications of botulinum toxin and fillers: a narrative review",
+              "url": "https://pubmed.ncbi.nlm.nih.gov/31889407/",
+              "source": "Kassir et al., Journal of Cosmetic Dermatology, 2020",
+              "why": "Review of common complications, including brow ptosis and asymmetry."
+            },
+            {
+              "type": "video",
+              "title": "The Spock Brow: Why It Happens After Botox",
+              "url": "https://www.youtube.com/watch?v=nqKohZgTeJU",
+              "source": "YouTube: Dr. Tim Pearce, U.K. physician and aesthetics educator; clinician audience",
+              "why": "Why a lateral brow can spike and how injectors think about correcting it."
+            }
+          ],
+          "quiz": [
+            {
+              "q": "Why wait about 2 weeks before a touch-up?",
+              "choices": [
+                "The clinic needs time to order product",
+                "The toxin needs time to reach full effect",
+                "Touch-ups are not allowed",
+                "It makes it cheaper"
+              ],
+              "answer": 1,
+              "explain": "Full effect takes about 2 weeks; judging earlier can lead to overcorrection."
+            },
+            {
+              "q": "Which problem usually cannot be fixed by adding more toxin?",
+              "choices": [
+                "A slightly stronger lateral brow",
+                "A heavy, dropped brow",
+                "Mild asymmetry",
+                "A missed spot in the frown"
+              ],
+              "answer": 1,
+              "explain": "A dropped brow usually needs time for the forehead to recover."
+            },
+            {
+              "q": "How should a touch-up be logged?",
+              "choices": [
+                "Not at all",
+                "As its own entry with date, product and units",
+                "Added to next year's total",
+                "Only in photos"
+              ],
+              "answer": 1,
+              "explain": "Separate entries keep your history and totals accurate."
+            }
+          ]
+        },
+        {
+          "id": "ti-intervals",
+          "title": "Planning intervals and long-term use",
+          "minutes": 5,
+          "body": [
+            "Every FDA cosmetic toxin label says retreatment should be no more frequent than every 3 months. Most people return when movement comes back, often at 3 to 4 months; Daxxify users often wait longer.",
+            "Why not sooner? Frequent dosing and high cumulative doses are thought to raise the small risk of developing neutralizing antibodies, which can make future treatments work less well. Rates in modern trials are very low. In pooled Daxxify trials, no subject developed neutralizing antibodies (Gallagher et al., 2023).",
+            "The labels also tell clinicians to consider the cumulative dose when a person receives toxin for more than one reason, for example cosmetic treatment plus migraine treatment. If you get toxin from more than one provider, tell each of them.",
+            "With regular treatment some people find results last a little longer over time, which the AAD attributes to the muscle thinning with repeated use.",
+            {
+              "type": "callout",
+              "tone": "info",
+              "text": "The app defaults your reminder to about 12 weeks after a treatment. Change it to match your own pattern and your injector's advice."
+            }
+          ],
+          "resources": [
+            {
+              "type": "label",
+              "title": "Jeuveau (prabotulinumtoxinA-xvfs) prescribing information",
+              "url": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=17a914c1-e54b-4b50-965d-b0fd9111bba4",
+              "source": "FDA label via DailyMed (NLM)",
+              "why": "The label's retreatment and cumulative dose statements."
+            },
+            {
+              "type": "paper",
+              "title": "Clinical Immunogenicity of DaxibotulinumtoxinA for Injection in Glabellar Lines: Pooled SAKURA Phase 3 Data",
+              "url": "https://pubmed.ncbi.nlm.nih.gov/36668880/",
+              "source": "Gallagher et al., Toxins, 2023",
+              "why": "Antibody rates across the Daxxify phase 3 program."
+            },
+            {
+              "type": "article",
+              "title": "Botulinum toxin therapy: FAQs",
+              "url": "https://www.aad.org/public/cosmetic/wrinkles/botulinum-toxin-faqs",
+              "source": "American Academy of Dermatology",
+              "why": "Why repeat treatments can last longer."
+            },
+            {
+              "type": "article",
+              "title": "How does Daxxify compare to Botox?",
+              "url": "https://www.plasticsurgery.org/news/articles/how-does-daxxify-compare-to-botox",
+              "source": "American Society of Plastic Surgeons, July 2024",
+              "why": "How Daxxify's longer duration changes scheduling."
+            }
+          ],
+          "quiz": [
+            {
+              "q": "What is the labeled minimum interval between treatments?",
+              "choices": [
+                "1 month",
+                "3 months",
+                "6 months",
+                "12 months"
+              ],
+              "answer": 1,
+              "explain": "Every cosmetic toxin label says no more often than every 3 months."
+            },
+            {
+              "q": "Why do labels warn about cumulative dose?",
+              "choices": [
+                "Toxin from different uses and providers adds up",
+                "It changes the color of the skin",
+                "It affects the price",
+                "It has no purpose"
+              ],
+              "answer": 0,
+              "explain": "Cosmetic and medical doses add together, so every provider should know about all of them."
+            },
+            {
+              "q": "In the pooled Daxxify phase 3 trials, how many subjects developed neutralizing antibodies?",
+              "choices": [
+                "None",
+                "About 10 percent",
+                "About half",
+                "All of them"
+              ],
+              "answer": 0,
+              "explain": "Gallagher et al. reported no neutralizing antibodies; low-titer binding antibodies occurred in under 1 percent."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "forehead-lines",
+      "title": "Forehead lines",
+      "group": "Treatments",
+      "summary": "Horizontal lines from the frontalis, the label pattern, and how injectors avoid a heavy brow.",
+      "muscleIds": [
+        "frontalis-l",
+        "frontalis-r",
+        "procerus",
+        "corrugator-l",
+        "corrugator-r"
+      ],
+      "lessons": [
+        {
+          "id": "fl-label-pattern",
+          "title": "The frontalis and the labeled pattern",
+          "minutes": 7,
+          "body": [
+            "Horizontal forehead lines come from the frontalis, a thin vertical sheet of muscle that runs from the hairline to the brow skin. It is the only muscle that lifts the eyebrows, so every unit placed there is a trade between smoother skin and brow height.",
+            "Forehead lines became the third Botox Cosmetic indication, after frown lines and crow's feet (PRS Global Open review, 2020). The label calls for 4 units into each of 5 forehead sites (20 units) together with 20 units in the glabellar complex, 40 units total, because treating the frontalis alone makes brow drop more likely. Xeomin's upper facial lines label uses the same 20 plus 20 structure.",
+            "The label tells injectors to find the treatment rows by feeling the forehead at rest and at full brow raise, and to consider the size of the forehead and where the muscle is most active. Consensus papers describe keeping forehead points well above the brow, commonly about 1.5 to 2 cm (Sundaram et al., 2016).",
+            "In the forehead trials, headache (9 percent) and brow ptosis (2 percent) were the most common adverse reactions, along with eyelid ptosis and a sense of skin tightness (Botox Cosmetic label).",
+            {
+              "type": "callout",
+              "tone": "caution",
+              "text": "Botulinum toxin injection is a licensed medical procedure. This lesson explains how a qualified injector approaches it and what the labeling and published consensus say. It is not instruction for injecting yourself or anyone else."
+            }
+          ],
+          "pattern": {
+            "points": 10,
+            "unitsTotal": "40U: 20U forehead in 5 sites plus 20U glabella in 5 sites (Botox Cosmetic and Xeomin labels)",
+            "notes": "Label requires treating forehead lines together with glabellar lines to reduce brow ptosis. Injectors adjust rows to forehead height and muscle activity."
+          },
+          "resources": [
+            {
+              "type": "label",
+              "title": "Botox Cosmetic (onabotulinumtoxinA) prescribing information",
+              "url": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=485d9b71-6881-42c5-a620-a4360c7192ab",
+              "source": "FDA label via DailyMed (NLM), revised 10/2024",
+              "why": "Section 2.4 describes the 5-site forehead pattern and the 40 unit total."
+            },
+            {
+              "type": "paper",
+              "title": "OnabotulinumtoxinA Treatment for Moderate to Severe Forehead Lines: A Review",
+              "url": "https://pubmed.ncbi.nlm.nih.gov/32537333/",
+              "source": "Plastic and Reconstructive Surgery Global Open, 2020",
+              "why": "Review of the forehead line trials that led to approval."
+            },
+            {
+              "type": "video",
+              "title": "Botox for Forehead Lines While Preventing Descending Brows",
+              "url": "https://www.youtube.com/watch?v=6cuIE_EzrAs",
+              "source": "YouTube: Dr. Amiya Prasad, oculofacial plastic surgeon, board certified in ophthalmology",
+              "why": "An oculofacial surgeon on treating forehead lines without dropping the brows."
+            },
+            {
+              "type": "paper",
+              "title": "Treatment of crow's feet lines and forehead lines with Botox (onabotulinumtoxinA): development, insights, and impact",
+              "url": "https://pubmed.ncbi.nlm.nih.gov/37499083/",
+              "source": "Medicine (Baltimore), 2023",
+              "why": "How the crow's feet and forehead indications were developed."
+            }
+          ],
+          "quiz": [
+            {
+              "q": "What is the labeled Botox Cosmetic total when forehead lines are treated?",
+              "choices": [
+                "20 units",
+                "24 units",
+                "40 units including the glabella",
+                "64 units"
+              ],
+              "answer": 2,
+              "explain": "20 units in the forehead plus 20 units in the glabella, 40 units total."
+            },
+            {
+              "q": "Why does the label pair forehead treatment with glabellar treatment?",
+              "choices": [
+                "To lower the chance of brow ptosis",
+                "To lower the price",
+                "To make onset faster",
+                "Because they share one nerve"
+              ],
+              "answer": 0,
+              "explain": "Relaxing the brow depressors along with the frontalis keeps the brow from dropping."
+            },
+            {
+              "q": "The most common adverse reaction in the forehead trials was:",
+              "choices": [
+                "Dry mouth",
+                "Headache",
+                "Neck weakness",
+                "Double vision"
+              ],
+              "answer": 1,
+              "explain": "Headache occurred in 9 percent, brow ptosis in 2 percent."
+            },
+            {
+              "q": "About how far above the brow do consensus papers keep forehead points?",
+              "choices": [
+                "Directly on the brow",
+                "About 1.5 to 2 cm",
+                "5 cm",
+                "Below the brow"
+              ],
+              "answer": 1,
+              "explain": "Staying well above the brow lets the lower frontalis keep lifting it."
+            }
+          ]
+        },
+        {
+          "id": "fl-heavy-brow",
+          "title": "Heavy brows, Spock brows and individual foreheads",
+          "minutes": 6,
+          "body": [
+            "Two problems dominate forehead treatment. A heavy or dropped brow happens when too much of the lower frontalis is relaxed, especially in people who already use their forehead to hold their brows up. A Spock or Mephisto brow is the opposite: the center is relaxed while the outer frontalis still pulls, so the brow tails arch upward.",
+            "A heavy brow usually has to wait out the toxin. A Spock brow can often be softened at the 2-week visit with a very small dose in the overactive outer fibers, which is one reason the follow-up visit matters.",
+            "People with low-set brows, hooded upper lids or lids that already sag often rely on the frontalis to see clearly. A careful injector will notice that you raise your brows at rest and treat higher, lighter or not at all. Some people are better served by an eyelid or brow evaluation than by more toxin.",
+            "Forehead height matters too. A tall forehead may get a second row of points; a short one may get fewer, smaller doses. The label itself tells injectors to account for forehead size and the distribution of muscle activity."
+          ],
+          "resources": [
+            {
+              "type": "video",
+              "title": "How to avoid a heavy brow with Botox (short)",
+              "url": "https://www.youtube.com/watch?v=kw-LVtauN40",
+              "source": "YouTube: Dr. Stefani Kappel, board-certified dermatologist and Mohs surgeon",
+              "why": "A dermatologist's short explanation of how a heavy brow happens."
+            },
+            {
+              "type": "video",
+              "title": "The Spock Brow: Why It Happens After Botox",
+              "url": "https://www.youtube.com/watch?v=nqKohZgTeJU",
+              "source": "YouTube: Dr. Tim Pearce, U.K. physician and aesthetics educator; clinician audience",
+              "why": "What a Spock brow is and why it appears."
+            },
+            {
+              "type": "video",
+              "title": "Brow Ptosis vs Hooded Eyelid and Botox",
+              "url": "https://www.youtube.com/watch?v=gNB60SwQZ2g",
+              "source": "YouTube: Dr. Tim Pearce, U.K. physician and aesthetics educator; clinician audience",
+              "why": "Brow ptosis versus hooded eyelids, and why the difference matters."
+            },
+            {
+              "type": "paper",
+              "title": "Complications of botulinum toxin and fillers: a narrative review",
+              "url": "https://pubmed.ncbi.nlm.nih.gov/31889407/",
+              "source": "Kassir et al., Journal of Cosmetic Dermatology, 2020",
+              "why": "Brow ptosis and asymmetry are the most common toxin complications in this review."
+            }
+          ],
+          "quiz": [
+            {
+              "q": "A Spock brow is caused by:",
+              "choices": [
+                "Relaxed center forehead with active outer frontalis",
+                "Too much toxin in the chin",
+                "Eyelid ptosis",
+                "Neck bands"
+              ],
+              "answer": 0,
+              "explain": "The outer frontalis keeps lifting the tails while the center is relaxed."
+            },
+            {
+              "q": "Who is most at risk of a heavy brow after forehead toxin?",
+              "choices": [
+                "People who rely on the frontalis to hold up low brows or heavy lids",
+                "People with gummy smiles",
+                "Anyone under 30",
+                "People who exercise"
+              ],
+              "answer": 0,
+              "explain": "If the frontalis is compensating for low brows or heavy lids, relaxing it lets the brow fall."
+            },
+            {
+              "q": "Which is often adjustable at the 2-week visit?",
+              "choices": [
+                "A heavy dropped brow",
+                "A slightly arched Spock brow",
+                "Eyelid ptosis",
+                "Swallowing difficulty"
+              ],
+              "answer": 1,
+              "explain": "A small dose to the overactive outer fibers can soften a Spock brow; a dropped brow usually needs time."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "glabella-11s",
+      "title": "11 lines (glabella)",
+      "group": "Treatments",
+      "summary": "The frown complex, the five-point label pattern, and why eyelid droop is the key risk.",
+      "muscleIds": [
+        "procerus",
+        "corrugator-l",
+        "corrugator-r",
+        "levator-palpebrae"
+      ],
+      "lessons": [
+        {
+          "id": "gl-pattern",
+          "title": "The frown complex and the five-point pattern",
+          "minutes": 7,
+          "body": [
+            "The 11s are vertical lines between the brows made mainly by the paired corrugator supercilii, which pull the brows down and together, and the procerus, which pulls the space between the brows down and creates a horizontal line at the bridge of the nose.",
+            "This is the most studied cosmetic toxin site. All six FDA-approved cosmetic products are labeled for it, and their labels use the same five-site layout: one point in the procerus and two in each corrugator.",
+            {
+              "type": "list",
+              "items": [
+                "Botox Cosmetic, Xeomin, Jeuveau and Letybo: 4 units per site, 20 units total.",
+                "Dysport: 10 units per site, 50 units total.",
+                "Daxxify: 8 units per site, 40 units total."
+              ]
+            },
+            "Doses are individualized. Consensus papers note that people with stronger muscles, which often includes men, may need more than the labeled starting dose, while a three-point version is sometimes used for lighter frowns (Carruthers et al., 2004; Sundaram et al., 2016).",
+            {
+              "type": "callout",
+              "tone": "caution",
+              "text": "Botulinum toxin injection is a licensed medical procedure. This lesson explains how a qualified injector approaches it and what the labeling and published consensus say. It is not instruction for injecting yourself or anyone else."
+            }
+          ],
+          "pattern": {
+            "points": 5,
+            "unitsTotal": "20U (Botox Cosmetic, Xeomin, Jeuveau, Letybo labels); 50U Dysport; 40U Daxxify",
+            "notes": "One procerus point and two per corrugator. Lateral corrugator points stay at least 1 cm above the bony brow ridge (label)."
+          },
+          "resources": [
+            {
+              "type": "label",
+              "title": "Botox Cosmetic (onabotulinumtoxinA) prescribing information",
+              "url": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=485d9b71-6881-42c5-a620-a4360c7192ab",
+              "source": "FDA label via DailyMed (NLM), revised 10/2024",
+              "why": "Five glabellar sites, 4 units each, and the ptosis-reduction steps."
+            },
+            {
+              "type": "label",
+              "title": "Daxxify (daxibotulinumtoxinA-lanm) prescribing information",
+              "url": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=3aaa6e14-a3f7-4fb2-b9f9-d3a9c3ae1f74",
+              "source": "FDA label via DailyMed (NLM)",
+              "why": "Daxxify's glabellar dose: 8 units into each of five sites."
+            },
+            {
+              "type": "label",
+              "title": "Letybo (letibotulinumtoxinA-wlbg) prescribing information",
+              "url": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=910e5d0e-4d0b-4de8-8e2d-97879a044181",
+              "source": "FDA label via DailyMed (NLM), revised 11/2024",
+              "why": "Letybo's glabellar label, the most recent approval."
+            },
+            {
+              "type": "video",
+              "title": "Botox for Crow's Feet and 11s",
+              "url": "https://www.youtube.com/watch?v=KoDCnQMqSbQ",
+              "source": "YouTube: Dr. Adam Mamelak, board-certified dermatologist",
+              "why": "A board-certified dermatologist treats crow's feet and 11s."
+            },
+            {
+              "type": "paper",
+              "title": "Consensus recommendations on the use of botulinum toxin type A in facial aesthetics",
+              "url": "https://pubmed.ncbi.nlm.nih.gov/15507786/",
+              "source": "Carruthers et al., Plastic and Reconstructive Surgery, 2004",
+              "why": "Consensus on glabellar dosing, including stronger muscles."
+            }
+          ],
+          "quiz": [
+            {
+              "q": "Which two muscles make most of the 11 lines?",
+              "choices": [
+                "Frontalis and platysma",
+                "Corrugators and procerus",
+                "Masseter and temporalis",
+                "Mentalis and DAO"
+              ],
+              "answer": 1,
+              "explain": "The corrugators pull the brows together and the procerus pulls the center down."
+            },
+            {
+              "q": "How many injection sites does every glabellar label use?",
+              "choices": [
+                "3",
+                "5",
+                "8",
+                "10"
+              ],
+              "answer": 1,
+              "explain": "One procerus site and two per corrugator."
+            },
+            {
+              "q": "Which product uses 40 units for the glabella on its label?",
+              "choices": [
+                "Botox Cosmetic",
+                "Dysport",
+                "Daxxify",
+                "Jeuveau"
+              ],
+              "answer": 2,
+              "explain": "Daxxify uses 8 units into each of five sites."
+            },
+            {
+              "q": "How many products are FDA labeled for glabellar lines?",
+              "choices": [
+                "One",
+                "Three",
+                "All six cosmetic toxins",
+                "None"
+              ],
+              "answer": 2,
+              "explain": "Botox Cosmetic, Dysport, Xeomin, Jeuveau, Daxxify and Letybo all carry glabellar indications."
+            }
+          ]
+        },
+        {
+          "id": "gl-ptosis",
+          "title": "Why eyelid droop is the glabellar risk",
+          "minutes": 5,
+          "body": [
+            "The muscle that lifts the upper eyelid, the levator palpebrae superioris, sits just below the brow behind the orbital rim. Toxin that drifts there causes eyelid ptosis: one lid sits lower and can feel heavy.",
+            "In the Botox Cosmetic glabellar trials, eyelid ptosis was the most common adverse reaction at 3 percent. It was 2 percent in the Daxxify and Jeuveau programs (each product's label).",
+            "The labels list concrete steps to reduce it: avoid injecting near the levator, especially in people with larger brow depressors; keep lateral corrugator injections at least 1 cm above the bony ridge; keep volume and dose accurate and as low as feasible; and do not inject closer than 1 cm above the central eyebrow.",
+            "Ptosis from toxin typically appears 3 to 14 days after treatment and resolves on its own as the toxin wears off. A physician may prescribe eye drops that can partly lift the lid in the meantime (Nestor et al., 2021). The Safety courses explain what to do if it happens.",
+            {
+              "type": "callout",
+              "tone": "caution",
+              "text": "If both eyelids droop, or a droopy lid comes with double vision, slurred speech or trouble swallowing, that is not a typical local side effect. Seek urgent care."
+            }
+          ],
+          "resources": [
+            {
+              "type": "paper",
+              "title": "Botulinum toxin-induced blepharoptosis: anatomy, etiology, prevention, and therapeutic options",
+              "url": "https://pubmed.ncbi.nlm.nih.gov/34378298/",
+              "source": "Nestor et al., Journal of Cosmetic Dermatology, 2021",
+              "why": "Anatomy, prevention and treatment of toxin-induced eyelid ptosis."
+            },
+            {
+              "type": "label",
+              "title": "Botox Cosmetic (onabotulinumtoxinA) prescribing information",
+              "url": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=485d9b71-6881-42c5-a620-a4360c7192ab",
+              "source": "FDA label via DailyMed (NLM), revised 10/2024",
+              "why": "Eyelid ptosis rate and the label's prevention steps."
+            },
+            {
+              "type": "label",
+              "title": "Jeuveau (prabotulinumtoxinA-xvfs) prescribing information",
+              "url": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=17a914c1-e54b-4b50-965d-b0fd9111bba4",
+              "source": "FDA label via DailyMed (NLM)",
+              "why": "Jeuveau's adverse reaction rates, including ptosis."
+            },
+            {
+              "type": "video",
+              "title": "Muscle Anatomy: How to Avoid Side Effects and Maximize Botox Efficiency",
+              "url": "https://www.youtube.com/watch?v=lsyvrIcGZoQ",
+              "source": "YouTube: Dr. Tim Pearce, U.K. physician and aesthetics educator; clinician audience",
+              "why": "How upper-face anatomy explains eyelid droop."
+            }
+          ],
+          "quiz": [
+            {
+              "q": "Eyelid ptosis after frown treatment comes from toxin reaching which muscle?",
+              "choices": [
+                "Levator palpebrae superioris",
+                "Masseter",
+                "Orbicularis oris",
+                "Nasalis"
+              ],
+              "answer": 0,
+              "explain": "The levator lifts the upper lid."
+            },
+            {
+              "q": "What was the eyelid ptosis rate in the Botox Cosmetic glabellar trials?",
+              "choices": [
+                "Under 0.1 percent",
+                "3 percent",
+                "15 percent",
+                "30 percent"
+              ],
+              "answer": 1,
+              "explain": "The label lists eyelid ptosis at 3 percent for glabellar lines."
+            },
+            {
+              "q": "When does toxin-related eyelid ptosis usually appear?",
+              "choices": [
+                "Within minutes",
+                "About 3 to 14 days after treatment",
+                "After 6 months",
+                "Only after the second treatment"
+              ],
+              "answer": 1,
+              "explain": "Nestor et al. describe a mean onset of 3 to 14 days."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "crows-feet",
+      "title": "Crow's feet",
+      "group": "Treatments",
+      "summary": "Lateral canthal lines, the six-point label pattern, and protecting the smile.",
+      "muscleIds": [
+        "oculi-l",
+        "oculi-r",
+        "zygomaticus"
+      ],
+      "lessons": [
+        {
+          "id": "cf-pattern",
+          "title": "The orbicularis oculi and the labeled pattern",
+          "minutes": 6,
+          "body": [
+            "Crow's feet are the lines that fan out from the outer corner of the eye when you smile or squint. They come from the outer part of the orbicularis oculi, a ring of muscle that closes the eye.",
+            "Botox Cosmetic is labeled for crow's feet, and Xeomin is labeled for them as part of upper facial lines. Both use 4 units in each of 3 sites per side, 24 units total.",
+            "The Botox Cosmetic label places the first point about 1.5 to 2.0 cm toward the temple from the outer eye corner and just outside the bony orbital rim, with the other points above and below it depending on where the lines are. It directs the needle bevel up and pointed away from the eye.",
+            "Eyelid edema (1 percent) was the most common adverse reaction in the crow's feet trials. Points placed too low risk reaching the zygomaticus, which lifts the smile, so an injector watches your smile before choosing points.",
+            {
+              "type": "callout",
+              "tone": "caution",
+              "text": "Botulinum toxin injection is a licensed medical procedure. This lesson explains how a qualified injector approaches it and what the labeling and published consensus say. It is not instruction for injecting yourself or anyone else."
+            }
+          ],
+          "pattern": {
+            "points": 6,
+            "unitsTotal": "24U, 12U per side in 3 sites (Botox Cosmetic and Xeomin labels)",
+            "notes": "First point about 1.5 to 2.0 cm outside the eye corner, just outside the orbital rim. Upper face maximum when treating all three areas with Botox Cosmetic is 64U."
+          },
+          "resources": [
+            {
+              "type": "label",
+              "title": "Botox Cosmetic (onabotulinumtoxinA) prescribing information",
+              "url": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=485d9b71-6881-42c5-a620-a4360c7192ab",
+              "source": "FDA label via DailyMed (NLM), revised 10/2024",
+              "why": "Figure 1 and section 2.4: the six crow's feet sites."
+            },
+            {
+              "type": "label",
+              "title": "Xeomin (incobotulinumtoxinA) prescribing information",
+              "url": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=3f35d6e0-3450-4abc-a0da-cc7b277e7c6e",
+              "source": "FDA label via DailyMed (NLM)",
+              "why": "Xeomin's lateral canthal dose within its upper facial lines indication."
+            },
+            {
+              "type": "paper",
+              "title": "Treatment of crow's feet lines and forehead lines with Botox (onabotulinumtoxinA): development, insights, and impact",
+              "url": "https://pubmed.ncbi.nlm.nih.gov/37499083/",
+              "source": "Medicine (Baltimore), 2023",
+              "why": "How the crow's feet indication was developed."
+            },
+            {
+              "type": "video",
+              "title": "Botox for Crow's Feet and 11s",
+              "url": "https://www.youtube.com/watch?v=KoDCnQMqSbQ",
+              "source": "YouTube: Dr. Adam Mamelak, board-certified dermatologist",
+              "why": "A dermatologist treating crow's feet and frown lines."
+            }
+          ],
+          "quiz": [
+            {
+              "q": "What is the labeled crow's feet dose for Botox Cosmetic?",
+              "choices": [
+                "12 units total",
+                "20 units total",
+                "24 units total",
+                "40 units total"
+              ],
+              "answer": 2,
+              "explain": "4 units in 3 sites per side, 24 units total."
+            },
+            {
+              "q": "Which muscle makes crow's feet?",
+              "choices": [
+                "Lateral orbicularis oculi",
+                "Frontalis",
+                "Procerus",
+                "Masseter"
+              ],
+              "answer": 0,
+              "explain": "The outer orbicularis oculi closes the eye and creases the skin when you smile."
+            },
+            {
+              "q": "Why do injectors avoid placing crow's feet points too low?",
+              "choices": [
+                "The skin is thicker",
+                "To avoid the zygomaticus and a changed smile",
+                "It makes onset slower",
+                "It is not allowed on any label"
+              ],
+              "answer": 1,
+              "explain": "Low points can spread to the zygomaticus, which lifts the smile."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "brow-lift",
+      "title": "Brow lift",
+      "group": "Treatments",
+      "summary": "How relaxing brow depressors can raise the brow tail, and who it suits.",
+      "muscleIds": [
+        "browtail-l",
+        "browtail-r",
+        "frontalis-l",
+        "frontalis-r"
+      ],
+      "lessons": [
+        {
+          "id": "bl-concept",
+          "title": "Lifting by relaxing the depressors",
+          "minutes": 6,
+          "body": [
+            "A toxin brow lift does not add lift. It removes some of the downward pull so the frontalis, which still works, can raise the brow a little more. The usual target is the outer orbicularis oculi under the brow tail, and sometimes the frown muscles between the brows.",
+            "Ahn and colleagues described a temporal brow lift with toxin in 2000, reporting a measurable rise of the lateral brow after treating the upper outer orbicularis oculi (Ahn et al., 2000). Results are typically a few millimeters, not a surgical lift.",
+            "This is off-label. Doses in expert practice are small, often a few units per side, and the placement has to respect the frontalis above it. If the outer forehead is also treated heavily, the tail can drop instead of rise.",
+            "It suits people with mild tail droop and a healthy frontalis. It does not fix excess eyelid skin or significant brow ptosis, and a heavy hand can produce a surprised or Spock look. An oculoplastic or facial plastic evaluation is the next step when the issue is lid skin rather than brow position.",
+            {
+              "type": "callout",
+              "tone": "info",
+              "text": "This is an off-label area in the U.S. No FDA label sets a dose, so the numbers below come from published studies and expert consensus, and injectors vary."
+            },
+            {
+              "type": "callout",
+              "tone": "caution",
+              "text": "Botulinum toxin injection is a licensed medical procedure. This lesson explains how a qualified injector approaches it and what the labeling and published consensus say. It is not instruction for injecting yourself or anyone else."
+            }
+          ],
+          "pattern": {
+            "points": 2,
+            "unitsTotal": "A few units per side (expert opinion, no label)",
+            "notes": "Targets the brow depressor portion of the lateral orbicularis oculi under the tail; results are modest."
+          },
+          "resources": [
+            {
+              "type": "paper",
+              "title": "Temporal brow lift using botulinum toxin A",
+              "url": "https://pubmed.ncbi.nlm.nih.gov/10724275/",
+              "source": "Ahn et al., Plastic and Reconstructive Surgery, 2000",
+              "why": "The original study of a temporal brow lift with botulinum toxin."
+            },
+            {
+              "type": "video",
+              "title": "The Anatomy of a Botox Brow Lift, Part 1",
+              "url": "https://www.youtube.com/watch?v=YUF_4356SW8",
+              "source": "YouTube: Dr. Kristina Tansavatdi, facial plastic surgeon (practice reports double board certification)",
+              "why": "A facial plastic surgeon explains the anatomy of a toxin brow lift."
+            },
+            {
+              "type": "video",
+              "title": "Does Botox Lift or Lower Your Eyebrows?",
+              "url": "https://www.youtube.com/watch?v=XgIFxmAIDQ0",
+              "source": "YouTube: Dr. Konstantin Vasyukevich, facial plastic surgeon (practice reports ABFPRS and otolaryngology boards)",
+              "why": "Does toxin lift or lower the brows? A facial plastic surgeon explains both."
+            },
+            {
+              "type": "video",
+              "title": "Brow Ptosis vs Hooded Eyelid and Botox",
+              "url": "https://www.youtube.com/watch?v=gNB60SwQZ2g",
+              "source": "YouTube: Dr. Tim Pearce, U.K. physician and aesthetics educator; clinician audience",
+              "why": "Why hooded lids and brow ptosis are not the same problem."
+            }
+          ],
+          "quiz": [
+            {
+              "q": "How does a toxin brow lift work?",
+              "choices": [
+                "It adds volume under the brow",
+                "It relaxes brow depressors so the frontalis lifts more",
+                "It tightens the skin",
+                "It paralyzes the frontalis"
+              ],
+              "answer": 1,
+              "explain": "Removing some downward pull lets the frontalis raise the brow tail slightly."
+            },
+            {
+              "q": "Is the toxin brow lift on an FDA label?",
+              "choices": [
+                "Yes, Botox Cosmetic",
+                "Yes, Daxxify",
+                "No, it is off-label",
+                "Only in men"
+              ],
+              "answer": 2,
+              "explain": "No cosmetic label covers it; doses come from expert practice."
+            },
+            {
+              "q": "What can toxin not fix in this area?",
+              "choices": [
+                "Mild brow tail droop",
+                "Excess upper eyelid skin",
+                "A slightly low brow tail",
+                "A strong lateral orbicularis"
+              ],
+              "answer": 1,
+              "explain": "Extra lid skin needs a surgical or other evaluation; toxin only changes muscle pull."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "bunny-lines",
+      "title": "Bunny lines",
+      "group": "Treatments",
+      "summary": "Diagonal lines on the nose, the newest anatomy research, and protecting the upper lip.",
+      "muscleIds": [
+        "nasalis",
+        "llsan-l",
+        "llsan-r",
+        "procerus"
+      ],
+      "lessons": [
+        {
+          "id": "bn-anatomy",
+          "title": "The nasalis and the bunny triangle",
+          "minutes": 5,
+          "body": [
+            "Bunny lines are the diagonal wrinkles on the sides of the upper nose when you scrunch. They are traditionally blamed on the nasalis muscle and often become more noticeable once the frown lines are treated.",
+            "A 2025 cadaver and ultrasound study found a muscle-free area beneath the lines, which the authors called the bunny triangle, bordered by the procerus, nasalis, orbicularis oculi and the levator labii superioris alaeque nasi (LLSAN). They concluded that injecting straight into the wrinkles may hit connective tissue instead of muscle, and that targeting the muscle borders may work better (Ahn et al., 2025).",
+            "The main risk is spread to the LLSAN or nearby lip elevators, which can make the upper lip feel heavy or change the smile. An aesthetics educator's short video below walks through these side effects. Doses in practice are small and off-label.",
+            "Toxin around the nose is also marketed for reshaping the nasal tip. A board-certified dermatologist's review of that trend is a useful reality check on what toxin can and cannot change.",
+            {
+              "type": "callout",
+              "tone": "info",
+              "text": "This is an off-label area in the U.S. No FDA label sets a dose, so the numbers below come from published studies and expert consensus, and injectors vary."
+            },
+            {
+              "type": "callout",
+              "tone": "caution",
+              "text": "Botulinum toxin injection is a licensed medical procedure. This lesson explains how a qualified injector approaches it and what the labeling and published consensus say. It is not instruction for injecting yourself or anyone else."
+            }
+          ],
+          "pattern": {
+            "points": 2,
+            "unitsTotal": "Small doses, a few units per side (expert opinion, no label)",
+            "notes": "Kept high on the nasal sidewall and away from the LLSAN to protect upper lip lift."
+          },
+          "resources": [
+            {
+              "type": "paper",
+              "title": "Anatomical etiology of bunny lines based on cadaveric dissection and ultrasonographic evaluation",
+              "url": "https://pubmed.ncbi.nlm.nih.gov/39711041/",
+              "source": "Ahn et al., Clinical Anatomy, 2025",
+              "why": "The 2025 anatomy study that redefined what sits under bunny lines."
+            },
+            {
+              "type": "video",
+              "title": "Bunny line side effects from botulinum toxin: what can go wrong?",
+              "url": "https://www.youtube.com/watch?v=A437kUer3wc",
+              "source": "YouTube: Dr. Tim Pearce, U.K. physician and aesthetics educator; clinician audience",
+              "why": "What can go wrong with bunny line treatment."
+            },
+            {
+              "type": "video",
+              "title": "Reshaping Your Nose with Botox? The Truth About the Tinkerbell Nose Trend",
+              "url": "https://www.youtube.com/watch?v=tS-wlGzNtWc",
+              "source": "YouTube: Dr. Stefani Kappel, board-certified dermatologist and Mohs surgeon",
+              "why": "A dermatologist on the limits of toxin for nose reshaping."
+            },
+            {
+              "type": "paper",
+              "title": "Global Aesthetics Consensus: Botulinum Toxin Type A, Evidence-Based Review, Emerging Concepts, and Consensus Recommendations",
+              "url": "https://pubmed.ncbi.nlm.nih.gov/26910696/",
+              "source": "Sundaram et al., Plastic and Reconstructive Surgery, 2016",
+              "why": "Consensus context for off-label nasal treatment."
+            }
+          ],
+          "quiz": [
+            {
+              "q": "Bunny lines appear when you:",
+              "choices": [
+                "Raise your brows",
+                "Scrunch your nose",
+                "Clench your jaw",
+                "Purse your lips"
+              ],
+              "answer": 1,
+              "explain": "They form on the upper sides of the nose with scrunching."
+            },
+            {
+              "q": "What did the 2025 anatomy study find beneath bunny lines?",
+              "choices": [
+                "A thick muscle",
+                "A muscle-free area bordered by several muscles",
+                "A large artery only",
+                "Bone"
+              ],
+              "answer": 1,
+              "explain": "The bunny triangle is a non-muscular area between the procerus, nasalis, orbicularis oculi and LLSAN."
+            },
+            {
+              "q": "What is the main risk of toxin spreading low from the nose?",
+              "choices": [
+                "Eyelid ptosis",
+                "A heavy upper lip or changed smile",
+                "Neck weakness",
+                "Jaw fatigue"
+              ],
+              "answer": 1,
+              "explain": "Spread to the LLSAN and lip elevators can weaken the upper lip."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "lip-flip-lines",
+      "title": "Lip flip and lip lines",
+      "group": "Treatments",
+      "summary": "Tiny doses in the orbicularis oris, what the evidence says, and the functional trade-offs.",
+      "muscleIds": [
+        "oris"
+      ],
+      "lessons": [
+        {
+          "id": "lf-flip",
+          "title": "The lip flip",
+          "minutes": 6,
+          "body": [
+            "A lip flip places a very small amount of toxin in the orbicularis oris along the upper lip border. Relaxing that edge lets the lip roll outward slightly, so more of the pink shows when you smile. It adds no volume, which is the key difference from filler.",
+            "A 2025 systematic review found seven studies that reported sites and doses. The procedure typically used 4 to 6 units in the orbicularis oris, with high satisfaction and mild, temporary side effects such as trouble whistling or drinking through a straw (Pitchford et al., 2025).",
+            "Cleveland Clinic describes about 2 to 4 units in the upper lip and about 2 in the lower lip, results within about a week, and an effect lasting 2 to 5 months, shorter than many other areas because the lips move constantly.",
+            "Vertical lip lines, often called smoker's lines, can also be softened with small doses in the same muscle, but etched lines usually need resurfacing or filler as well. Too much toxin here can cause drooling, trouble with straws, or changes in speech until it wears off.",
+            {
+              "type": "callout",
+              "tone": "info",
+              "text": "This is an off-label area in the U.S. No FDA label sets a dose, so the numbers below come from published studies and expert consensus, and injectors vary."
+            },
+            {
+              "type": "callout",
+              "tone": "caution",
+              "text": "Botulinum toxin injection is a licensed medical procedure. This lesson explains how a qualified injector approaches it and what the labeling and published consensus say. It is not instruction for injecting yourself or anyone else."
+            }
+          ],
+          "pattern": {
+            "points": 4,
+            "unitsTotal": "About 4 to 6U total (systematic review; no label)",
+            "notes": "Tiny doses along the upper lip border; the mouth corners are usually avoided to protect lip function."
+          },
+          "resources": [
+            {
+              "type": "paper",
+              "title": "The lip flip: a systematic review of botulinum toxin lip augmentation",
+              "url": "https://pubmed.ncbi.nlm.nih.gov/40377719/",
+              "source": "Pitchford, Desrosiers and Tolkachjov, Archives of Dermatological Research, 2025",
+              "why": "Systematic review of lip flip technique, doses and safety."
+            },
+            {
+              "type": "article",
+              "title": "Lip Flip: What It Is, Results and Precautions",
+              "url": "https://my.clevelandclinic.org/health/treatments/22362-lip-flip",
+              "source": "Cleveland Clinic",
+              "why": "Cleveland Clinic's patient guide, including lip flip versus filler."
+            },
+            {
+              "type": "video",
+              "title": "What Is a Lip Flip and Its Side Effects?",
+              "url": "https://www.youtube.com/watch?v=VpanmE-mkIw",
+              "source": "YouTube: Dr. Konstantin Vasyukevich, facial plastic surgeon",
+              "why": "A facial plastic surgeon on the lip flip and its side effects."
+            }
+          ],
+          "quiz": [
+            {
+              "q": "How does a lip flip differ from lip filler?",
+              "choices": [
+                "It adds more volume",
+                "It relaxes muscle so the lip rolls out, with no added volume",
+                "It is permanent",
+                "It is FDA labeled"
+              ],
+              "answer": 1,
+              "explain": "The toxin relaxes the orbicularis oris edge; filler adds volume."
+            },
+            {
+              "q": "The 2025 systematic review found typical lip flip doses of:",
+              "choices": [
+                "4 to 6 units",
+                "20 units",
+                "40 units",
+                "100 units"
+              ],
+              "answer": 0,
+              "explain": "Most included studies used 4 to 6 units in the orbicularis oris."
+            },
+            {
+              "q": "A common temporary side effect of a lip flip is:",
+              "choices": [
+                "Eyelid droop",
+                "Trouble drinking through a straw",
+                "Neck weakness",
+                "Jaw fatigue"
+              ],
+              "answer": 1,
+              "explain": "Weakening the lip sphincter can make whistling and straws harder for a few weeks."
+            },
+            {
+              "q": "Why might a lip flip wear off sooner than forehead treatment?",
+              "choices": [
+                "The lips move constantly",
+                "The product is weaker",
+                "The skin is thicker",
+                "It is not real toxin"
+              ],
+              "answer": 0,
+              "explain": "Cleveland Clinic notes a 2 to 5 month duration; constant lip movement is a common explanation."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "gummy-smile",
+      "title": "Gummy smile",
+      "group": "Treatments",
+      "summary": "Lip elevator anatomy, what the trials show, and when the cause is not muscular.",
+      "muscleIds": [
+        "llsan-l",
+        "llsan-r",
+        "zygomaticus"
+      ],
+      "lessons": [
+        {
+          "id": "gs-overview",
+          "title": "Treating a gummy smile",
+          "minutes": 6,
+          "body": [
+            "A gummy smile shows more gum than a person likes when they smile fully. One cause is an overactive group of upper lip elevators: the levator labii superioris, the levator labii superioris alaeque nasi (LLSAN) beside the nose, and the zygomaticus minor.",
+            "A 2023 systematic review and meta-analysis found that toxin in these muscles, at doses from about 1.25 to 7.5 units per side, reduced gum display. Compared with controls, the mean reduction was about 2.5 mm at 2 weeks and about 2.2 mm at 3 months, with results fading gradually (Rojo-Sanchis et al., 2023).",
+            "Toxin only helps when the cause is muscular. A gummy smile from excess vertical growth of the upper jaw, gums that cover too much of the teeth, or other dental causes needs a dental, orthodontic or surgical evaluation. The same review excluded those causes from its analysis.",
+            "Too much effect can lengthen the upper lip, flatten the smile or make it uneven, which is why doses are small and the zygomaticus major is avoided.",
+            {
+              "type": "callout",
+              "tone": "info",
+              "text": "This is an off-label area in the U.S. No FDA label sets a dose, so the numbers below come from published studies and expert consensus, and injectors vary."
+            },
+            {
+              "type": "callout",
+              "tone": "caution",
+              "text": "Botulinum toxin injection is a licensed medical procedure. This lesson explains how a qualified injector approaches it and what the labeling and published consensus say. It is not instruction for injecting yourself or anyone else."
+            }
+          ],
+          "pattern": {
+            "points": 2,
+            "unitsTotal": "About 1.25 to 7.5U per side in published studies (no label)",
+            "notes": "Usually one point per side near the LLSAN beside the nose; dose depends on how much gum shows."
+          },
+          "resources": [
+            {
+              "type": "paper",
+              "title": "Non-Surgical Management of the Gingival Smile with Botulinum Toxin A: A Systematic Review and Meta-Analysis",
+              "url": "https://pubmed.ncbi.nlm.nih.gov/36835971/",
+              "source": "Rojo-Sanchis et al., Journal of Clinical Medicine, 2023",
+              "why": "Meta-analysis of toxin for gummy smile, including doses and duration."
+            },
+            {
+              "type": "video",
+              "title": "Botox for the Gummy Smile",
+              "url": "https://www.youtube.com/watch?v=G5VvlpdC8-w",
+              "source": "YouTube: Nazarian Plastic Surgery, practice of Dr. Sheila Nazarian, board-certified plastic surgeon (ABPS)",
+              "why": "A plastic surgery practice's short explanation of gummy smile treatment."
+            },
+            {
+              "type": "article",
+              "title": "Botulinum Toxin",
+              "url": "https://www.plasticsurgery.org/cosmetic-procedures/botulinum-toxin",
+              "source": "American Society of Plastic Surgeons",
+              "why": "ASPS lists gummy smile among toxin uses."
+            }
+          ],
+          "quiz": [
+            {
+              "q": "Which muscles are usually targeted for a muscular gummy smile?",
+              "choices": [
+                "Upper lip elevators such as the LLSAN",
+                "Masseters",
+                "Frontalis",
+                "Platysma"
+              ],
+              "answer": 0,
+              "explain": "The levator labii superioris, LLSAN and zygomaticus minor lift the upper lip."
+            },
+            {
+              "q": "When will toxin not help a gummy smile?",
+              "choices": [
+                "When the cause is excess upper jaw growth or gum tissue",
+                "When the lip elevators are strong",
+                "When the person smiles often",
+                "When the person is over 30"
+              ],
+              "answer": 0,
+              "explain": "Skeletal and dental causes need dental, orthodontic or surgical care."
+            },
+            {
+              "q": "In the meta-analysis, the effect at 3 months compared with controls was about:",
+              "choices": [
+                "No difference",
+                "A 2.2 mm greater reduction",
+                "A 10 mm reduction",
+                "Permanent correction"
+              ],
+              "answer": 1,
+              "explain": "Reduction was about 2.5 mm at 2 weeks and about 2.2 mm at 3 months."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "mouth-corners",
+      "title": "Downturned mouth corners",
+      "group": "Treatments",
+      "summary": "The depressor anguli oris, consensus dosing, and why the lower lip is the risk.",
+      "muscleIds": [
+        "dao-l",
+        "dao-r",
+        "risorius",
+        "zygomaticus"
+      ],
+      "lessons": [
+        {
+          "id": "mc-dao",
+          "title": "Relaxing the depressor anguli oris",
+          "minutes": 6,
+          "body": [
+            "The depressor anguli oris (DAO) is a small triangular muscle that runs from the jawbone up to the corner of the mouth. When it is strong, it pulls the corners down, which can give a sad or tired look and deepen marionette lines.",
+            "A 2026 Italian consensus that also reviewed 16 international consensus papers found that both groups used a mean total of about 5.6 units for the DAO. Nearly all of the 14 experts preferred an intramuscular injection at a single point lateral to the marionette line, staying in a safe zone away from the depressor labii inferioris (Fundaro et al., 2026).",
+            "The danger is spread to the depressor labii inferioris, which moves the lower lip, or to the risorius and zygomaticus, which shape the smile. That can cause an uneven lower lip, a crooked smile or drooling until it wears off. Sources differ on the exact safe distance from the mouth corner, so placement is very injector-dependent.",
+            "Toxin softens the pull; it does not replace lost volume. Deep marionette lines from volume loss often need filler or other treatments in addition.",
+            {
+              "type": "callout",
+              "tone": "info",
+              "text": "This is an off-label area in the U.S. No FDA label sets a dose, so the numbers below come from published studies and expert consensus, and injectors vary."
+            },
+            {
+              "type": "callout",
+              "tone": "caution",
+              "text": "Botulinum toxin injection is a licensed medical procedure. This lesson explains how a qualified injector approaches it and what the labeling and published consensus say. It is not instruction for injecting yourself or anyone else."
+            }
+          ],
+          "pattern": {
+            "points": 2,
+            "unitsTotal": "Mean about 5.6U total (Italian and international consensus; no label)",
+            "notes": "Usually one point per side lateral to the marionette line, away from the lower lip depressor."
+          },
+          "resources": [
+            {
+              "type": "paper",
+              "title": "Italian Consensus and Review in Lower Face Mimetic Muscle Treatment with Botulinum Toxin-A",
+              "url": "https://pubmed.ncbi.nlm.nih.gov/42646760/",
+              "source": "Fundaro et al., Toxins, 2026",
+              "why": "The 2026 consensus on DAO, mentalis and platysma treatment."
+            },
+            {
+              "type": "video",
+              "title": "Advanced Botox Anatomy: Avoiding Lower-Face Side Effects",
+              "url": "https://www.youtube.com/watch?v=GcRhACNBGnA",
+              "source": "YouTube: Dr. Tim Pearce, U.K. physician and aesthetics educator; clinician audience",
+              "why": "Lower-face anatomy and how side effects happen."
+            },
+            {
+              "type": "video",
+              "title": "Facial Plastic Surgeon Reveals the Best Areas to Get Botox",
+              "url": "https://www.youtube.com/watch?v=kUxC9M3G00g",
+              "source": "YouTube: Dr. Amir Karam, board-certified facial plastic surgeon (ABFPRS)",
+              "why": "A facial plastic surgeon on which areas are worth treating."
+            }
+          ],
+          "quiz": [
+            {
+              "q": "What does the DAO do?",
+              "choices": [
+                "Lifts the brows",
+                "Pulls the mouth corners down",
+                "Closes the jaw",
+                "Flares the nostrils"
+              ],
+              "answer": 1,
+              "explain": "The depressor anguli oris pulls the corners of the mouth downward."
+            },
+            {
+              "q": "What mean total dose did the consensus report for the DAO?",
+              "choices": [
+                "About 5.6 units",
+                "About 24 units",
+                "About 50 units",
+                "About 100 units"
+              ],
+              "answer": 0,
+              "explain": "Both the Italian panel and the international papers averaged about 5.6 units."
+            },
+            {
+              "q": "Spread to which muscle causes an uneven lower lip?",
+              "choices": [
+                "Depressor labii inferioris",
+                "Frontalis",
+                "Masseter",
+                "Procerus"
+              ],
+              "answer": 0,
+              "explain": "The depressor labii inferioris moves the lower lip; injectors keep DAO points away from it."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "chin",
+      "title": "Chin dimpling and mental crease",
+      "group": "Treatments",
+      "summary": "The mentalis, pebbled chin texture, and consensus dosing.",
+      "muscleIds": [
+        "mentalis"
+      ],
+      "lessons": [
+        {
+          "id": "ch-mentalis",
+          "title": "Relaxing the mentalis",
+          "minutes": 5,
+          "body": [
+            "The mentalis is a paired cone-shaped muscle at the tip of the chin. It lifts and puckers the chin skin and pushes the lower lip up. When it is overactive the chin gets a dimpled, golf ball or orange peel texture, and the crease under the lower lip can deepen.",
+            "The 2026 Italian consensus listed orange peel chin and mentalis hyperactivity as the main indications. The Italian panel recommended a mean total of 8 units split between both sides, slightly higher than the 6.5 unit international average, often combining injections into the muscle and into the skin (Fundaro et al., 2026).",
+            "Points are placed low on the chin near the midline. Toxin that spreads upward or outward can weaken the lower lip, making it harder to close the lips, causing drooling, or making the smile uneven.",
+            "Chin dimpling sometimes reflects a short or retruded chin that the mentalis is straining to support. In that case an injector may discuss filler or a surgical opinion along with, or instead of, toxin.",
+            {
+              "type": "callout",
+              "tone": "info",
+              "text": "This is an off-label area in the U.S. No FDA label sets a dose, so the numbers below come from published studies and expert consensus, and injectors vary."
+            },
+            {
+              "type": "callout",
+              "tone": "caution",
+              "text": "Botulinum toxin injection is a licensed medical procedure. This lesson explains how a qualified injector approaches it and what the labeling and published consensus say. It is not instruction for injecting yourself or anyone else."
+            }
+          ],
+          "pattern": {
+            "points": 2,
+            "unitsTotal": "Mean 6.5 to 8U total (international and Italian consensus; no label)",
+            "notes": "Low on the chin, near the midline, away from the lower lip depressors."
+          },
+          "resources": [
+            {
+              "type": "paper",
+              "title": "Italian Consensus and Review in Lower Face Mimetic Muscle Treatment with Botulinum Toxin-A",
+              "url": "https://pubmed.ncbi.nlm.nih.gov/42646760/",
+              "source": "Fundaro et al., Toxins, 2026",
+              "why": "Consensus doses and techniques for the mentalis."
+            },
+            {
+              "type": "video",
+              "title": "How to Achieve a Smooth Chin: Botox for Chin Dimples",
+              "url": "https://www.youtube.com/watch?v=5IzQUq8STC0",
+              "source": "YouTube: Dr. Jon Mendelsohn, double board-certified facial plastic surgeon",
+              "why": "A facial plastic surgeon on smoothing a dimpled chin."
+            },
+            {
+              "type": "video",
+              "title": "Advanced Botox Anatomy: Avoiding Lower-Face Side Effects",
+              "url": "https://www.youtube.com/watch?v=GcRhACNBGnA",
+              "source": "YouTube: Dr. Tim Pearce, U.K. physician and aesthetics educator; clinician audience",
+              "why": "Why chin points stay low and central."
+            }
+          ],
+          "quiz": [
+            {
+              "q": "Which texture suggests an overactive mentalis?",
+              "choices": [
+                "Orange peel or golf ball chin",
+                "Crow's feet",
+                "Bunny lines",
+                "Neck bands"
+              ],
+              "answer": 0,
+              "explain": "Hyperactive mentalis puckers the chin skin into a pebbled texture."
+            },
+            {
+              "q": "What mean total dose did the Italian panel recommend for the mentalis?",
+              "choices": [
+                "2 units",
+                "8 units",
+                "24 units",
+                "50 units"
+              ],
+              "answer": 1,
+              "explain": "The Italian panel averaged 8 units, the international papers 6.5 units."
+            },
+            {
+              "q": "Why are chin points kept low and central?",
+              "choices": [
+                "To protect lower lip movement",
+                "To protect the eyelids",
+                "To reach the masseter",
+                "To lift the brows"
+              ],
+              "answer": 0,
+              "explain": "Spread upward or outward can weaken the lower lip and cause drooling or asymmetry."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "masseter",
+      "title": "Jaw slimming and clenching (masseter)",
+      "group": "Treatments",
+      "summary": "Masseter reduction for jaw width and grinding, the trial evidence, and its limits.",
+      "muscleIds": [
+        "masseter-l",
+        "masseter-r",
+        "risorius"
+      ],
+      "lessons": [
+        {
+          "id": "ms-slimming",
+          "title": "Masseter treatment for jaw width",
+          "minutes": 6,
+          "body": [
+            "The masseter is a thick chewing muscle at the angle of the jaw. When it is large, from genetics or from clenching, it widens the lower face. Toxin relaxes the muscle and, over weeks, it shrinks, which can narrow the jawline.",
+            "A 2026 meta-analysis pooled five randomized, placebo-controlled trials with 536 participants. Toxin improved masseter prominence scores, reduced muscle thickness and raised satisfaction; trial regimens of 48 and 72 units total both showed benefit. The authors found too much variation to define an optimal dose or protocol (Machado et al., 2026).",
+            "This is off-label in the U.S. Slimming takes longer than wrinkle treatment because the change comes from the muscle shrinking, so it is judged over several weeks rather than at day 14.",
+            "Injectors keep points in the lower, back part of the muscle, away from the front edge where the risorius and smile muscles sit. Possible side effects include chewing fatigue, a changed smile if toxin spreads forward, and a bulge if part of the muscle is missed.",
+            {
+              "type": "callout",
+              "tone": "info",
+              "text": "This is an off-label area in the U.S. No FDA label sets a dose, so the numbers below come from published studies and expert consensus, and injectors vary."
+            },
+            {
+              "type": "callout",
+              "tone": "caution",
+              "text": "Botulinum toxin injection is a licensed medical procedure. This lesson explains how a qualified injector approaches it and what the labeling and published consensus say. It is not instruction for injecting yourself or anyone else."
+            }
+          ],
+          "pattern": {
+            "points": 6,
+            "unitsTotal": "Trials used 48U and 72U total; no standard protocol (meta-analysis; no label)",
+            "notes": "Several points per side in the lower rear muscle belly, clear of the front edge near the risorius."
+          },
+          "resources": [
+            {
+              "type": "paper",
+              "title": "Efficacy of botulinum toxin for masseter muscle hypertrophy: a systematic review and meta-analysis",
+              "url": "https://pubmed.ncbi.nlm.nih.gov/42379083/",
+              "source": "Machado et al., Journal of Plastic, Reconstructive and Aesthetic Surgery, 2026",
+              "why": "Meta-analysis of five randomized trials for masseter hypertrophy."
+            },
+            {
+              "type": "video",
+              "title": "Botox in the Masseter Muscles: Slimming and TMJ Pain",
+              "url": "https://www.youtube.com/watch?v=WLToe6zW5Bg",
+              "source": "YouTube: Dr. Simona Bartos, DO, double board-certified dermatologist",
+              "why": "A board-certified dermatologist on masseter treatment for slimming and TMJ."
+            },
+            {
+              "type": "video",
+              "title": "Botox Cosmetic Treatments in the Masseter Muscle and Jaw Line",
+              "url": "https://www.youtube.com/watch?v=S9R9m-REmgU",
+              "source": "YouTube: Dr. Michele Green, board-certified dermatologist",
+              "why": "A board-certified dermatologist on masseter and jawline treatment."
+            },
+            {
+              "type": "video",
+              "title": "Masseter Botox for Jaw Slimming and Bruxism: Units, Results and Training",
+              "url": "https://www.youtube.com/watch?v=Bgd5tdaDGMI",
+              "source": "YouTube: Empire Medical Training; made for licensed clinicians",
+              "why": "Clinician-training overview of masseter treatment, units and results."
+            }
+          ],
+          "quiz": [
+            {
+              "q": "How does toxin slim the jaw?",
+              "choices": [
+                "It dissolves fat",
+                "It relaxes the masseter so it shrinks over weeks",
+                "It tightens the skin",
+                "It moves the jawbone"
+              ],
+              "answer": 1,
+              "explain": "A relaxed muscle gradually loses bulk, which narrows the lower face."
+            },
+            {
+              "q": "What did the 2026 meta-analysis conclude about dosing?",
+              "choices": [
+                "One dose is proven best",
+                "48 and 72 unit regimens helped, but no optimal protocol could be defined",
+                "Doses do not matter",
+                "Only 10 units works"
+              ],
+              "answer": 1,
+              "explain": "Benefit was clear, but variation between trials prevented a dose recommendation."
+            },
+            {
+              "q": "Why are masseter points kept away from the front edge of the muscle?",
+              "choices": [
+                "To avoid the risorius and smile muscles",
+                "To avoid the eyes",
+                "To make it hurt less",
+                "To reach the neck"
+              ],
+              "answer": 0,
+              "explain": "Forward spread can change the smile."
+            }
+          ]
+        },
+        {
+          "id": "ms-clenching",
+          "title": "Clenching, grinding and TMJ pain",
+          "minutes": 5,
+          "body": [
+            "Many people ask for masseter treatment because they clench or grind their teeth (bruxism) or have jaw pain. The evidence here is more mixed than for jaw slimming.",
+            "A 2022 systematic review of 24 randomized trials concluded there is good evidence for toxin in masseter hypertrophy, equivocal evidence for muscle-related jaw pain disorders, and very little evidence for disorders of the jaw joint itself. Doses and methods varied widely (Delcanho et al., 2022).",
+            "Jaw pain has many causes. A dentist or physician who treats temporomandibular disorders should evaluate pain, clicking, locking or headaches before toxin is chosen, and a night guard or other treatment may be part of the plan.",
+            "Because the masseter is a chewing muscle, people sometimes notice tired chewing with tough foods in the first weeks. That usually settles as the effect plateaus."
+          ],
+          "resources": [
+            {
+              "type": "paper",
+              "title": "Botulinum Toxin for Treating Temporomandibular Disorders: What is the Evidence?",
+              "url": "https://pubmed.ncbi.nlm.nih.gov/35298571/",
+              "source": "Delcanho et al., Journal of Oral and Facial Pain and Headache, 2022",
+              "why": "Systematic review of toxin for temporomandibular disorders."
+            },
+            {
+              "type": "video",
+              "title": "Masseter Botox for TMJ Pain and Jaw Clenching",
+              "url": "https://www.youtube.com/watch?v=Ly-3XVS9X-A",
+              "source": "YouTube: Dr. Alexander Rivkin, otolaryngology-trained aesthetic physician, assistant clinical professor at UCLA",
+              "why": "An aesthetic physician on masseter treatment for TMJ pain and clenching."
+            },
+            {
+              "type": "video",
+              "title": "Botox in the Masseter Muscles: Slimming and TMJ Pain",
+              "url": "https://www.youtube.com/watch?v=WLToe6zW5Bg",
+              "source": "YouTube: Dr. Simona Bartos, DO, double board-certified dermatologist",
+              "why": "A dermatologist on slimming and TMJ relief."
+            }
+          ],
+          "quiz": [
+            {
+              "q": "For which jaw problem is the evidence strongest?",
+              "choices": [
+                "Masseter hypertrophy",
+                "Jaw joint disorders",
+                "Clicking only",
+                "Toothache"
+              ],
+              "answer": 0,
+              "explain": "The 2022 review found good evidence for hypertrophy, equivocal for muscle pain and little for joint disorders."
+            },
+            {
+              "q": "Who should evaluate jaw pain before toxin?",
+              "choices": [
+                "A dentist or physician who treats TMD",
+                "A hairstylist",
+                "No one",
+                "A social media group"
+              ],
+              "answer": 0,
+              "explain": "Jaw pain has many causes that need proper diagnosis."
+            },
+            {
+              "q": "A common early effect of masseter treatment is:",
+              "choices": [
+                "Eyelid droop",
+                "Tired chewing with tough foods",
+                "Neck bands",
+                "Bunny lines"
+              ],
+              "answer": 1,
+              "explain": "The masseter is a chewing muscle, so chewing can feel weaker for a while."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "temples",
+      "title": "Temples and tension",
+      "group": "Treatments",
+      "summary": "The temporalis, the labeled migraine protocol, and the limits of toxin for tension.",
+      "muscleIds": [
+        "temporalis-l",
+        "temporalis-r"
+      ],
+      "lessons": [
+        {
+          "id": "tp-temporalis",
+          "title": "The temporalis, migraine and tension",
+          "minutes": 5,
+          "body": [
+            "The temporalis is a fan-shaped chewing muscle over the temple. It works with the masseter to close the jaw, and people who clench often feel it tighten.",
+            "The temporalis is part of the FDA-labeled chronic migraine protocol for Botox, the therapeutic product. The label calls for 155 units across seven head and neck muscle areas every 12 weeks, including 40 units in 8 temporalis sites (Botox label). That is a medical treatment for chronic migraine, prescribed after a headache evaluation, not a cosmetic one.",
+            "For tension-type headache and clenching-related temple pain, the evidence is weaker and treatment is off-label. Reviews of toxin for jaw-muscle pain report mixed results (Delcanho et al., 2022).",
+            "Temple treatment for cosmetic reasons is uncommon. Weakening the temporalis can make the temple look more hollow in some people, so this area is usually approached for function, not appearance.",
+            {
+              "type": "callout",
+              "tone": "info",
+              "text": "If you have frequent headaches, start with a physician who treats headache. Chronic migraine has its own diagnosis and its own labeled dose, very different from cosmetic treatment."
+            }
+          ],
+          "pattern": {
+            "points": 8,
+            "unitsTotal": "40U in the temporalis as part of the 155U chronic migraine protocol (Botox therapeutic label)",
+            "notes": "Medical indication only. Cosmetic or tension use of the temporalis is off-label."
+          },
+          "resources": [
+            {
+              "type": "label",
+              "title": "Botox (onabotulinumtoxinA) prescribing information, therapeutic uses",
+              "url": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=33d066a9-34ff-4a1a-b38b-d10983df3300",
+              "source": "FDA label via DailyMed (NLM)",
+              "why": "Table 3 of the Botox label lists the chronic migraine dose by muscle."
+            },
+            {
+              "type": "video",
+              "title": "Have you wondered about Botox for migraines?",
+              "url": "https://www.youtube.com/watch?v=HVPkG5s2Czk",
+              "source": "YouTube: Mayo Clinic",
+              "why": "Mayo Clinic on toxin for migraine prevention."
+            },
+            {
+              "type": "paper",
+              "title": "Botulinum Toxin for Treating Temporomandibular Disorders: What is the Evidence?",
+              "url": "https://pubmed.ncbi.nlm.nih.gov/35298571/",
+              "source": "Delcanho et al., Journal of Oral and Facial Pain and Headache, 2022",
+              "why": "Evidence for toxin in jaw-muscle pain is mixed."
+            }
+          ],
+          "quiz": [
+            {
+              "q": "In the labeled chronic migraine protocol, how many units go into the temporalis?",
+              "choices": [
+                "4 units",
+                "20 units",
+                "40 units",
+                "155 units"
+              ],
+              "answer": 2,
+              "explain": "40 units in 8 sites, as part of the 155 unit total."
+            },
+            {
+              "q": "How often is the chronic migraine protocol repeated?",
+              "choices": [
+                "Every week",
+                "Every 12 weeks",
+                "Every year",
+                "Once only"
+              ],
+              "answer": 1,
+              "explain": "The label recommends re-treatment every 12 weeks."
+            },
+            {
+              "q": "A possible cosmetic downside of weakening the temporalis is:",
+              "choices": [
+                "Temple hollowing",
+                "Gummy smile",
+                "Neck bands",
+                "Bunny lines"
+              ],
+              "answer": 0,
+              "explain": "A smaller temporalis can make the temple look more hollow."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "neck-platysma",
+      "title": "Neck bands and jawline (platysma)",
+      "group": "Treatments",
+      "summary": "The newest Botox Cosmetic indication, the labeled pattern, and neck-specific risks.",
+      "muscleIds": [
+        "platysma-l",
+        "platysma-r"
+      ],
+      "lessons": [
+        {
+          "id": "np-label",
+          "title": "Platysma bands and the 2024 label",
+          "minutes": 7,
+          "body": [
+            "The platysma is a thin sheet of muscle that runs from the upper chest over the neck and into the lower face. With age its edges can stand out as vertical bands, and its pull can blur the jawline.",
+            "In October 2024 the FDA added moderate to severe platysma bands to the Botox Cosmetic label. The labeled pattern uses 2 units at each of 4 sites in the upper platysma just below the jawline on each side, plus 1 unit at each of 5 sites along each treated vertical band, with 1 to 2 bands per side.",
+            {
+              "type": "list",
+              "items": [
+                "One band per side: 26 units in 18 sites.",
+                "One band on one side, two on the other: 31 units in 23 sites.",
+                "Two bands per side: 36 units in 28 sites."
+              ]
+            },
+            "In a sponsor-funded phase 3 repeat-treatment study, 83.6 percent of participants improved by at least one grade after the first cycle, rising to 98 percent by the fourth. Treatment-related events were mild, though a few participants reported events of special interest such as difficulty swallowing (Mraz et al., 2026).",
+            {
+              "type": "callout",
+              "tone": "caution",
+              "text": "Botulinum toxin injection is a licensed medical procedure. This lesson explains how a qualified injector approaches it and what the labeling and published consensus say. It is not instruction for injecting yourself or anyone else."
+            }
+          ],
+          "pattern": {
+            "points": 18,
+            "unitsTotal": "26U, 31U or 36U for 1 to 2 bands per side (Botox Cosmetic label, Oct 2024)",
+            "notes": "4 jawline sites per side at 2U plus 5 sites per band at 1U. 18, 23 or 28 sites. Superficial injections."
+          },
+          "resources": [
+            {
+              "type": "label",
+              "title": "Botox Cosmetic (onabotulinumtoxinA) prescribing information",
+              "url": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=485d9b71-6881-42c5-a620-a4360c7192ab",
+              "source": "FDA label via DailyMed (NLM), revised 10/2024",
+              "why": "Section 2.4 and Figures 5 and 6 show the platysma pattern."
+            },
+            {
+              "type": "paper",
+              "title": "OnabotulinumtoxinA for Platysma Prominence: Safety and Efficacy Results from a Phase 3 Open-Label Repeat Treatment Study",
+              "url": "https://pubmed.ncbi.nlm.nih.gov/41329600/",
+              "source": "Mraz et al., Plastic and Reconstructive Surgery, 2026 (sponsor-funded)",
+              "why": "Phase 3 repeat-treatment results for platysma prominence."
+            },
+            {
+              "type": "video",
+              "title": "Platysmal Neck Band Treatment: Botox Demonstration",
+              "url": "https://www.youtube.com/watch?v=SJPRUFaUkuU",
+              "source": "YouTube: Dr. Monica Boen, board-certified dermatologist with ASDS cosmetic fellowship training",
+              "why": "A board-certified dermatologist demonstrates platysmal band treatment."
+            },
+            {
+              "type": "video",
+              "title": "Botox Treatment: Platysmal Muscles of the Neck",
+              "url": "https://www.youtube.com/watch?v=URVbmXXYm7c",
+              "source": "YouTube: Dr. Beth Santmyire-Rosenberger, MD, PhD, FAAD, dermatologist",
+              "why": "A dermatologist explains treating the platysma muscles of the neck."
+            }
+          ],
+          "quiz": [
+            {
+              "q": "When was platysma bands added to the Botox Cosmetic label?",
+              "choices": [
+                "2002",
+                "2013",
+                "2017",
+                "2024"
+              ],
+              "answer": 3,
+              "explain": "The platysma indication was approved in October 2024."
+            },
+            {
+              "q": "What is the labeled total for one band per side?",
+              "choices": [
+                "16 units",
+                "26 units",
+                "40 units",
+                "64 units"
+              ],
+              "answer": 1,
+              "explain": "16 units along the jawline plus 5 units per band per side, 26 units in 18 sites."
+            },
+            {
+              "q": "How much toxin goes into each site along a vertical band on the label?",
+              "choices": [
+                "1 unit",
+                "4 units",
+                "10 units",
+                "20 units"
+              ],
+              "answer": 0,
+              "explain": "Each band gets 1 unit at each of 5 sites."
+            },
+            {
+              "q": "Which event of special interest was reported in the phase 3 extension?",
+              "choices": [
+                "Difficulty swallowing",
+                "Hair loss",
+                "Eyelid ptosis",
+                "Gummy smile"
+              ],
+              "answer": 0,
+              "explain": "A few participants reported dysphagia; almost all events resolved."
+            }
+          ]
+        },
+        {
+          "id": "np-jawline-risks",
+          "title": "Jawline contouring and neck risks",
+          "minutes": 5,
+          "body": [
+            "Before the label existed, injectors treated the platysma along the jawline to sharpen it, a technique Levy described in 2007 as the Nefertiti lift. The idea is to reduce the platysma's downward pull on the lower face (Levy, 2007). The label's jawline sites follow a similar logic.",
+            "Results are modest. Toxin can soften bands and slightly improve definition, but it does not remove loose skin or fat. People with significant laxity are often better candidates for surgical options, which a plastic or facial plastic surgeon can discuss.",
+            "The neck is where distant spread matters most. Deeper neck muscles help with swallowing, voice and holding the head up. Labels and reviews warn about difficulty swallowing, voice changes and neck weakness, so injections are kept superficial and doses controlled.",
+            {
+              "type": "callout",
+              "tone": "caution",
+              "text": "New trouble swallowing, a hoarse or weak voice, or difficulty holding up your head after neck treatment needs prompt medical care. Trouble breathing is an emergency: call 911."
+            }
+          ],
+          "resources": [
+            {
+              "type": "paper",
+              "title": "The Nefertiti lift: a new technique for specific re-contouring of the jawline",
+              "url": "https://pubmed.ncbi.nlm.nih.gov/18236245/",
+              "source": "Levy, Journal of Cosmetic and Laser Therapy, 2007",
+              "why": "Levy's original description of the Nefertiti lift."
+            },
+            {
+              "type": "paper",
+              "title": "Neurotoxins: Current Concepts in Cosmetic Use on the Face and Neck: Jawline Contouring, Platysma Bands, Necklace Lines",
+              "url": "https://pubmed.ncbi.nlm.nih.gov/26441117/",
+              "source": "Plastic and Reconstructive Surgery, 2015",
+              "why": "Review of jawline contouring, platysma bands and necklace lines."
+            },
+            {
+              "type": "label",
+              "title": "Botox Cosmetic (onabotulinumtoxinA) prescribing information",
+              "url": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=485d9b71-6881-42c5-a620-a4360c7192ab",
+              "source": "FDA label via DailyMed (NLM), revised 10/2024",
+              "why": "Boxed warning and the dysphagia warning in section 5."
+            },
+            {
+              "type": "video",
+              "title": "Full face and platysma treatment demonstration (training channel)",
+              "url": "https://www.youtube.com/watch?v=bkYv2BOVoHU",
+              "source": "YouTube: AAFE professional training channel; made for licensed clinicians",
+              "why": "Clinician-training demonstration from the AAFE channel; shows why neck work is a specialist skill."
+            }
+          ],
+          "quiz": [
+            {
+              "q": "What is the Nefertiti lift?",
+              "choices": [
+                "A surgical facelift",
+                "Platysma toxin along the jawline to reduce downward pull",
+                "A lip filler technique",
+                "A brow lift"
+              ],
+              "answer": 1,
+              "explain": "Levy described treating the platysma along the jaw to sharpen the jawline."
+            },
+            {
+              "q": "Which problem can toxin not fix in the neck?",
+              "choices": [
+                "Mild bands",
+                "Loose skin and fat",
+                "Platysma pull",
+                "Band prominence"
+              ],
+              "answer": 1,
+              "explain": "Toxin affects muscle only; laxity and fat need other options."
+            },
+            {
+              "q": "Why are neck injections kept superficial?",
+              "choices": [
+                "Deep neck muscles control swallowing and voice",
+                "The skin is too thick",
+                "To save product",
+                "To speed onset"
+              ],
+              "answer": 0,
+              "explain": "Deeper spread risks dysphagia, voice change and neck weakness."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "side-effects",
+      "title": "Side effects and complications",
+      "group": "Safety",
+      "summary": "What is common, what is uncommon, how often each happens, and what usually helps.",
+      "muscleIds": [
+        "levator-palpebrae",
+        "frontalis-l",
+        "frontalis-r",
+        "zygomaticus"
+      ],
+      "lessons": [
+        {
+          "id": "se-common",
+          "title": "Common and expected reactions",
+          "minutes": 5,
+          "body": [
+            "Most side effects are mild, local and short-lived, and come from the needle more than the toxin (AAD). Expect some of these in the first hours or days.",
+            {
+              "type": "list",
+              "items": [
+                "Small bumps at the injection points that settle within about an hour.",
+                "Redness, tenderness or mild swelling for a few hours.",
+                "Bruising, which the AAD says lasts about a week.",
+                "Headache in the first days. It was the most common reaction in several trials: 9 percent in the Botox Cosmetic forehead studies, 12 percent with Jeuveau, 6 percent with Daxxify and 2 percent with Letybo (each product's label).",
+                "Eyelid swelling after crow's feet treatment, about 1 percent in the Botox Cosmetic trials.",
+                "Dry eye. The Botox Cosmetic label tells patients to report eye dryness, pain, irritation, light sensitivity or vision changes."
+              ]
+            },
+            "A 2016 meta-analysis of 16 placebo-controlled facial trials found that frown-line treatment carried significantly more headache and eyelid ptosis than placebo, while crow's feet treatment showed no significant increase except bruising at the injection site (Jia et al., 2016).",
+            "Comparing rates across products is tricky. Each label notes that trials were run under different conditions, so a lower number on one label does not prove that product is safer."
+          ],
+          "resources": [
+            {
+              "type": "article",
+              "title": "Botulinum toxin therapy: FAQs",
+              "url": "https://www.aad.org/public/cosmetic/wrinkles/botulinum-toxin-faqs",
+              "source": "American Academy of Dermatology",
+              "why": "AAD's list of common and rare side effects."
+            },
+            {
+              "type": "paper",
+              "title": "Adverse Events of Botulinum Toxin Type A in Facial Rejuvenation: A Systematic Review and Meta-Analysis",
+              "url": "https://pubmed.ncbi.nlm.nih.gov/27495260/",
+              "source": "Jia et al., Aesthetic Plastic Surgery, 2016",
+              "why": "Meta-analysis of adverse events across 16 placebo-controlled trials."
+            },
+            {
+              "type": "label",
+              "title": "Botox Cosmetic (onabotulinumtoxinA) prescribing information",
+              "url": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=485d9b71-6881-42c5-a620-a4360c7192ab",
+              "source": "FDA label via DailyMed (NLM), revised 10/2024",
+              "why": "Adverse reaction rates by area in the Botox Cosmetic trials."
+            },
+            {
+              "type": "article",
+              "title": "Botox Cosmetic: Uses and Side Effects",
+              "url": "https://my.clevelandclinic.org/health/drugs/18160-onabotulinumtoxina-injection-cosmetic-use",
+              "source": "Cleveland Clinic",
+              "why": "Cleveland Clinic's drug guide for Botox Cosmetic side effects."
+            }
+          ],
+          "quiz": [
+            {
+              "q": "How long does the AAD say bruising usually lasts?",
+              "choices": [
+                "An hour",
+                "About a week",
+                "A month",
+                "Three months"
+              ],
+              "answer": 1,
+              "explain": "The AAD FAQ says bruising lasts about one week."
+            },
+            {
+              "q": "Which was the most common adverse reaction in the Jeuveau glabellar trials?",
+              "choices": [
+                "Headache",
+                "Neck weakness",
+                "Hair loss",
+                "Fever"
+              ],
+              "answer": 0,
+              "explain": "The Jeuveau label lists headache at 12 percent."
+            },
+            {
+              "q": "Why should you be careful comparing side effect rates between labels?",
+              "choices": [
+                "Trials were run under different conditions",
+                "Labels are often wrong",
+                "Rates are made up",
+                "Only Botox reports rates"
+              ],
+              "answer": 0,
+              "explain": "Every label warns that trial rates cannot be directly compared across products."
+            }
+          ]
+        },
+        {
+          "id": "se-complications",
+          "title": "Ptosis, asymmetry and other complications",
+          "minutes": 7,
+          "body": [
+            "Brow ptosis and asymmetry are the most common true complications of toxin, according to a narrative review (Kassir et al., 2020). Most come from toxin acting on a muscle next to the one that was targeted.",
+            {
+              "type": "list",
+              "items": [
+                "Eyelid ptosis: one upper lid sits lower, usually 3 to 14 days after frown or brow treatment. It resolves as the toxin wears off. A physician may prescribe eye drops, such as apraclonidine or oxymetazoline, that partly lift the lid in the meantime (Nestor et al., 2021).",
+                "Brow ptosis or a heavy forehead: the brow drops after forehead treatment. It generally waits out the toxin.",
+                "Spock brow: an arched brow tail when the outer forehead is still active. Often adjustable at the 2-week visit.",
+                "Smile changes: a crooked smile, uneven lower lip or drooling after mouth, chin, cheek or masseter treatment.",
+                "Lip function: trouble with straws, whistling or certain sounds after a lip flip.",
+                "Chewing fatigue after masseter treatment.",
+                "Swallowing or voice changes after neck treatment. These need prompt medical review."
+              ]
+            },
+            "The key way to tell a local side effect from something more serious is pattern. A one-sided droop near the treated area is typical of local spread. Weakness on both sides, double vision, slurred speech, trouble swallowing or breathing, or weakness in the arms points to a wider effect and is urgent (CDC).",
+            "Call your injector for any new droop or asymmetry. Photos with the date help, and the app's check-ins make this easy. Report significant reactions to FDA MedWatch as well.",
+            {
+              "type": "callout",
+              "tone": "caution",
+              "text": "Trouble breathing, swallowing or speaking after a toxin injection is an emergency. Call 911 or go to the nearest emergency room now. Do not wait for a callback from the clinic."
+            }
+          ],
+          "resources": [
+            {
+              "type": "paper",
+              "title": "Complications of botulinum toxin and fillers: a narrative review",
+              "url": "https://pubmed.ncbi.nlm.nih.gov/31889407/",
+              "source": "Kassir et al., Journal of Cosmetic Dermatology, 2020",
+              "why": "Narrative review: brow ptosis and asymmetry are the most common complications."
+            },
+            {
+              "type": "paper",
+              "title": "Botulinum toxin-induced blepharoptosis: anatomy, etiology, prevention, and therapeutic options",
+              "url": "https://pubmed.ncbi.nlm.nih.gov/34378298/",
+              "source": "Nestor et al., Journal of Cosmetic Dermatology, 2021",
+              "why": "How eyelid ptosis happens and the eye drops a physician may prescribe."
+            },
+            {
+              "type": "paper",
+              "title": "Management of Complications Following Botulinum Toxin Facial Injections: A Narrative Review",
+              "url": "https://pubmed.ncbi.nlm.nih.gov/41640941/",
+              "source": "Cureus, 2026",
+              "why": "A 2026 review of how clinicians manage toxin complications."
+            },
+            {
+              "type": "video",
+              "title": "Brow Ptosis vs Hooded Eyelid and Botox",
+              "url": "https://www.youtube.com/watch?v=gNB60SwQZ2g",
+              "source": "YouTube: Dr. Tim Pearce, U.K. physician and aesthetics educator; clinician audience",
+              "why": "Telling brow ptosis from eyelid ptosis and hooding."
+            },
+            {
+              "type": "article",
+              "title": "MedWatch: FDA Safety Information and Adverse Event Reporting Program",
+              "url": "https://www.fda.gov/safety/medwatch-fda-safety-information-and-adverse-event-reporting-program",
+              "source": "U.S. Food and Drug Administration",
+              "why": "How to report a reaction to the FDA."
+            }
+          ],
+          "quiz": [
+            {
+              "q": "Which pattern is more typical of a local side effect than spread?",
+              "choices": [
+                "Droop on one side near the treated area",
+                "Weakness on both sides of the body",
+                "Double vision with slurred speech",
+                "Trouble breathing"
+              ],
+              "answer": 0,
+              "explain": "A one-sided droop near the injection site is typical of local spread; bilateral or body-wide signs are urgent."
+            },
+            {
+              "q": "What can a physician prescribe to partly lift a toxin-related eyelid droop?",
+              "choices": [
+                "Antibiotics",
+                "Eye drops such as apraclonidine",
+                "More toxin in the forehead",
+                "Steroid cream"
+              ],
+              "answer": 1,
+              "explain": "Apraclonidine or oxymetazoline drops can partly reverse eyelid ptosis while the toxin wears off."
+            },
+            {
+              "q": "A crooked smile is most likely after treatment of which area?",
+              "choices": [
+                "Mouth corners or masseter",
+                "Forehead",
+                "Glabella",
+                "Scalp"
+              ],
+              "answer": 0,
+              "explain": "Spread to smile muscles near the mouth or front of the masseter can change the smile."
+            },
+            {
+              "q": "Where should a significant reaction also be reported?",
+              "choices": [
+                "FDA MedWatch",
+                "A social media group",
+                "Nowhere",
+                "The product box"
+              ],
+              "answer": 0,
+              "explain": "MedWatch collects adverse event reports for the FDA."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "emergency",
+      "title": "Recognizing an emergency",
+      "group": "Safety",
+      "summary": "The FDA boxed warning, botulism-like symptoms, and exactly what to do.",
+      "muscleIds": [],
+      "lessons": [
+        {
+          "id": "em-boxed-warning",
+          "title": "The boxed warning and when to get help",
+          "minutes": 6,
+          "body": [
+            "Every botulinum toxin product carries the FDA's strongest warning, a boxed warning titled Distant Spread of Toxin Effect. It says the effects may spread beyond the injection area and cause generalized weakness, double vision, drooping eyelids, trouble swallowing, hoarse voice, slurred speech, loss of bladder control and breathing difficulty, from hours to weeks after injection. Swallowing and breathing problems can be life threatening, and deaths have been reported (Botox Cosmetic label).",
+            "Context matters. The label states that no definitive serious reports of distant spread have been tied to dermatologic use of Botox Cosmetic at its labeled cosmetic doses. Most serious cases involve large medical doses, people with underlying neuromuscular conditions, or counterfeit and mishandled product (Botox Cosmetic label; CDC HAN 00507).",
+            {
+              "type": "list",
+              "items": [
+                "Call 911 or go to an emergency room now for: trouble breathing, trouble swallowing or choking on liquids, inability to hold up your head, or weakness spreading to the arms or body.",
+                "Seek same-day urgent care for: double or blurred vision, drooping of both eyelids, slurred speech, a new hoarse voice, or dry mouth with weakness.",
+                "Call your injector within a day or two for: a droop or asymmetry limited to the treated area, a heavy brow, or a smile change."
+              ]
+            },
+            "Tell the emergency team what product you received, the date, the areas, the units, and where it came from. If counterfeit or unapproved product is suspected, they can contact the health department and the CDC's botulism service, which provides antitoxin when botulism is suspected (CDC).",
+            {
+              "type": "callout",
+              "tone": "caution",
+              "text": "Trouble breathing, swallowing or speaking after a toxin injection is an emergency. Call 911 or go to the nearest emergency room now. Do not wait for a callback from the clinic."
+            }
+          ],
+          "resources": [
+            {
+              "type": "label",
+              "title": "Botox Cosmetic (onabotulinumtoxinA) prescribing information",
+              "url": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=485d9b71-6881-42c5-a620-a4360c7192ab",
+              "source": "FDA label via DailyMed (NLM), revised 10/2024",
+              "why": "The full boxed warning and section 5.7 on swallowing and breathing difficulty."
+            },
+            {
+              "type": "article",
+              "title": "About Botulism",
+              "url": "https://www.cdc.gov/botulism/about/index.html",
+              "source": "Centers for Disease Control and Prevention",
+              "why": "CDC's overview of botulism symptoms and treatment."
+            },
+            {
+              "type": "article",
+              "title": "Botulism",
+              "url": "https://medlineplus.gov/ency/article/000598.htm",
+              "source": "MedlinePlus Medical Encyclopedia, U.S. National Library of Medicine",
+              "why": "MedlinePlus encyclopedia entry on botulism."
+            },
+            {
+              "type": "article",
+              "title": "HAN 00507: Adverse Effects Linked to Counterfeit or Mishandled Botulinum Toxin Injections",
+              "url": "https://www.cdc.gov/han/2024/han00507.html",
+              "source": "Centers for Disease Control and Prevention, April 23, 2024",
+              "why": "CDC advisory on illness after counterfeit or mishandled injections."
+            }
+          ],
+          "quiz": [
+            {
+              "q": "What is the boxed warning on every toxin product called?",
+              "choices": [
+                "Distant Spread of Toxin Effect",
+                "Allergy Alert",
+                "Pregnancy Hazard",
+                "Cardiac Risk"
+              ],
+              "answer": 0,
+              "explain": "All botulinum toxin labels carry the Distant Spread of Toxin Effect boxed warning."
+            },
+            {
+              "q": "Trouble swallowing two days after a neck treatment should prompt:",
+              "choices": [
+                "Waiting until the next appointment",
+                "Urgent medical care, and 911 if breathing is affected",
+                "A second injection",
+                "Massaging the area"
+              ],
+              "answer": 1,
+              "explain": "Swallowing and breathing problems can be life threatening."
+            },
+            {
+              "q": "How soon after injection can distant spread symptoms appear?",
+              "choices": [
+                "Only within 10 minutes",
+                "Hours to weeks",
+                "Only after a year",
+                "Never"
+              ],
+              "answer": 1,
+              "explain": "The boxed warning says symptoms have been reported hours to weeks after injection."
+            },
+            {
+              "q": "What should you tell the emergency team?",
+              "choices": [
+                "Nothing",
+                "Product, date, areas, units and where it came from",
+                "Only the price",
+                "Only the clinic's name"
+              ],
+              "answer": 1,
+              "explain": "These details help clinicians and the health department assess botulism risk quickly."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "counterfeit",
+      "title": "Counterfeit and unapproved products",
+      "group": "Safety",
+      "summary": "The 2024 and 2025 outbreaks, how fakes were spotted, and how to protect yourself.",
+      "muscleIds": [],
+      "lessons": [
+        {
+          "id": "cf-outbreaks",
+          "title": "What happened in 2024 and 2025",
+          "minutes": 6,
+          "body": [
+            "In April 2024 the FDA warned that counterfeit Botox had been found in multiple states and injected for cosmetic purposes. Reported effects included blurred or double vision, trouble swallowing, dry mouth, shortness of breath and weakness. The injections were given by licensed and unlicensed people, often in nonmedical settings, using product bought from unlicensed sources (FDA).",
+            "The CDC's April 2024 health advisory counted 22 people in 11 jurisdictions. All were women aged 25 to 59, 11 of 20 with information were hospitalized, and 6 received botulism antitoxin. All had been injected by unlicensed or untrained people or in nonmedical settings such as homes or spas (CDC HAN 00507).",
+            "A CDC report on seven of those patients found injections in homes and a spa, a product carton claiming 150 units with a batch number from a legitimate vial that expired in 2017, and one patient who paid less than the U.S. wholesale price (MMWR, July 2024).",
+            "In 2025, three women in New York, Texas and Wisconsin injected themselves with toxin bought online from overseas vendors contacted through messaging apps and social media. All were hospitalized, one needed a ventilator, and all received antitoxin (MMWR, 2025). The CDC later reported 13 severely ill patients over 10 months from do-it-yourself injection, many using unlabeled vials of white powder (CDC, 2026).",
+            {
+              "type": "callout",
+              "tone": "caution",
+              "text": "Never buy botulinum toxin online and never inject yourself. The CDC says people without a health care license should not buy it, and products from unlicensed sources may be counterfeit, contaminated, the wrong strength or not toxin at all (CDC; FDA)."
+            }
+          ],
+          "resources": [
+            {
+              "type": "article",
+              "title": "Counterfeit Version of Botox Found in Multiple States",
+              "url": "https://www.fda.gov/drugs/drug-alerts-and-statements/counterfeit-version-botox-found-multiple-states",
+              "source": "U.S. Food and Drug Administration, April 2024, updated May 2024",
+              "why": "The FDA's April 2024 alert with photos of real and fake packaging."
+            },
+            {
+              "type": "article",
+              "title": "HAN 00507: Adverse Effects Linked to Counterfeit or Mishandled Botulinum Toxin Injections",
+              "url": "https://www.cdc.gov/han/2024/han00507.html",
+              "source": "Centers for Disease Control and Prevention, April 23, 2024",
+              "why": "CDC health advisory with case counts and recommendations."
+            },
+            {
+              "type": "paper",
+              "title": "Illnesses After Administration of Presumed Counterfeit Botulinum Toxin in Nonmedical Settings, Tennessee and New York City, March 2024",
+              "url": "https://www.cdc.gov/mmwr/volumes/73/wr/mm7327a3.htm",
+              "source": "CDC, MMWR 73(27), July 11, 2024",
+              "why": "CDC's detailed report on the Tennessee and New York City cases."
+            },
+            {
+              "type": "paper",
+              "title": "Severe Illnesses After Self-Injection of Botulinum Toxin Purchased Online, New York, Texas, and Wisconsin, 2025",
+              "url": "https://www.cdc.gov/mmwr/volumes/74/wr/mm7438a1.htm",
+              "source": "CDC, MMWR 74(38), 2025",
+              "why": "CDC report on severe illness after self-injection of toxin bought online."
+            },
+            {
+              "type": "video",
+              "title": "CDC warns of adverse effects from counterfeit Botox injections",
+              "url": "https://www.youtube.com/watch?v=qe4-nU8doA4",
+              "source": "YouTube: ABC7 New York news report, 2024",
+              "why": "A news report on the CDC warning, for context."
+            }
+          ],
+          "quiz": [
+            {
+              "q": "In the CDC's 2024 advisory, where had the injections been given?",
+              "choices": [
+                "Hospitals only",
+                "By unlicensed or untrained people or in nonmedical settings",
+                "Only in dermatology offices",
+                "Only overseas"
+              ],
+              "answer": 1,
+              "explain": "All cases involved unlicensed or untrained injectors or settings such as homes or spas."
+            },
+            {
+              "q": "What happened in the 2025 self-injection cases?",
+              "choices": [
+                "Mild redness only",
+                "All were hospitalized and received antitoxin, and one needed a ventilator",
+                "No one was affected",
+                "They were treated at home"
+              ],
+              "answer": 1,
+              "explain": "MMWR reported hospitalization of all three, ventilation for one and antitoxin for all."
+            },
+            {
+              "q": "Can a person without a health care license legally buy toxin online?",
+              "choices": [
+                "Yes",
+                "Only from Korea",
+                "No",
+                "Only with a coupon"
+              ],
+              "answer": 2,
+              "explain": "The CDC says people without a license should not buy botulinum toxin online."
+            }
+          ]
+        },
+        {
+          "id": "cf-protect",
+          "title": "How fakes were spotted and how to protect yourself",
+          "minutes": 5,
+          "body": [
+            "The FDA listed the signs of the 2024 counterfeit cartons and vials:",
+            {
+              "type": "list",
+              "items": [
+                "Lot number C3709C3 on the carton and vial.",
+                "The active ingredient printed as Botulinum Toxin Type A instead of onabotulinumtoxinA.",
+                "A 150 unit size, which the maker does not produce.",
+                "Text on the carton that is not in English."
+              ]
+            },
+            "Those details are specific to one batch, so a new fake may look different. The broader protections are about the setting and the source. The CDC advises using only a licensed provider trained in toxin injection, confirming the product comes from a licensed, FDA-approved source, and watching the dose drawn from a labeled vial (CDC DIY guidance).",
+            "Prices far below what other clinics charge, treatments at parties or in homes, and providers who will not show the vial are all warning signs (AAD; AmSpa). Dermatologists reduce the risk by buying directly from the manufacturer, the AAD notes.",
+            "If you suspect counterfeit product, report it to the FDA at 800-551-3989 or through its criminal activity reporting form, and report any reaction to MedWatch (FDA)."
+          ],
+          "resources": [
+            {
+              "type": "article",
+              "title": "Counterfeit Version of Botox Found in Multiple States",
+              "url": "https://www.fda.gov/drugs/drug-alerts-and-statements/counterfeit-version-botox-found-multiple-states",
+              "source": "U.S. Food and Drug Administration, April 2024, updated May 2024",
+              "why": "The four signs the FDA listed for the 2024 counterfeit."
+            },
+            {
+              "type": "article",
+              "title": "Guidance for Illness Related to DIY Injection of Botulinum Toxin",
+              "url": "https://www.cdc.gov/botulism/hcp/diy-botox/index.html",
+              "source": "Centers for Disease Control and Prevention, April 2026",
+              "why": "CDC prevention advice, including watching the dose drawn from a labeled vial."
+            },
+            {
+              "type": "article",
+              "title": "AADA Statement on Reports of Counterfeit Injectables",
+              "url": "https://www.aad.org/news/aada-statement-counterfeit-injectables",
+              "source": "American Academy of Dermatology Association, April 2024",
+              "why": "The AAD's statement on counterfeit injectables."
+            },
+            {
+              "type": "article",
+              "title": "The Legal Lowdown on Botox Parties",
+              "url": "https://www.americanmedspa.org/news/the-legal-lowdown-on-botox-parties/",
+              "source": "American Med Spa Association",
+              "why": "Why Botox parties raise legal and safety problems."
+            },
+            {
+              "type": "video",
+              "title": "How to spot fake Botox after a CDC warning",
+              "url": "https://www.youtube.com/watch?v=C6lZFdmUnxE",
+              "source": "YouTube: CBS Chicago news report, 2024",
+              "why": "A news report on spotting fake Botox, for context."
+            }
+          ],
+          "quiz": [
+            {
+              "q": "Which was a sign of the 2024 counterfeit Botox?",
+              "choices": [
+                "A 100 unit vial in English",
+                "A 150 unit size the maker does not produce",
+                "An FDA-approved label",
+                "A pharmacy receipt"
+              ],
+              "answer": 1,
+              "explain": "AbbVie does not make a 150 unit vial."
+            },
+            {
+              "q": "What does the CDC suggest watching at your appointment?",
+              "choices": [
+                "The dose being drawn from a labeled vial",
+                "The clinic's music",
+                "The price list only",
+                "Nothing"
+              ],
+              "answer": 0,
+              "explain": "Seeing the labeled vial helps confirm the product."
+            },
+            {
+              "q": "Where do you report suspected counterfeit toxin?",
+              "choices": [
+                "The FDA at 800-551-3989 or its online form",
+                "A product review site",
+                "The manufacturer's coupon line",
+                "Nowhere"
+              ],
+              "answer": 0,
+              "explain": "The FDA's Office of Criminal Investigations takes reports of suspected counterfeits."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "contraindications",
+      "title": "Contraindications, pregnancy and interactions",
+      "group": "Safety",
+      "summary": "Who should not be treated, what the labels say about pregnancy, and which medicines interact.",
+      "muscleIds": [],
+      "lessons": [
+        {
+          "id": "ci-who-not",
+          "title": "Contraindications and conditions",
+          "minutes": 5,
+          "body": [
+            "The labels list two contraindications for every cosmetic toxin: known allergy to any botulinum toxin product or an ingredient, and infection at the planned injection site. Dysport adds known allergy to cow's milk protein, because it may contain trace amounts.",
+            "Several conditions call for extra caution and a physician's judgment. People with neuromuscular disorders such as myasthenia gravis, Lambert-Eaton syndrome or ALS may be at higher risk of serious weakness, swallowing and breathing problems (Botox Cosmetic label, section 5.6). Existing swallowing or breathing difficulty also raises risk (section 5.7).",
+            "The Botox Cosmetic label also advises caution when there is inflammation at the site, an existing droopy eyelid, or a target muscle that is already very weak or wasted, and when a person has heart disease, because cardiovascular events have been reported.",
+            "Serious allergic reactions, including anaphylaxis, are rare but have been reported, which is one reason toxin belongs in a medical setting with staff who can respond.",
+            "Some labels and patient guides add other considerations. Products containing albumin carry a remote theoretical risk related to blood products, and the American Family Physician review lists keloidal scarring among contraindications. Bring your full history to the consultation."
+          ],
+          "resources": [
+            {
+              "type": "label",
+              "title": "Botox Cosmetic (onabotulinumtoxinA) prescribing information",
+              "url": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=485d9b71-6881-42c5-a620-a4360c7192ab",
+              "source": "FDA label via DailyMed (NLM), revised 10/2024",
+              "why": "Sections 4 and 5: contraindications and warnings."
+            },
+            {
+              "type": "label",
+              "title": "Dysport (abobotulinumtoxinA) prescribing information",
+              "url": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=71313a04-1349-4c26-b840-a39e4a3ddaed",
+              "source": "FDA label via DailyMed (NLM)",
+              "why": "The cow's milk protein contraindication."
+            },
+            {
+              "type": "paper",
+              "title": "Botulinum Toxin Procedures: A Practical Approach to Cosmetic Injections",
+              "url": "https://pubmed.ncbi.nlm.nih.gov/42202343/",
+              "source": "Small, American Family Physician, 2026",
+              "why": "A physician review listing contraindications such as neuromuscular disorders."
+            },
+            {
+              "type": "article",
+              "title": "OnabotulinumtoxinA Injection",
+              "url": "https://medlineplus.gov/druginfo/meds/a608013.html",
+              "source": "MedlinePlus, U.S. National Library of Medicine",
+              "why": "MedlinePlus: who should not receive onabotulinumtoxinA."
+            }
+          ],
+          "quiz": [
+            {
+              "q": "Which is a contraindication on every cosmetic toxin label?",
+              "choices": [
+                "Infection at the injection site",
+                "Being over 40",
+                "Having had filler",
+                "Exercise"
+              ],
+              "answer": 0,
+              "explain": "Infection at the planned site, and allergy to toxin or an ingredient, are listed for all products."
+            },
+            {
+              "q": "Which condition raises the risk of serious weakness from toxin?",
+              "choices": [
+                "Myasthenia gravis",
+                "Seasonal allergies",
+                "Freckles",
+                "Nearsightedness"
+              ],
+              "answer": 0,
+              "explain": "Neuromuscular junction disorders such as myasthenia gravis increase risk."
+            },
+            {
+              "q": "Which product lists cow's milk protein allergy as a contraindication?",
+              "choices": [
+                "Dysport",
+                "Xeomin",
+                "Daxxify",
+                "Letybo"
+              ],
+              "answer": 0,
+              "explain": "Dysport may contain trace cow's milk protein."
+            }
+          ]
+        },
+        {
+          "id": "ci-pregnancy-meds",
+          "title": "Pregnancy, breastfeeding and medicines",
+          "minutes": 6,
+          "body": [
+            "The Botox Cosmetic label says there are no adequate studies in pregnant women. In animal studies, high doses during pregnancy reduced fetal weight and bone development alongside maternal toxicity. For breastfeeding, there are no data on whether the toxin passes into milk (Botox Cosmetic label, sections 8.1 and 8.2).",
+            "The largest human dataset is a 29-year review of the manufacturer's safety database. Among 152 live births after exposure, mostly before conception or in the first trimester and mostly at doses under 200 units, the rate of major birth defects was 0.7 percent, consistent with background rates of 3 to 6 percent. The authors note reporting bias and limited data for later pregnancy, and the study was sponsor-run (Brin et al., 2023).",
+            "Because cosmetic treatment is elective, most clinicians and patient guides, including Cleveland Clinic, advise waiting until after pregnancy and breastfeeding. If you were treated before you knew you were pregnant, tell your obstetric provider; the data above are reassuring but limited.",
+            "Medicines can interact. The labels warn that aminoglycoside antibiotics, curare-like drugs and other agents that interfere with nerve-muscle signaling, as well as muscle relaxants, can strengthen toxin effects. Anticholinergic drugs taken afterward may increase anticholinergic side effects. Toxin from another product or another indication adds to the total (Botox Cosmetic label, section 7).",
+            {
+              "type": "list",
+              "items": [
+                "Tell your injector about any antibiotic you are taking or recently finished.",
+                "List muscle relaxants, bladder or allergy medicines with anticholinergic effects, and any other toxin treatment, including migraine or sweating treatment.",
+                "Mention blood thinners and supplements that raise bruising risk, but do not stop a prescribed medicine without the prescriber's advice."
+              ]
+            }
+          ],
+          "resources": [
+            {
+              "type": "label",
+              "title": "Botox Cosmetic (onabotulinumtoxinA) prescribing information",
+              "url": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=485d9b71-6881-42c5-a620-a4360c7192ab",
+              "source": "FDA label via DailyMed (NLM), revised 10/2024",
+              "why": "Sections 7 and 8: interactions, pregnancy and lactation."
+            },
+            {
+              "type": "paper",
+              "title": "Pregnancy Outcomes in Patients Exposed to OnabotulinumtoxinA Treatment: A Cumulative 29-Year Safety Update",
+              "url": "https://pubmed.ncbi.nlm.nih.gov/37137724/",
+              "source": "Brin et al., Neurology, 2023",
+              "why": "29-year review of pregnancy outcomes after onabotulinumtoxinA exposure."
+            },
+            {
+              "type": "article",
+              "title": "Botox (Botulinum Toxin): What It Is, Results and Side Effects",
+              "url": "https://my.clevelandclinic.org/health/treatments/8312-botulinum-toxin-injections",
+              "source": "Cleveland Clinic",
+              "why": "Cleveland Clinic lists pregnancy and breastfeeding among reasons to avoid treatment."
+            },
+            {
+              "type": "article",
+              "title": "Botulinum toxin therapy: Preparation",
+              "url": "https://www.aad.org/public/cosmetic/wrinkles/botulinum-toxin-preparation",
+              "source": "American Academy of Dermatology",
+              "why": "What to tell your dermatologist, including pregnancy plans and medicines."
+            }
+          ],
+          "quiz": [
+            {
+              "q": "What does the Botox Cosmetic label say about breastfeeding?",
+              "choices": [
+                "It is proven safe",
+                "There are no data on toxin in milk",
+                "Toxin always passes into milk",
+                "Breastfeeding must stop for a year"
+              ],
+              "answer": 1,
+              "explain": "Section 8.2 says there are no data on presence in human or animal milk."
+            },
+            {
+              "q": "Which drug class can strengthen toxin effects?",
+              "choices": [
+                "Aminoglycoside antibiotics",
+                "Vitamin C",
+                "Sunscreen",
+                "Antacids"
+              ],
+              "answer": 0,
+              "explain": "Aminoglycosides interfere with nerve-muscle signaling and can potentiate toxin."
+            },
+            {
+              "q": "What did the 29-year pregnancy review find for major birth defects among live births?",
+              "choices": [
+                "0.7 percent, consistent with background rates",
+                "50 percent",
+                "Higher than any other drug",
+                "No data at all"
+              ],
+              "answer": 0,
+              "explain": "The rate was 0.7 percent versus 3 to 6 percent in the general population, with important limitations."
+            },
+            {
+              "q": "Why do most clinicians defer cosmetic toxin during pregnancy?",
+              "choices": [
+                "Treatment is elective and data are limited",
+                "It never works in pregnancy",
+                "It is illegal",
+                "It costs more"
+              ],
+              "answer": 0,
+              "explain": "With limited human data and no medical need, waiting is the cautious choice."
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "achievements": [
+    {
+      "id": "first-lesson",
+      "title": "First lesson",
+      "description": "Finished your first Academy lesson.",
+      "rule": "lessons>=1"
+    },
+    {
+      "id": "five-lessons",
+      "title": "Getting the hang of it",
+      "description": "Finished five lessons.",
+      "rule": "lessons>=5"
+    },
+    {
+      "id": "fifteen-lessons",
+      "title": "Halfway there",
+      "description": "Finished fifteen lessons.",
+      "rule": "lessons>=15"
+    },
+    {
+      "id": "first-course",
+      "title": "Course complete",
+      "description": "Finished every lesson in one course.",
+      "rule": "courses>=1"
+    },
+    {
+      "id": "five-courses",
+      "title": "Five courses down",
+      "description": "Finished five courses.",
+      "rule": "courses>=5"
+    },
+    {
+      "id": "foundations",
+      "title": "Solid foundations",
+      "description": "Finished all six Foundations courses.",
+      "rule": "foundations_done"
+    },
+    {
+      "id": "treatments",
+      "title": "Treatment tour",
+      "description": "Finished every Treatments course.",
+      "rule": "treatments_done"
+    },
+    {
+      "id": "safety",
+      "title": "Safety first",
+      "description": "Finished every Safety course.",
+      "rule": "safety_done"
+    },
+    {
+      "id": "perfect-quiz",
+      "title": "Perfect score",
+      "description": "Answered every question right on a lesson quiz.",
+      "rule": "quiz_perfect"
+    },
+    {
+      "id": "perfect-five",
+      "title": "Sharp eye",
+      "description": "Earned a perfect score on five lesson quizzes.",
+      "rule": "quiz_perfect>=5"
+    },
+    {
+      "id": "first-treatment",
+      "title": "On the record",
+      "description": "Logged your first treatment.",
+      "rule": "treatments>=1"
+    },
+    {
+      "id": "first-checkin",
+      "title": "Checked in",
+      "description": "Logged your first follow-up check-in.",
+      "rule": "checkins>=1"
+    },
+    {
+      "id": "live-view",
+      "title": "Live view",
+      "description": "Used the live camera view on your face map.",
+      "rule": "live_used"
+    },
+    {
+      "id": "year-of-records",
+      "title": "A year of records",
+      "description": "Kept treatment records spanning 365 days.",
+      "rule": "records_365d"
+    },
+    {
+      "id": "graduate",
+      "title": "Academy graduate",
+      "description": "Finished every course and earned your certificate.",
+      "rule": "all_done"
+    }
+  ],
+  "certificate": {
+    "title": "Botox Academy Certificate of Completion",
+    "statement": "This educational certificate of completion confirms that the named person finished every course in the Botox Academy, a patient education program inside a personal treatment tracker. It is not a professional credential, license, certification or authorization to purchase, prepare or administer botulinum toxin or any other injection. Only licensed health care professionals acting within their state's scope of practice may administer neurotoxin injections."
+  }
+}
