@@ -19,6 +19,13 @@
 .lg-chip{display:inline-flex;align-items:center;gap:8px}
 .lg-site{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--line);min-width:0}
 .lg-site:last-child{border-bottom:0}
+.lg-map{width:100%}
+.lg-grp{padding:6px 0 4px;border-bottom:1px solid var(--line)}
+.lg-grp:last-child{border-bottom:0}
+.lg-grp-h{display:flex;align-items:flex-start;gap:10px;min-width:0}
+.lg-caut{color:var(--amber);margin-top:4px}
+.lg-pt{border-radius:12px;padding:6px 8px;margin:2px -8px;min-height:48px;cursor:pointer}
+.lg-pt.sel{background:var(--card-2);box-shadow:inset 0 0 0 2px var(--accent)}
 .lg-site .grow{min-width:0}
 .lg-total{display:flex;align-items:baseline;justify-content:space-between;gap:10px;padding-top:4px}
 .lg-err{color:var(--red);font-size:13px;background:var(--red-soft);border-radius:12px;padding:10px 12px}
@@ -36,7 +43,7 @@
 .lg-sw-row[aria-checked="true"] .lg-sw::after{transform:translateX(20px)}
 .lg-sev .seg-b{padding:6px 2px;font-size:12px;min-height:40px}
 .lg-kinds .chip{padding:9px 12px;font-size:13.5px}
-.lg-tbl-r{display:grid;grid-template-columns:minmax(0,1fr) 52px 104px;gap:10px;align-items:center;padding:11px 0;border-bottom:1px solid var(--line)}
+.lg-tbl-r{display:grid;grid-template-columns:minmax(0,1fr) 48px 52px 96px;gap:10px;align-items:center;padding:11px 0;border-bottom:1px solid var(--line)}
 .lg-tbl-r:last-child{border-bottom:0}
 .lg-tbl-r.head{padding:0 0 8px}
 .lg-tbl-r .n{text-align:right;font-variant-numeric:tabular-nums}
@@ -62,7 +69,13 @@
     return [Math.round(s.range[0] * k), Math.round(s.range[1] * k)];
   };
   const rangeText = (siteId, prod) => { const r = rangeOf(siteId, prod); return r ? `Common ${r[0]} to ${r[1]} U` : ''; };
-  const defaultUnits = (siteId, prod) => { const s = BT.site(siteId); const m = ((s.range[0] + s.range[1]) / 2) * (prod ? prod.ratio : 1); return Math.max(1, Math.round(m)); };
+  // A new point gets the muscle's midpoint dose split across its typical number of points.
+  const defaultUnits = (siteId, prod) => {
+    const s = BT.site(siteId), n = String(s.points || '1').match(/\d+/g) || ['1'];
+    const per = n.reduce((a, v) => a + +v, 0) / n.length;
+    const m = ((s.range[0] + s.range[1]) / 2 / per) * (prod ? prod.ratio : 1);
+    return Math.max(1, Math.round(m * 2) / 2);
+  };
   const money = (c) => '$' + (+c).toFixed(+c % 1 ? 2 : 0);
   const injLabel = (i) => `${BT.fmt.date(i.at)} · ${BT.product(i.productId).name} · ${fmtN(BT.injectionUnits(i))}U`;
   const sevLabels = ['Mild', 'Minor', 'Moderate', 'Strong', 'Severe'];
@@ -76,7 +89,7 @@
   BT.openLog = function (prefill = {}) {
     const editing = prefill.injectionId ? BT.data.injections.find((i) => i.id === prefill.injectionId) : null;
     const urls = {};
-    const st = { at: Date.now(), provider: '', productId: 'botox', vialId: '', sites: {}, files: { before: null, after: null }, existing: { before: null, after: null }, notes: '', cost: '', busy: false };
+    const st = { at: Date.now(), provider: '', productId: 'botox', vialId: '', points: [], files: { before: null, after: null }, existing: { before: null, after: null }, notes: '', cost: '', busy: false };
 
     const adjRemaining = (v) => BT.vialRemaining(v) + (editing && editing.vialId === v.id ? BT.injectionUnits(editing) : 0);
     const pickVial = (productId) => {
@@ -87,7 +100,7 @@
 
     if (editing) {
       st.at = editing.at; st.provider = editing.provider || ''; st.productId = editing.productId; st.vialId = editing.vialId || '';
-      (editing.sites || []).forEach((s) => { st.sites[s.siteId] = +s.units || 0; });
+      st.points = (editing.sites || []).map((s) => ({ id: s.id || BT.uid(), siteId: s.siteId || '', x: s.x, y: s.y, units: +s.units || 0 }));
       st.notes = editing.notes || ''; st.cost = editing.cost != null && editing.cost !== '' ? String(editing.cost) : '';
       BT.data.photos.filter((p) => p.injectionId === editing.id).forEach((p) => { if (p.kind === 'before' || p.kind === 'after') st.existing[p.kind] = p; });
     } else {
@@ -95,9 +108,9 @@
       if (l) st.productId = l.productId;
       st.vialId = pickVial(st.productId);
     }
-    if (Array.isArray(prefill.sites) && prefill.sites.length) {
-      st.sites = {};
-      prefill.sites.forEach((s) => { st.sites[s.siteId] = +s.units || defaultUnits(s.siteId, BT.product(st.productId)); });
+    const pre = Array.isArray(prefill.points) && prefill.points.length ? prefill.points : prefill.sites;
+    if (Array.isArray(pre) && pre.length) {
+      st.points = pre.map((s) => ({ id: s.id || BT.uid(), siteId: s.siteId || '', x: s.x, y: s.y, units: +s.units || defaultUnits(s.siteId || '', BT.product(st.productId)) }));
     }
     if (prefill.photoFile) { st.files.before = prefill.photoFile; urls.before = URL.createObjectURL(prefill.photoFile); }
 
@@ -130,8 +143,9 @@
       </section>
       <section class="card" data-sec="where">
         ${stepHeader(3, 'Where')}
-        <div data-map></div>
-        <div class="row gap wrap"><button class="btn sm" type="button" data-same>${BT.icon('flip', 16)} Same as last time</button></div>
+        <p class="muted small" style="margin:0" data-help>Tap where each injection went. Drag to adjust.</p>
+        <div class="lg-map" data-map></div>
+        <div class="row gap wrap" style="align-items:center"><button class="btn sm" type="button" data-same>${BT.icon('flip', 16)} Same as last time</button><button class="link-btn" type="button" data-clear style="min-height:40px">Clear all</button></div>
         <div data-sites></div>
         <div class="lg-total"><span class="muted">Total units</span><span class="big-num num" data-total>0<small>U</small></span></div>
         <div class="callout" data-warn hidden style="background:var(--amber-soft);border-color:var(--amber);color:var(--amber)"></div>
@@ -181,87 +195,131 @@
     $('[data-products]').onclick = (e) => {
       const b = e.target.closest('[data-id]'); if (!b || b.dataset.id === st.productId) return;
       st.productId = b.dataset.id; st.vialId = pickVial(st.productId);
-      renderProducts(); renderVials(); renderSites(); updateTotals();
+      renderProducts(); renderVials(); renderPoints(); pushMap(); updateTotals();
     };
     $('[data-vial]').onchange = (e) => { st.vialId = e.target.value; updateTotals(); };
     renderProducts(); renderVials();
 
     /* --- step 3 --- */
-    let map = null, fallback = false;
-    const pushMap = () => { if (map && map.setSelected) { try { map.setSelected({ ...st.sites }); } catch (e) {} } };
-    const renderChips = () => {
-      if (!fallback) return;
-      $('[data-map]').innerHTML = `<div class="chips">${BT.sites.map((s) => `<button type="button" class="chip ${s.id in st.sites ? 'on' : ''}" data-s="${s.id}">${esc(s.label)}</button>`).join('')}</div>`;
+    let map = null, fallback = false, selId = null;
+    const $$ = (s) => [...body.querySelectorAll(s)];
+    const defUnits = (siteId) => defaultUnits(siteId, prod());
+    const keyOf = (p) => (p.siteId ? BT.site(p.siteId).id : '');
+    const sumU = (arr) => arr.reduce((a, p) => a + (+p.units || 0), 0);
+    const placePts = (pts) => { if (BT.faceMap && BT.faceMap.place) { try { return BT.faceMap.place(pts); } catch (e) { console.warn('faceMap.place failed', e); } } return pts; };
+    const pushMap = () => { if (map && map.setPoints) { try { map.setPoints(st.points.map((p) => ({ ...p }))); } catch (e) {} } };
+    const markSel = () => $$('[data-pt]').forEach((r) => r.classList.toggle('sel', r.dataset.pt === selId));
+    const selectPoint = (id, fromMap) => {
+      selId = id || null;
+      markSel();
+      if (!fromMap && map && map.select) { try { map.select(selId); } catch (e) {} }
+      if (selId) {
+        const r = $$('[data-pt]').find((x) => x.dataset.pt === selId);
+        if (r && r.scrollIntoView) r.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      }
+    };
+    const groupsOf = () => {
+      const m = new Map();
+      st.points.forEach((p) => {
+        const k = keyOf(p); let e = m.get(k);
+        if (!e) { e = { id: k, muscle: BT.site(p.siteId), points: [] }; m.set(k, e); }
+        e.points.push(p);
+      });
+      return [...m.values()].sort((a, b) => (a.id === '') - (b.id === ''));
+    };
+    function renderPoints() {
+      const box = $('[data-sites]');
+      if (!st.points.length) { box.innerHTML = `<p class="muted small" style="margin:4px 0">${fallback ? 'Pick a muscle above to add a point.' : 'No points yet. Tap the face to add one.'}</p>`; return; }
+      box.innerHTML = groupsOf().map((g) => {
+        const m = g.muscle, r = g.id ? rangeOf(g.id, prod()) : null;
+        const per = m.side === 'c' ? 'in total' : 'per side';
+        return `<div class="lg-grp" data-grp="${esc(g.id)}">
+          <div class="lg-grp-h"><div class="grow"><div class="li-title">${esc(m.label)}</div>${m.treats ? `<div class="li-sub">${esc(m.treats)}</div>` : ''}${r ? `<div class="tiny muted">Common ${r[0]} to ${r[1]} U ${per}, reference only</div>` : ''}</div><div class="num li-title" data-sub>${esc(fmtN(sumU(g.points)))}U</div></div>
+          ${m.caution ? `<div class="tiny lg-caut">${esc(m.caution)}</div>` : ''}
+          ${g.points.map((p, i) => `<div class="lg-site lg-pt" data-pt="${esc(p.id)}">
+            <div class="grow li-title">Point ${i + 1}</div>
+            <div class="stepper"><button type="button" data-dec aria-label="Fewer units for point ${i + 1}, ${esc(m.label)}">-</button><input type="number" inputmode="decimal" step="any" min="0" value="${esc(fmtN(p.units))}" aria-label="Units for point ${i + 1}, ${esc(m.label)}"><button type="button" data-inc aria-label="More units for point ${i + 1}, ${esc(m.label)}">+</button></div>
+            <button type="button" class="icon-btn" data-rm aria-label="Remove point ${i + 1}, ${esc(m.label)}">${BT.icon('close', 18)}</button></div>`).join('')}
+        </div>`;
+      }).join('');
+      markSel();
+    }
+    const updateSubs = () => $$('[data-grp]').forEach((g) => {
+      const s = $$('[data-sub]').find((x) => x.closest('[data-grp]') === g);
+      if (s) s.textContent = fmtN(sumU(st.points.filter((p) => keyOf(p) === g.dataset.grp))) + 'U';
+    });
+    const renderFallback = () => {
+      $('[data-help]').textContent = 'Pick the muscle for each injection point.';
+      $('[data-map]').innerHTML = `<div class="chips">${BT.muscles.map((s) => `<button type="button" class="chip" data-s="${s.id}">${esc(s.label)}</button>`).join('')}</div>`;
     };
     function mountMap() {
       const holder = $('[data-map]');
       if (BT.faceMap && BT.faceMap.mount) {
         try {
+          st.points = placePts(st.points);
           map = BT.faceMap.mount(holder, {
-            mode: 'select',
-            selected: { ...st.sites },
-            onChange: (m) => {
-              const next = {};
-              Object.keys(m || {}).forEach((id) => { const mu = +m[id]; next[id] = id in st.sites ? st.sites[id] : (mu > 0 ? mu : defaultUnits(id, prod())); });
-              st.sites = next; renderSites(); updateTotals();
+            mode: 'edit',
+            points: st.points.map((p) => ({ ...p })),
+            selectedId: selId,
+            defaultUnits: (id) => defUnits(id),
+            onChange: (next) => {
+              const old = new Map(st.points.map((p) => [p.id, p]));
+              st.points = (next || []).map((p) => ({ id: p.id || BT.uid(), siteId: p.siteId || '', x: p.x, y: p.y, units: old.has(p.id) ? old.get(p.id).units : (p.units == null ? defUnits(p.siteId) : +p.units) }));
+              if (selId && !st.points.some((p) => p.id === selId)) selId = null;
+              renderPoints(); updateTotals();
             },
+            onSelect: (id) => { if ((id || null) !== selId) selectPoint(id, true); },
           });
           return;
         } catch (e) { console.warn('faceMap unavailable', e); map = null; }
       }
-      fallback = true; renderChips();
+      fallback = true; renderFallback();
     }
     $('[data-map]').addEventListener('click', (e) => {
       if (!fallback) return;
       const b = e.target.closest('[data-s]'); if (!b) return;
-      const id = b.dataset.s;
-      if (id in st.sites) delete st.sites[id]; else st.sites[id] = defaultUnits(id, prod());
-      renderChips(); renderSites(); updateTotals();
+      const p = { id: BT.uid(), siteId: b.dataset.s, units: defUnits(b.dataset.s) };
+      st.points.push(p); renderPoints(); selectPoint(p.id, true); updateTotals();
     });
 
-    function renderSites() {
-      const ids = Object.keys(st.sites);
-      const box = $('[data-sites]');
-      if (!ids.length) { box.innerHTML = `<p class="muted small" style="margin:4px 0">${fallback ? 'Pick one or more sites above.' : 'Tap the face to choose sites.'}</p>`; return; }
-      box.innerHTML = ids.map((id) => {
-        const s = BT.site(id), hint = rangeText(id, prod());
-        return `<div class="lg-site" data-site="${esc(id)}">
-          <div class="grow"><div class="li-title">${esc(s.label)}</div>${s.muscle ? `<div class="li-sub">${esc(s.muscle)}</div>` : ''}${hint ? `<div class="tiny muted">${esc(hint)}</div>` : ''}</div>
-          <div class="stepper"><button type="button" data-dec aria-label="Fewer units for ${esc(s.label)}">-</button><input type="number" inputmode="decimal" step="0.5" min="0" value="${esc(fmtN(st.sites[id]))}" aria-label="Units for ${esc(s.label)}"><button type="button" data-inc aria-label="More units for ${esc(s.label)}">+</button></div>
-          <button type="button" class="icon-btn" data-rm aria-label="Remove ${esc(s.label)}">${BT.icon('close', 18)}</button></div>`;
-      }).join('');
-    }
-    const setUnits = (row, v) => {
-      const id = row.dataset.site;
-      st.sites[id] = Math.max(0, Math.round(v * 2) / 2);
-      pushMap(); updateTotals();
-    };
+    const setUnits = (p, v) => { p.units = Math.max(0, Math.round(v * 2) / 2); pushMap(); updateSubs(); updateTotals(); };
     $('[data-sites]').addEventListener('click', (e) => {
-      const row = e.target.closest('[data-site]'); if (!row) return;
-      const id = row.dataset.site, inp = row.querySelector('input');
-      if (e.target.closest('[data-inc]')) { setUnits(row, (+st.sites[id] || 0) + 1); inp.value = fmtN(st.sites[id]); }
-      else if (e.target.closest('[data-dec]')) { setUnits(row, (+st.sites[id] || 0) - 1); inp.value = fmtN(st.sites[id]); }
-      else if (e.target.closest('[data-rm]')) { delete st.sites[id]; renderSites(); renderChips(); pushMap(); updateTotals(); }
+      const row = e.target.closest('[data-pt]'); if (!row) return;
+      const id = row.dataset.pt, p = st.points.find((x) => x.id === id); if (!p) return;
+      const inp = row.querySelector('input');
+      if (e.target.closest('[data-inc]')) { setUnits(p, (+p.units || 0) + 1); inp.value = fmtN(p.units); selectPoint(id); }
+      else if (e.target.closest('[data-dec]')) { setUnits(p, (+p.units || 0) - 1); inp.value = fmtN(p.units); selectPoint(id); }
+      else if (e.target.closest('[data-rm]')) {
+        st.points = st.points.filter((x) => x.id !== id);
+        if (selId === id) selId = null;
+        renderPoints(); pushMap(); updateTotals();
+      } else selectPoint(id);
     });
     $('[data-sites]').addEventListener('input', (e) => {
       const inp = e.target.closest('input'); if (!inp) return;
-      const row = inp.closest('[data-site]'); if (!row) return;
-      st.sites[row.dataset.site] = Math.max(0, +inp.value || 0); pushMap(); updateTotals();
+      const row = inp.closest('[data-pt]'); const p = row && st.points.find((x) => x.id === row.dataset.pt); if (!p) return;
+      p.units = Math.max(0, +inp.value || 0); updateSubs(); updateTotals();
     });
     $('[data-sites]').addEventListener('change', (e) => {
       const inp = e.target.closest('input'); if (!inp) return;
-      const row = inp.closest('[data-site]'); if (!row) return;
-      setUnits(row, +inp.value || 0); inp.value = fmtN(st.sites[row.dataset.site]);
+      const row = inp.closest('[data-pt]'); const p = row && st.points.find((x) => x.id === row.dataset.pt); if (!p) return;
+      setUnits(p, +inp.value || 0); inp.value = fmtN(p.units);
+    });
+    $('[data-sites]').addEventListener('focusin', (e) => {
+      const row = e.target.closest('[data-pt]'); if (row && row.dataset.pt !== selId) selectPoint(row.dataset.pt);
     });
     $('[data-same]').onclick = () => {
       const l = BT.sortedInjections().find((i) => !editing || i.id !== editing.id);
       if (!l || !(l.sites || []).length) { BT.toast('No earlier treatment to copy'); return; }
-      st.sites = {};
-      l.sites.forEach((s) => { st.sites[s.siteId] = +s.units || 0; });
-      renderSites(); renderChips(); pushMap(); updateTotals();
+      st.points = placePts(l.sites.map((s) => ({ id: BT.uid(), siteId: s.siteId || '', x: s.x, y: s.y, units: +s.units || 0 })));
+      selId = null; renderPoints(); pushMap(); updateTotals();
+    };
+    $('[data-clear]').onclick = () => {
+      if (!st.points.length) return;
+      st.points = []; selId = null; renderPoints(); pushMap(); updateTotals();
     };
     function updateTotals() {
-      const total = Object.values(st.sites).reduce((a, u) => a + (+u || 0), 0);
+      const total = sumU(st.points);
       $('[data-total]').innerHTML = `${esc(fmtN(total))}<small>U</small>`;
       const v = BT.data.vials.find((x) => x.id === st.vialId), w = $('[data-warn]');
       if (v && total > adjRemaining(v) + 1e-9) {
@@ -270,7 +328,7 @@
       } else w.hidden = true;
       if (total > 0) $('[data-err-sites]').hidden = true;
     }
-    renderSites(); mountMap(); updateTotals();
+    renderPoints(); mountMap(); updateTotals();
 
     /* --- step 4 --- */
     const renderPhotos = () => {
@@ -303,8 +361,8 @@
       $('[data-err-when]').hidden = true; $('[data-err-sites]').hidden = true;
       const at = parseLocal($('[data-at]').value);
       if (at == null) { showErr('[data-err-when]', 'Enter a valid date and time.'); return; }
-      const sites = Object.entries(st.sites).map(([siteId, u]) => ({ siteId, units: Number(u) })).filter((s) => s.units > 0);
-      if (!sites.length) { showErr('[data-err-sites]', 'Add at least one site with units above 0.'); return; }
+      const sites = st.points.map((p) => ({ id: p.id, siteId: p.siteId || '', x: p.x, y: p.y, units: Number(p.units) || 0 }));
+      if (!sites.some((s) => s.units > 0)) { showErr('[data-err-sites]', 'Add at least one point with units above 0.'); return; }
       const act = sheet.el.querySelector('[data-act]');
       st.busy = true; if (act) { act.disabled = true; act.textContent = 'Saving'; }
       try {
@@ -396,7 +454,8 @@
 
     const renderSiteOpts = () => {
       const inj = BT.data.injections.find((i) => i.id === st.injectionId);
-      const ids = inj ? (inj.sites || []).map((s) => s.siteId) : [];
+      const ids = inj ? BT.byMuscle(inj).map((g) => g.muscle.id).filter(Boolean) : [];
+      if (st.siteId) st.siteId = BT.site(st.siteId).id;
       const sel = $('[data-site]');
       sel.innerHTML = `<option value="">General</option>` + ids.map((id) => `<option value="${esc(id)}">${esc(BT.site(id).label)}</option>`).join('');
       sel.value = ids.includes(st.siteId) ? st.siteId : '';
@@ -460,7 +519,7 @@
       }
       const prod = BT.product(inj.productId), total = BT.injectionUnits(inj);
       const vial = inj.vialId ? BT.data.vials.find((v) => v.id === inj.vialId) : null;
-      const sel = {}; (inj.sites || []).forEach((s) => { sel[s.siteId] = +s.units || 0; });
+      const groups = BT.byMuscle(inj);
       const rxs = BT.data.reactions.filter((r) => r.injectionId === inj.id).sort((a, b) => a.at - b.at);
       const photos = BT.data.photos.filter((p) => p.injectionId === inj.id).sort((a, b) => (a.kind === 'before' ? -1 : 1) - (b.kind === 'before' ? -1 : 1) || a.at - b.at);
 
@@ -481,15 +540,15 @@
           </div>
         </section>
         <section class="card">
-          <div class="card-h"><h3>Injection sites</h3><span class="pill blue">${(inj.sites || []).length} sites</span></div>
+          <div class="card-h"><h3>Injection points</h3><span class="pill blue">${(inj.sites || []).length} ${(inj.sites || []).length === 1 ? 'point' : 'points'}</span></div>
           <div data-map></div>
         </section>
         <section class="card">
-          <div class="card-h"><h3>Units by site</h3></div>
+          <div class="card-h"><h3>Units by muscle</h3></div>
           <div>
-            <div class="lg-tbl-r head eyebrow"><span>Site</span><span class="n">Units</span><span class="r">Common range</span></div>
-            ${(inj.sites || []).map((s) => { const r = rangeOf(s.siteId, prod); return `<div class="lg-tbl-r"><span>${esc(BT.site(s.siteId).label)}</span><span class="n">${esc(fmtN(s.units))}</span><span class="r">${r ? `${r[0]} to ${r[1]} U` : ''}</span></div>`; }).join('')}
-            <div class="lg-tbl-r"><span class="li-title">Total</span><span class="n li-title">${esc(fmtN(total))}</span><span class="r"></span></div>
+            <div class="lg-tbl-r head eyebrow"><span>Muscle</span><span class="n">Points</span><span class="n">Units</span><span class="r">Common range</span></div>
+            ${groups.map((g) => { const r = g.muscle.id ? rangeOf(g.muscle.id, prod) : null; return `<div class="lg-tbl-r"><span>${esc(g.muscle.label)}</span><span class="n">${g.points.length}</span><span class="n">${esc(fmtN(g.units))}</span><span class="r">${r ? `${r[0]} to ${r[1]} U` : ''}</span></div>`; }).join('')}
+            <div class="lg-tbl-r"><span class="li-title">Total</span><span class="n li-title">${(inj.sites || []).length}</span><span class="n li-title">${esc(fmtN(total))}</span><span class="r"></span></div>
           </div>
         </section>
         <section class="card">
@@ -528,11 +587,16 @@
 
       const holder = q('[data-map]');
       if (BT.faceMap && BT.faceMap.mount) {
-        try { detailMap = BT.faceMap.mount(holder, { mode: 'display', selected: sel, labels: true }); }
+        try {
+          const pts = (inj.sites || []).map((p) => ({ ...p }));
+          let placed = pts;
+          if (BT.faceMap.place) { try { placed = BT.faceMap.place(pts); } catch (e) { console.warn('faceMap.place failed', e); } }
+          detailMap = BT.faceMap.mount(holder, { mode: 'display', points: placed, labels: true });
+        }
         catch (e) { console.warn('faceMap unavailable', e); detailMap = null; }
       }
       if (!detailMap) {
-        holder.innerHTML = `<div class="chips">${(inj.sites || []).map((s) => `<span class="pill blue">${esc(BT.site(s.siteId).label)} ${esc(fmtN(s.units))}U</span>`).join('')}</div>`;
+        holder.innerHTML = `<div class="chips">${groups.map((g) => `<span class="pill blue">${esc(g.muscle.label)} ${esc(fmtN(g.units))}U</span>`).join('')}</div>`;
       }
     },
   });
