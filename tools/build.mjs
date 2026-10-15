@@ -52,7 +52,8 @@ if (!body.includes('<script src="core.js"></script>')) throw new Error('app/inde
 body = body.replace('<script src="core.js"></script>', `${firebase}\n<script src="core.js"></script>\n<script src="cloud.js"></script>\n<script src="offline.js"></script>`);
 // Live camera face mapping (app/livecam.js) needs a camera, which the claude.ai artifact does not have.
 if (!body.includes('<script src="facemap.js"></script>')) throw new Error('app/index.html no longer loads facemap.js; update tools/build.mjs');
-body = body.replace('<script src="facemap.js"></script>', '<script src="facemap.js"></script>\n<script src="livecam.js"></script>');
+// app/patterns.js (#65) is the reference pattern table the Live view's picker reads; it loads before livecam.js.
+body = body.replace('<script src="facemap.js"></script>', '<script src="facemap.js"></script>\n<script src="patterns.js"></script>\n<script src="livecam.js"></script>');
 
 const head = `<!doctype html>
 <html lang="en">
