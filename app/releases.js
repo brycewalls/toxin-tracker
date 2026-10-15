@@ -6,6 +6,16 @@
 (function () {
   BT.RELEASES = [
     {
+      version: '0.11', date: '2026-10-15', title: 'Botox Academy and stronger privacy',
+      items: [
+        'New Learn tab: the Botox Academy, with 22 courses and 35 lessons on how each treatment works, the anatomy, published patterns and safety, plus quizzes and vetted videos and reading.',
+        'Track your progress, unlock 15 achievements, and earn an educational certificate of completion when you finish every course.',
+        'The app now signs you out after a period of no use, with a warning first. Choose the time, or Never on this device, in Settings.',
+        'Signing out, or the timeout, erases the copy of your data stored on the phone.',
+        'All of the app\'s code, including the face tracker, now comes from the app itself, checked against a fingerprint, instead of outside servers.',
+      ],
+    },
+    {
       version: '0.10', date: '2026-10-15', title: 'Works offline',
       items: [
         'Toxin Tracker opens and works with no connection. Log treatments, photos and reactions anywhere.',
