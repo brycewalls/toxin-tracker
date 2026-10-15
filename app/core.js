@@ -392,7 +392,7 @@
     BT.save('reactions', { injectionId: i2.id, at: i2.at + 6 * BT.HOUR, kind: 'Bruising', severity: 2, siteId: 'oculi-l', resolvedAt: i2.at + 4 * d, notes: 'Small bruise, gone in 4 days', sample: true });
     BT.save('reactions', { injectionId: i2.id, at: i2.at + 20 * BT.HOUR, kind: 'Headache', severity: 1, siteId: 'frontalis-l', resolvedAt: i2.at + 1.5 * d, notes: '', sample: true });
     BT.save('reactions', { injectionId: i1.id, at: i1.at + 2 * BT.HOUR, kind: 'Redness', severity: 1, siteId: 'procerus', resolvedAt: i1.at + 5 * BT.HOUR, notes: '', sample: true });
-    for (let k = 0; k < 7; k++) BT.save('moods', { date: new Date(now - k * d).toISOString().slice(0, 10), score: [4, 5, 4, 3, 4, 2, 3][k], sample: true });
+    for (let k = 0; k < 7; k++) BT.save('moods', { date: ((t) => t.getFullYear() + '-' + String(t.getMonth() + 1).padStart(2, '0') + '-' + String(t.getDate()).padStart(2, '0'))(new Date(new Date(now).getFullYear(), new Date(now).getMonth(), new Date(now).getDate() - k, 12)), score: [4, 5, 4, 3, 4, 2, 3][k], sample: true });
     BT.save('settings', { sampleLoaded: true });
   };
   BT.clearSample = () => { for (const k of KINDS) BT.data[k].filter((r) => r.sample).forEach((r) => BT.remove(k, r.id)); BT.save('settings', { sampleLoaded: false, sampleCleared: true }); };
