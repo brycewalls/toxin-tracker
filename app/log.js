@@ -56,6 +56,9 @@
 .lg-th span{position:absolute;left:6px;bottom:6px;background:var(--card);font-size:11px;padding:2px 8px;border-radius:99px}
 .lg-save{width:100%;margin-bottom:calc(env(safe-area-inset-bottom,0px) + 8px)}
 .lg-hero-top{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.lg-ph-note{aspect-ratio:3/4;border-radius:14px;background:var(--card-2);color:var(--muted);display:grid;place-items:center;align-content:center;gap:6px;text-align:center;font-size:12.5px;padding:10px}
+.lg-tu{display:flex;align-items:center;gap:10px;padding:12px 0;border-bottom:1px solid var(--line);width:100%;text-align:left;min-height:48px}
+.lg-tu:last-of-type{border-bottom:0}
 `;
     document.head.appendChild(st);
   }
@@ -109,6 +112,12 @@
       if (l) st.productId = l.productId;
       st.vialId = pickVial(st.productId);
     }
+    // Touch-up (#18): same product and vial as the original, linked by touchUpOf; points start empty.
+    const tuOf = !editing && prefill.touchUpOf ? BT.data.injections.find((i) => i.id === prefill.touchUpOf) : null;
+    if (tuOf) {
+      st.productId = tuOf.productId; st.provider = tuOf.provider || '';
+      st.vialId = tuOf.vialId && BT.data.vials.some((v) => v.id === tuOf.vialId) ? tuOf.vialId : pickVial(st.productId);
+    }
     const pre = Array.isArray(prefill.points) && prefill.points.length ? prefill.points : prefill.sites;
     if (Array.isArray(pre) && pre.length) {
       st.points = pre.map((s) => ({ id: s.id || BT.uid(), siteId: s.siteId || '', x: s.x, y: s.y, units: +s.units || defaultUnits(s.siteId || '', BT.product(st.productId)) }));
@@ -123,13 +132,14 @@
     })();
 
     const sheet = BT.sheet({
-      title: editing ? 'Edit Injection' : 'Log Injection',
+      title: editing ? 'Edit Injection' : tuOf ? 'Log Touch-up' : 'Log Injection',
       action: { label: 'Save', onClick: (close) => save(close) },
       onClose: () => Object.values(urls).forEach((u) => { try { URL.revokeObjectURL(u); } catch (e) {} }),
     });
     sheet.el.classList.add('lg-sheet');
     const body = sheet.body;
-    body.innerHTML = `
+    body.innerHTML = `${tuOf ? `
+      <div class="callout" data-tu>Touch-up for your ${esc(BT.fmt.dateLong(tuOf.at))} treatment. It counts toward that treatment's total and does not restart your countdown.</div>` : ''}
       <section class="card" data-sec="when">
         ${stepHeader(1, 'When')}
         <div class="field"><label for="lg-at">Date and time</label><input class="input" id="lg-at" type="datetime-local" data-at></div>
@@ -343,19 +353,24 @@
 
     /* --- step 4 --- */
     const renderPhotos = () => {
-      $('[data-photos]').innerHTML = ['before', 'after'].map((k) => {
+      const ex = st.existing.after;
+      const afterCell = ex
+        ? `<button type="button" class="lg-ph has lg-ph-ro" data-viewafter><img src="${esc(ex.src)}" alt="After photo"><span class="lg-tag">After</span></button>`
+        : `<div class="lg-ph-note">${BT.icon('calendar', 22)}<span>The after photo comes with your day ${BT.checkin ? BT.checkin.day() : 7} check-in on Today.</span></div>`;
+      $('[data-photos]').innerHTML = ['before'].map((k) => {
         const cap = k[0].toUpperCase() + k.slice(1);
         const src = urls[k] || (st.existing[k] && st.existing[k].src);
         if (src && (st.files[k] || st.existing[k])) {
           return `<div class="lg-ph has" data-ph="${k}"><img src="${esc(src)}" alt="${cap} photo"><span class="lg-tag">${cap}</span>${st.files[k] ? `<button type="button" class="lg-ph-x" data-rmph="${k}" aria-label="Remove ${k} photo">${BT.icon('close', 18)}</button>` : ''}<button type="button" class="btn sm" data-pick="${k}" style="position:absolute;left:8px;bottom:8px;z-index:1">Replace</button></div>`;
         }
         return `<button type="button" class="lg-ph" data-pick="${k}">${BT.icon('camera', 24)}<span>Add ${k} photo</span></button>`;
-      }).join('');
+      }).join('') + afterCell;
     };
     renderPhotos();
     $('[data-photos]').addEventListener('click', async (e) => {
       const rm = e.target.closest('[data-rmph]');
       if (rm) { const k = rm.dataset.rmph; if (urls[k]) { URL.revokeObjectURL(urls[k]); delete urls[k]; } st.files[k] = null; renderPhotos(); return; }
+      if (e.target.closest('[data-viewafter]')) { const v = BT.sheet({ title: 'After · ' + BT.fmt.date(st.existing.after.at) }); v.body.innerHTML = `<img src="${esc(st.existing.after.src)}" alt="After photo" style="width:100%;border-radius:14px;display:block">`; return; }
       const b = e.target.closest('[data-pick]'); if (!b) return;
       const k = b.dataset.pick;
       let f = null;
@@ -384,11 +399,12 @@
         const rec = BT.save('injections', Object.assign(base, {
           at, productId: st.productId, vialId: st.vialId || null, sites,
           provider: $('[data-prov]').value.trim(), notes: $('[data-notes]').value.trim(), cost,
-        }));
+        }, tuOf ? { touchUpOf: tuOf.id } : {}));
+        if (tuOf) BT.save('injections', { ...tuOf, checkin: { ...(tuOf.checkin || {}), touchUp: rec.id } });
         const vial = st.vialId ? BT.data.vials.find((v) => v.id === st.vialId) : null;
         if (vial && !vial.openedAt) { vial.openedAt = at; BT.save('vials', vial); }
         let photoFail = false;
-        for (const k of ['before', 'after']) {
+        for (const k of ['before']) {
           if (!st.files[k]) continue;
           try {
             const src = await BT.photo.store(st.files[k]);
@@ -398,7 +414,7 @@
         }
         close();
         if (photoFail) BT.toast('Saved, but a photo could not be stored');
-        else BT.toast(editing ? 'Treatment updated.' : 'Injection logged. Aftercare timers started.');
+        else BT.toast(editing ? 'Treatment updated.' : tuOf ? 'Touch-up logged.' : 'Injection logged. Aftercare timers started.');
         if (editing) BT.render(); else BT.go('today');
       } catch (err) {
         console.error(err);
@@ -536,6 +552,12 @@
       const groups = BT.byMuscle(inj);
       const rxs = BT.data.reactions.filter((r) => r.injectionId === inj.id).sort((a, b) => a.at - b.at);
       const photos = BT.data.photos.filter((p) => p.injectionId === inj.id).sort((a, b) => (a.kind === 'before' ? -1 : 1) - (b.kind === 'before' ? -1 : 1) || a.at - b.at);
+      // Day 7 check-in (#15, #18): a touch-up links back to its original; an original lists its touch-ups.
+      const CI = BT.checkin;
+      const orig = inj.touchUpOf ? BT.data.injections.find((i) => i.id === inj.touchUpOf) : null;
+      const tus = CI && !inj.touchUpOf ? CI.touchUps(inj.id) : [];
+      const combined = total + tus.reduce((a, t) => a + BT.injectionUnits(t), 0);
+      const afterDue = CI && !inj.touchUpOf && !CI.after(inj) ? CI.dueAt(inj) : null;
 
       root.innerHTML = BT.navHeader('Treatment', `<button class="icon-btn" data-edit aria-label="Edit treatment">${BT.icon('edit', 20)}</button>`) + `
         <section class="card">
@@ -544,6 +566,7 @@
             <div class="grow">
               <div class="lg-hero-top"><span class="lg-dot" style="background:${prod.color}"></span><h2 style="font-size:20px">${esc(prod.name)}</h2>${inj.sample ? '<span class="sample-tag">Sample</span>' : ''}</div>
               <div class="muted small">${esc(prod.generic)} · ${esc(prod.maker)}</div>
+              ${inj.touchUpOf ? `<div style="margin-top:8px">${orig ? `<button class="pill blue" data-orig>Touch-up for ${esc(BT.fmt.date(orig.at))} ${BT.icon('chevron', 12)}</button>` : '<span class="pill blue">Touch-up</span>'}</div>` : ''}
             </div>
             <div class="big-num num">${esc(fmtN(total))}<small>U</small></div>
           </div>
@@ -551,8 +574,14 @@
             ${inj.provider ? `<div class="li"><span class="muted grow">Provider</span><span>${esc(inj.provider)}</span></div>` : ''}
             ${vial ? `<div class="li"><span class="muted grow">Vial</span><span>${esc(vial.lot ? 'Lot ' + vial.lot : 'Vial')}</span></div>` : ''}
             ${inj.cost != null && inj.cost !== '' ? `<div class="li"><span class="muted grow">Cost</span><span class="num">${esc(money(inj.cost))}</span></div>` : ''}
+            ${afterDue ? `<div class="li"><span class="muted grow">After photo</span><span class="pill ${afterDue <= Date.now() ? 'amber' : 'grey'}">After photo due ${esc(BT.fmt.date(afterDue))}</span></div>` : ''}
           </div>
         </section>
+        ${tus.length ? `<section class="card">
+          <div class="card-h"><h3>Touch-ups</h3><span class="pill blue">${tus.length}</span></div>
+          ${tus.map((t) => `<button class="lg-tu" data-tu="${esc(t.id)}"><div class="grow"><div class="li-title">${esc(BT.fmt.dateLong(t.at))}</div><div class="li-sub">${(t.sites || []).length} ${(t.sites || []).length === 1 ? 'point' : 'points'} · Day ${Math.max(0, Math.round((t.at - inj.at) / BT.DAY))}</div></div><span class="num li-title">${esc(fmtN(BT.injectionUnits(t)))}U</span><span class="muted">${BT.icon('chevron', 18)}</span></button>`).join('')}
+          <div class="lg-total" style="border-top:1px solid var(--line);padding-top:12px"><span class="muted">Combined total</span><span class="big-num num" data-combined>${esc(fmtN(combined))}<small>U</small></span></div>
+        </section>` : ''}
         <section class="card">
           <div class="card-h"><h3>Injection points</h3><span class="pill blue">${(inj.sites || []).length} ${(inj.sites || []).length === 1 ? 'point' : 'points'}</span></div>
           <div data-map></div>
@@ -572,7 +601,7 @@
         </section>
         <section class="card">
           <div class="card-h"><h3>Photos</h3>${photos.length ? '<button class="btn sm" data-compare>Compare</button>' : ''}</div>
-          ${photos.length ? `<div class="lg-thumbs">${photos.map((p) => `<button class="lg-th" data-ph="${esc(p.id)}" aria-label="View ${esc(p.kind)} photo"><img src="${esc(p.src)}" alt="${esc(p.kind)} photo"><span>${esc(p.kind === 'after' ? 'After' : 'Before')}</span></button>`).join('')}</div>` : '<p class="muted small" style="margin:0">No photos yet. Use edit to add before and after photos.</p>'}
+          ${photos.length ? `<div class="lg-thumbs">${photos.map((p) => `<button class="lg-th" data-ph="${esc(p.id)}" aria-label="View ${esc(p.kind)} photo"><img src="${esc(p.src)}" alt="${esc(p.kind)} photo"><span>${esc(p.kind === 'after' ? 'After' : 'Before')}</span></button>`).join('')}</div>` : '<p class="muted small" style="margin:0">No photos yet. Use edit to add a before photo. The after photo comes with the check-in on Today.</p>'}
         </section>
         ${inj.notes ? `<section class="card"><div class="card-h"><h3>Notes</h3></div><p style="margin:0;white-space:pre-wrap">${esc(inj.notes)}</p></section>` : ''}
         <button class="btn danger" data-del>${BT.icon('trash', 18)} Delete treatment</button>`;
@@ -582,6 +611,8 @@
       q('[data-addrx]').onclick = () => BT.openReaction({ injectionId: id });
       root.querySelectorAll('[data-rx]').forEach((b) => { b.onclick = () => BT.openReaction({ id: b.dataset.rx }); });
       const cmp = q('[data-compare]'); if (cmp) cmp.onclick = () => BT.go('compare', id);
+      const og = q('[data-orig]'); if (og) og.onclick = () => BT.go('injection', orig.id);
+      root.querySelectorAll('[data-tu]').forEach((b) => { b.onclick = () => BT.go('injection', b.dataset.tu); });
       root.querySelectorAll('[data-ph]').forEach((b) => {
         b.onclick = () => {
           const p = photos.find((x) => x.id === b.dataset.ph); if (!p) return;
@@ -594,6 +625,9 @@
         if (!ok) return;
         BT.data.reactions.filter((r) => r.injectionId === id).forEach((r) => BT.remove('reactions', r.id));
         BT.data.photos.filter((p) => p.injectionId === id).forEach((p) => BT.remove('photos', p.id));
+        // Unlink: touch-ups of a deleted original stand on their own; a deleted touch-up reopens the decision.
+        BT.data.injections.filter((i) => i.touchUpOf === id).forEach((i) => { const r = { ...i }; delete r.touchUpOf; BT.save('injections', r); });
+        if (orig && orig.checkin && orig.checkin.touchUp === id) { const c = { ...orig.checkin }; delete c.touchUp; BT.save('injections', { ...orig, checkin: c }); }
         BT.remove('injections', id);
         BT.toast('Treatment deleted');
         BT.back();

@@ -128,7 +128,7 @@
   /* ---------- derived data ---------- */
   BT.injectionUnits = (inj) => (inj.sites || []).reduce((a, s) => a + (+s.units || 0), 0);
   BT.sortedInjections = () => [...BT.data.injections].sort((a, b) => b.at - a.at);
-  BT.lastInjection = () => BT.sortedInjections()[0] || null;
+  BT.lastInjection = () => BT.sortedInjections().find((i) => !i.touchUpOf) || null; // touch-ups (#18) never reset the countdown
   BT.vialRemaining = (v) => Math.max(0, (v.unitsTotal || 0) - BT.data.injections.filter((i) => i.vialId === v.id).reduce((a, i) => a + BT.injectionUnits(i), 0));
   // Relative effect 0..1 for an injection at time t (simple onset ramp, plateau, linear wear-off). Illustrative only.
   BT.effectAt = (inj, t) => {

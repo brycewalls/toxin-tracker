@@ -56,6 +56,17 @@
 .t-out .cell .big-num { font-size:28px; margin-top:4px; }
 .t-csv { width:100%; min-height:200px; font-family:var(--mono); font-size:12px; border:1px solid var(--line); border-radius:14px; padding:12px; background:var(--card); resize:vertical; }
 .t-set-row { display:flex; align-items:center; justify-content:space-between; gap:12px; min-height:48px; }
+.t-ci { display:grid; gap:12px; }
+.t-ci .card-h { margin-bottom:0; }
+.t-ci-x { margin:-8px -8px -8px 0; color:var(--muted); }
+.t-ci-step { display:grid; gap:8px; padding-top:12px; border-top:1px solid var(--line); }
+.t-ci-acts { display:grid; grid-template-columns:1fr; gap:8px; }
+.t-ci-acts .btn { min-width:0; }
+.t-ci-pics { display:grid; grid-template-columns:repeat(2, 112px); gap:8px; }
+.t-ci-pic { position:relative; aspect-ratio:3/4; border-radius:12px; overflow:hidden; background:var(--card-2); }
+.t-ci-pic img { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; display:block; }
+.t-ci-pic span { position:absolute; left:6px; top:6px; font-size:11px; padding:2px 8px; border-radius:99px; background:var(--card); color:var(--fg); }
+.t-ci-done { display:flex; align-items:center; gap:8px; color:var(--green); font-size:14px; }
 `;
     document.head.appendChild(st);
   }
@@ -85,18 +96,97 @@
     return el;
   }
 
+  /* ---------- day 7 check-in (#15, #18) ----------
+     Stored on existing kinds: injection.touchUpOf = original id (on a touch-up),
+     injection.checkin = { dismissedAt, touchUp: 'none' | touch-up id } (on the original),
+     photos {kind:'after', injectionId, checkin:true}, settings.checkinDay (3 to 21, default 7). */
+  const CI = (BT.checkin = {
+    day: () => clamp(Math.round(+BT.data.settings.checkinDay) || 7, 3, 21),
+    isTouchUp: (i) => !!(i && i.touchUpOf),
+    touchUps: (id) => BT.data.injections.filter((i) => i.touchUpOf === id).sort((a, b) => a.at - b.at),
+    dueAt: (inj) => inj.at + CI.day() * BT.DAY,
+    before: (inj) => BT.data.photos.filter((p) => p.injectionId === inj.id && p.kind !== 'after').sort((a, b) => b.at - a.at)[0] || null,
+    // An after photo taken at logging time (before #15) shows nothing yet, so only one from day 3 on counts.
+    after: (inj) => BT.data.photos.filter((p) => p.injectionId === inj.id && p.kind === 'after' && (p.checkin || p.at - inj.at >= 3 * BT.DAY))
+      .sort((a, b) => (b.checkin ? 1 : 0) - (a.checkin ? 1 : 0) || b.at - a.at)[0] || null,
+    decided: (inj) => !!(inj.checkin && inj.checkin.touchUp) || CI.touchUps(inj.id).length > 0,
+    pending: (now = Date.now()) => BT.sortedInjections().filter((i) => {
+      if (CI.isTouchUp(i) || (i.checkin && i.checkin.dismissedAt)) return false;
+      const age = (now - i.at) / BT.DAY;
+      return age >= CI.day() && age < 30 && !(CI.after(i) && CI.decided(i));
+    }),
+    mark: (inj, patch) => BT.save('injections', { ...inj, checkin: { ...(inj.checkin || {}), ...patch } }),
+  });
+
+  function checkinCard(inj, now) {
+    const p = BT.product(inj.productId), age = Math.floor((now - inj.at) / BT.DAY);
+    const before = CI.before(inj), after = CI.after(inj), tus = CI.touchUps(inj.id);
+    const muscles = BT.byMuscle(inj).map((g) => `<span class="pill blue">${BT.esc(g.muscle.label)} ${BT.fmt.units(g.units)}</span>`).join('');
+    const photoStep = after
+      ? `<div class="t-ci-pics">${before ? `<div class="t-ci-pic"><img src="${BT.esc(before.src)}" alt="Before photo"><span>Before</span></div>` : ''}<div class="t-ci-pic"><img src="${BT.esc(after.src)}" alt="After photo"><span>Day ${Math.max(0, Math.round((after.at - inj.at) / BT.DAY))}</span></div></div>
+        ${before ? `<button class="btn" data-ci-cmp>${BT.icon('compare', 18)} Compare</button>` : '<div class="tiny muted">No before photo for this treatment, so there is nothing to compare yet.</div>'}`
+      : `<button class="btn primary" data-ci-photo>${BT.icon('camera', 18)} Take after photo</button>`;
+    const decision = (inj.checkin && inj.checkin.touchUp) || (tus[0] && tus[0].id);
+    const tuStep = decision
+      ? `<div class="t-ci-done">${BT.icon('check', 18)}<span>${decision === 'none' ? 'No touch-up needed' : 'Touch-up logged'}</span></div>`
+      : `<div class="t-ci-acts"><button class="btn" data-ci-tu>${BT.icon('syringe', 18)} Log touch-up</button><button class="btn ghost" data-ci-none>No touch-up needed</button></div>`;
+    return `<section class="card t-ci" data-ci="${BT.esc(inj.id)}">
+      <div class="card-h"><h3>Day ${age} check-in</h3><button class="icon-btn t-ci-x" data-ci-x aria-label="Dismiss check-in">${BT.icon('close', 18)}</button></div>
+      <div><div class="li-title">${BT.esc(p.name)} · ${BT.esc(BT.fmt.dateLong(inj.at))}</div><div class="li-sub">${BT.fmt.units(BT.injectionUnits(inj))} across ${BT.byMuscle(inj).length} muscles</div></div>
+      <div class="chips">${muscles}</div>
+      <div class="t-ci-step"><div class="eyebrow">After photo</div>${photoStep}</div>
+      <div class="t-ci-step"><div class="eyebrow">Touch-up</div>${tuStep}</div></section>`;
+  }
+
+  async function takeAfterPhoto(inj, btn) {
+    let f = null;
+    try { f = await BT.photo.pick({ capture: 'user' }); } catch (e) { console.warn(e); }
+    if (!f) return;
+    if (btn) { btn.disabled = true; btn.textContent = 'Saving'; }
+    try {
+      const src = await BT.photo.store(f);
+      BT.save('photos', { kind: 'after', at: Date.now(), src, injectionId: inj.id, checkin: true });
+      BT.toast('After photo saved');
+    } catch (e) {
+      console.error('after photo failed', e);
+      BT.toast('Could not save that photo');
+      if (btn) { btn.disabled = false; btn.textContent = 'Take after photo'; }
+    }
+  }
+
+  function bindCheckins(root) {
+    root.querySelectorAll('[data-ci]').forEach((card) => {
+      const inj = BT.data.injections.find((i) => i.id === card.dataset.ci); if (!inj) return;
+      const on = (sel, fn) => { const b = card.querySelector(sel); if (b) b.onclick = () => fn(b); };
+      on('[data-ci-x]', () => { CI.mark(inj, { dismissedAt: Date.now() }); BT.toast('Check-in dismissed'); });
+      on('[data-ci-photo]', (b) => takeAfterPhoto(inj, b));
+      on('[data-ci-cmp]', () => BT.go('compare', inj.id));
+      on('[data-ci-none]', () => CI.mark(inj, { touchUp: 'none' }));
+      on('[data-ci-tu]', () => BT.openLog({ touchUpOf: inj.id }));
+    });
+  }
+
+  function dayStepper(onChange) {
+    const el = BT.h(`<div class="stepper"><button type="button" data-d="-1" aria-label="Fewer days">&minus;</button><input type="number" inputmode="numeric" min="3" max="21" value="${CI.day()}" aria-label="Check-in day"><button type="button" data-d="1" aria-label="More days">+</button></div>`);
+    const inp = el.querySelector('input');
+    const set = (v) => { v = clamp(Math.round(+v) || 7, 3, 21); inp.value = v; onChange(v); };
+    el.querySelectorAll('button').forEach((b) => (b.onclick = () => set(+inp.value + +b.dataset.d)));
+    inp.onchange = () => set(inp.value);
+    return el;
+  }
+
   /* ---------- TODAY ---------- */
   BT.screen('today', {
     title: 'Today',
     render(root) {
-      const now = Date.now(), d = BT.data, last = BT.lastInjection(), s = d.settings;
+      const now = Date.now(), d = BT.data, orig = BT.lastInjection(), s = d.settings;
       const hr = new Date().getHours();
       const greet = hr < 12 ? 'Good Morning' : hr < 17 ? 'Good Afternoon' : 'Good Evening';
       const dateLine = new Date().toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
       const due = BT.nextDue();
 
-      const daysSince = last ? Math.max(0, Math.floor((now - last.at) / BT.DAY)) : null;
-      const lastUnits = last ? BT.injectionUnits(last) : null;
+      const daysSince = orig ? Math.max(0, Math.floor((now - orig.at) / BT.DAY)) : null;
+      const lastUnits = orig ? BT.injectionUnits(orig) + CI.touchUps(orig.id).reduce((a, t) => a + BT.injectionUnits(t), 0) : null;
       const weeksLeft = due ? Math.round((due - now) / WEEK) : null;
       const activeVials = d.vials.filter((v) => BT.vialRemaining(v) > 0 && (!v.expiresAt || v.expiresAt > now)).length;
       const openReactions = d.reactions.filter((r) => !r.resolvedAt).length;
@@ -113,7 +203,11 @@
           ${ring(openReactions, 'Open reactions')}
         </div></section>`;
 
-      // Aftercare
+      // Day 7 check-in, one card per treatment that reached it (#15, #18)
+      h += CI.pending(now).map((i) => checkinCard(i, now)).join('');
+
+      // Aftercare runs from the latest session, touch-ups included; the countdowns above skip them.
+      const last = BT.sortedInjections()[0] || null;
       const maxH = maxAftercareH();
       if (last && now < last.at + maxH * BT.HOUR) {
         const ex = BT.aftercare.find((a) => a.id === 'exercise') || BT.aftercare[0];
@@ -160,13 +254,13 @@
       }
 
       // Next treatment
-      if (last && due) {
-        const total = intervalWeeks() * WEEK, pct = clamp(((now - last.at) / total) * 100, 0, 100);
+      if (orig && due) {
+        const total = intervalWeeks() * WEEK, pct = clamp(((now - orig.at) / total) * 100, 0, 100);
         const wl = Math.ceil((due - now) / WEEK);
         h += `<section class="card"><div class="card-h"><h3>Next treatment</h3>${due <= now ? '<span class="pill amber">Due now</span>' : `<span class="pill blue">${wl} wk${wl === 1 ? '' : 's'} left</span>`}</div>
           <div class="big-num" style="font-size:26px">${BT.esc(BT.fmt.dateLong(due))}</div>
           <div class="t-bar" style="margin:14px 0 6px"><i style="width:${pct}%"></i></div>
-          <div class="row between tiny muted"><span>${BT.esc(BT.fmt.date(last.at))}</span><span>${Math.round(pct)}%</span><span>${BT.esc(BT.fmt.date(due))}</span></div>
+          <div class="row between tiny muted"><span>${BT.esc(BT.fmt.date(orig.at))}</span><span>${Math.round(pct)}%</span><span>${BT.esc(BT.fmt.date(due))}</span></div>
           <div class="row between" style="margin-top:14px"><div><div class="li-title">Interval</div><div class="li-sub">Weeks between treatments</div></div><span data-step></span></div></section>`;
       } else {
         h += `<section class="card"><div class="card-h"><h3>Next treatment</h3></div><div class="small muted">Your due date shows up after your first logged treatment.</div>
@@ -177,7 +271,7 @@
       const recent = BT.sortedInjections().slice(0, 3);
       h += `<section class="card"><div class="card-h"><h3>Recent</h3></div>${recent.length ? `<div class="list">${recent.map((i) => {
         const p = BT.product(i.productId);
-        return `<button class="li" style="width:100%;text-align:left" data-inj="${BT.esc(i.id)}"><span class="dot" style="background:${p.color}"></span><div class="grow"><div class="li-title">${BT.esc(BT.fmt.dateLong(i.at))}</div><div class="li-sub">${BT.esc(p.name)} · ${BT.fmt.units(BT.injectionUnits(i))} · ${(i.sites || []).length} site${(i.sites || []).length === 1 ? '' : 's'}</div></div><span class="muted">${BT.icon('chevron', 18)}</span></button>`;
+        return `<button class="li" style="width:100%;text-align:left" data-inj="${BT.esc(i.id)}"><span class="dot" style="background:${p.color}"></span><div class="grow"><div class="li-title">${BT.esc(BT.fmt.dateLong(i.at))}</div><div class="li-sub">${i.touchUpOf ? 'Touch-up · ' : ''}${BT.esc(p.name)} · ${BT.fmt.units(BT.injectionUnits(i))} · ${(i.sites || []).length} site${(i.sites || []).length === 1 ? '' : 's'}</div></div><span class="muted">${BT.icon('chevron', 18)}</span></button>`;
       }).join('')}</div>` : '<div class="empty" style="padding:16px">No treatments logged yet. Tap the plus button to add one.</div>'}</section>`;
 
       // Shortcuts
@@ -191,6 +285,7 @@
       root.innerHTML = h;
       root.querySelectorAll('[data-go]').forEach((b) => (b.onclick = () => BT.go(b.dataset.go)));
       if (BT.bindWhatsNewCard) BT.bindWhatsNewCard(root);
+      bindCheckins(root);
       root.querySelectorAll('[data-inj]').forEach((b) => (b.onclick = () => BT.go('injection', b.dataset.inj)));
       root.querySelectorAll('[data-mood]').forEach((b) => (b.onclick = () => moodSheet(b.dataset.mood)));
       const clr = root.querySelector('[data-clear]'); if (clr) clr.onclick = () => BT.clearSample();
@@ -345,6 +440,8 @@
         <section class="card stack">
           <div class="field"><label for="s-name">Your name</label><input id="s-name" class="input" type="text" autocomplete="given-name" placeholder="Used in your greeting" value="${BT.esc(s.name || '')}"></div>
           <div class="t-set-row"><div><div class="li-title">Default interval</div><div class="li-sub">Weeks between treatments</div></div><span data-step></span></div>
+          <div class="stack-s"><div class="t-set-row"><div><div class="li-title">Check-in day</div><div class="li-sub">Days after a treatment for the after photo and touch-up check-in</div></div><span data-ciday></span></div>
+            <div class="tiny muted">Many injectors judge touch-ups at 10 to 14 days, once the toxin is at its peak.</div></div>
           <div class="stack-s"><div class="li-title">Theme</div><span data-theme></span></div>
         </section>
         ${BT.VERSION ? `<button class="card row gap t-ver" data-go="whatsnew"><span class="t-ac-ic">${BT.icon('sparkle', 18)}</span><div class="grow" style="text-align:left"><div class="li-title">What's New</div><div class="li-sub">Version ${BT.esc(BT.VERSION)}</div></div>${BT.icon('chevron', 18)}</button>` : ''}
@@ -359,6 +456,7 @@
       if (!s.name && acct && acct.name) root.querySelector('#s-name').placeholder = acct.name.split(' ')[0];
       root.querySelector('#s-name').onchange = (e) => BT.save('settings', { name: e.target.value.trim() });
       root.querySelector('[data-step]').replaceWith(intervalStepper((v) => BT.save('settings', { intervalWeeks: v })));
+      root.querySelector('[data-ciday]').replaceWith(dayStepper((v) => BT.save('settings', { checkinDay: v })));
       root.querySelector('[data-theme]').replaceWith(BT.seg([['system', 'System'], ['light', 'Light'], ['dark', 'Dark']], theme, (v) => {
         applyTheme(v); try { if (v === 'system') localStorage.removeItem('bt-theme'); else localStorage.setItem('bt-theme', v); } catch (e) {}
       }));
