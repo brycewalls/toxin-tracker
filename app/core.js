@@ -240,6 +240,8 @@
         if (next.pending !== BT.sync.pending || next.fromCache !== BT.sync.fromCache || !BT.sync.live) { BT.sync = next; BT.emit('status', BT.sync); }
       }, (e) => {
         console.warn('records listener stopped:', (e && e.code) || 'unknown');
+        // Access removed in the rules while signed in (#53): sign out and clear this device's copy.
+        if (e && e.code === 'permission-denied' && window.BT_CLOUD && BT_CLOUD.denyAccess) { BT_CLOUD.denyAccess(); return; }
         if (!(window.BT_CLOUD && BT_CLOUD.signingOut)) BT.toast('Could not load your log. Check your connection.');
         done();
       });
