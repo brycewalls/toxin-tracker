@@ -1,0 +1,4 @@
+# Pages the smoke test should skip: one path or folder prefix per line, relative to the repo root.
+# app/index.html is the artifact body, not a standalone page: app/preview.html fetches it and
+# runs its scripts in order, so the smoke test opens preview.html instead.
+app/index.html

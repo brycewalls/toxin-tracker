@@ -1,0 +1,16 @@
+feature,area,priority,original,clone,notes
+Body/face site map with labels,map,must,yes,no,face instead of body
+Front/Back segmented view,map,must,yes,no,Front/Left/Right profiles
+Dose logging,log,must,yes,no,units per site
+Today's doses list,home,must,yes,no,upcoming + recent
+Mood row How are you,home,should,yes,no,
+Circular stat chips,home,must,yes,no,days since / units / next due
+Inventory with linked pills,stock,must,yes,no,units remaining
+Calculator stepwise,tools,should,yes,no,reconstitution units per 0.1 mL
+Half-life chart,insights,could,yes,no,effect curve onset/peak/wear-off
+Interactions list,library,skip,yes,no,not relevant
+Reactions log,log,must,no,no,new
+Aftercare timers,home,must,no,no,new
+Before/after photos,photos,must,no,no,new
+Live face mapping,map,must,no,no,photo + overlay
+Dark mode,theme,must,yes,no,

@@ -1,0 +1,1 @@
+{ "version": "0.0.1", "configurations": [ { "name": "botox-tracker", "runtimeExecutable": "python3", "runtimeArgs": ["-m", "http.server", "6177", "--directory", "app"], "port": 6177 } ] }

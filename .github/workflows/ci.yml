@@ -1,0 +1,54 @@
+# Web project CI. Every push to main and every pull request opens each HTML page in a real
+# headless Chromium at desktop and phone widths and fails on console errors, page errors,
+# failed requests, or horizontal overflow. Pushing a tag like v1.2 publishes a Release with
+# a zip of the site attached. Copied from Web Development Resources/github-template.
+name: CI
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  smoke:
+    name: Open every page
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Install Playwright
+        run: |
+          npm install --no-save playwright@1
+          npx playwright install --with-deps chromium
+      - name: Smoke test every page
+        run: node tools/smoke_test.mjs
+      - name: Keep the screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: page-screenshots
+          path: tools/smoke/
+          retention-days: 14
+
+  release:
+    name: Publish release
+    needs: smoke
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Zip the site
+        run: |
+          NAME="${GITHUB_REPOSITORY##*/}-${GITHUB_REF_NAME}"
+          zip -r "$NAME.zip" . -x ".git/*" ".github/*" "tools/*" "node_modules/*" "*.DS_Store"
+          ls -la "$NAME.zip"
+      - name: Create the GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" ./*.zip --title "$GITHUB_REF_NAME" --generate-notes
