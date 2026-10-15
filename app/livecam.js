@@ -726,20 +726,22 @@
   // The muscle canvas, the progress pill, the reference pattern banner and picker.
   const CSS_LIVE = `
 .fm-cam canvas.lc-gl{pointer-events:none}
-.lc-prog{position:absolute;left:50%;bottom:12px;transform:translateX(-50%);z-index:1;display:flex;align-items:center;gap:8px;max-width:calc(100% - 24px);background:rgba(0,0,0,.55);color:#fff;font-size:12px;line-height:1.3;padding:6px 12px;border-radius:999px;white-space:nowrap;pointer-events:none;font-variant-numeric:tabular-nums}
+.lc-prog{position:absolute;left:50%;bottom:76px;transform:translateX(-50%);z-index:1;display:flex;align-items:center;gap:8px;max-width:calc(100% - 24px);background:rgba(0,0,0,.55);color:#fff;font-size:12px;line-height:1.3;padding:6px 12px;border-radius:999px;white-space:nowrap;pointer-events:none;font-variant-numeric:tabular-nums}
 .lc-prog[hidden]{display:none}
 .lc-prog i{display:block;flex:none;width:56px;height:4px;border-radius:2px;background:rgba(255,255,255,.3);overflow:hidden}
 .lc-prog i[hidden]{display:none}
 .lc-prog b{display:block;height:100%;width:0;background:#fff;transition:width .2s}
-.lc-ref{position:absolute;left:8px;right:8px;bottom:8px;z-index:1;text-align:left;pointer-events:none}
-.fm-cam.lc-frozen .lc-ref{right:150px}
-.fm-cam.lc-hasref .lc-prog{bottom:64px}
+.lc-ref{position:absolute;left:8px;right:8px;top:8px;z-index:1;text-align:left;pointer-events:none}
+.fm-cam.lc-hasref .fm-camst{top:auto;bottom:112px}
 .lc-ref[hidden]{display:none}
 .lc-ref span{display:inline-block;max-width:100%;background:rgba(0,0,0,.55);color:#fff;font-size:11.5px;line-height:1.35;padding:5px 10px;border-radius:10px}
-.lc-pat{margin-top:12px;display:flex;flex-direction:column;gap:10px}
+.lc-pat{min-width:0;margin-top:12px;display:flex;flex-direction:column;gap:10px}
 .lc-pat-h{display:flex;align-items:center;justify-content:space-between;gap:12px}
 .lc-pat-h span{font-weight:600}
-.lc-pat-h select{min-height:38px;max-width:62%;padding:0 10px;border-radius:10px;border:1px solid var(--line);background:var(--card-2);color:var(--fg);font:inherit;font-size:13px}
+.lc-pat-h select{min-width:0;min-height:38px;max-width:62%;padding:0 10px;border-radius:10px;border:1px solid var(--line);background:var(--card-2);color:var(--fg);font:inherit;font-size:13px}
+.lc-pat-sum{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;min-height:44px;padding:8px 12px;border-radius:12px;background:var(--card-2);border:1px solid var(--line);text-align:left;font-size:13px;line-height:1.35}
+.lc-pat-sum[hidden]{display:none}
+.lc-pat-sum i{flex:none;font-style:normal;color:var(--accent);font-size:12px}
 .lc-pat-b{display:flex;flex-direction:column;gap:8px;padding:12px;border-radius:14px;background:var(--card-2);border:1px solid var(--line)}
 .lc-pat-b[hidden]{display:none}
 .lc-pat-tags{display:flex;flex-wrap:wrap;gap:6px}
@@ -853,6 +855,7 @@
     if (PT && PT.areas && PT.areas.length) {
       panel = document.createElement('div'); panel.className = 'lc-pat';
       panel.innerHTML = `<label class="lc-pat-h"><span>Reference pattern</span><select aria-label="Reference pattern"><option value="">None</option>${PT.areas.map((a) => `<option value="${BT.esc(a.id)}">${BT.esc(a.label)}</option>`).join('')}</select></label>
+        <button type="button" class="lc-pat-sum" aria-expanded="false" hidden><span data-sum></span><i data-chev>Details</i></button>
         <div class="lc-pat-b" hidden>
           <div class="lc-pat-tags"><span class="pill blue" data-ev></span><span class="pill amber">${BT.esc(PT.REVIEW)}</span></div>
           <div class="lc-pat-note">${BT.esc(PT.NOTE)}</div>
@@ -862,10 +865,14 @@
           <details><summary>Source</summary><p data-src></p></details>
           <button type="button" class="btn" data-use>Use these points</button>
         </div>`;
-      el.after(panel);
+      const slot = (el.parentNode && el.parentNode.querySelector('[data-patslot]')) || null;
+      if (slot) slot.append(panel); else el.after(panel);
       ref.innerHTML = `<span>${BT.esc(PT.NOTE)}</span>`;
-      const selEl = panel.querySelector('select'), box = panel.querySelector('.lc-pat-b');
+      const selEl = panel.querySelector('select'), box = panel.querySelector('.lc-pat-b'), sum = panel.querySelector('.lc-pat-sum');
       selEl.onchange = () => setPattern(selEl.value);
+      // Collapsed to a one-line summary so the camera controls stay on screen (#82); a tap opens the details.
+      const expand = (open) => { box.hidden = !open; sum.setAttribute('aria-expanded', String(open)); sum.querySelector('[data-chev]').textContent = open ? 'Hide' : 'Details'; };
+      sum.onclick = () => expand(box.hidden);
       panel.querySelector('[data-use]').onclick = () => {
         if (!pat || !ghosts.length) return;
         // Unconfirmed: the log treats these units as suggestions to confirm (#61). Reference low end, never adjusted.
@@ -874,8 +881,12 @@
         else BT.toast('Logging is not available yet');
       };
       panel.fill = () => {
-        box.hidden = !pat;
+        expand(false);
+        sum.hidden = !pat;
         if (!pat) return;
+        const n = pat.points.reduce((a, p) => a + (p.side === 'b' ? 2 : 1), 0);
+        const lo = pat.points.reduce((a, p) => a + p.units[0] * (p.side === 'b' ? 2 : 1), 0), hi = pat.points.reduce((a, p) => a + p.units[1] * (p.side === 'b' ? 2 : 1), 0);
+        panel.querySelector('[data-sum]').textContent = `${pat.label}: ${n} ${n === 1 ? 'point' : 'points'}, ${PT.fmtUnits([lo, hi])} reference`;
         panel.querySelector('[data-ev]').textContent = pat.evidence;
         panel.querySelector('[data-total]').textContent = pat.total;
         panel.querySelector('[data-notes]').textContent = pat.notes;
