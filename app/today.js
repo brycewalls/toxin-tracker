@@ -103,7 +103,7 @@
       const ring = (val, label, unit) => `<div class="ring"><div class="ring-c num">${val}${unit ? `<span class="u">${unit}</span>` : ''}</div><div class="t-ring-l">${label}</div></div>`;
 
       let h = `<section class="hero">
-        <div class="t-hero-top"><div><div class="muted t-date">${BT.esc(dateLine)}</div><div class="t-greet">${greet}${s.name ? ', ' + BT.esc(s.name) : ''}</div></div>
+        <div class="t-hero-top"><div><div class="muted t-date">${BT.esc(dateLine)}</div><div class="t-greet">${greet}${(s.name || (BT.account?.name || '').split(' ')[0]) ? ', ' + BT.esc(s.name || BT.account.name.split(' ')[0]) : ''}</div></div>
         <button class="t-gear" data-go="settings" aria-label="Settings">${BT.icon('gear', 20)}</button></div>
         <div class="rings">
           ${ring(daysSince ?? '--', 'Days since treatment', daysSince === null ? '' : 'd')}
@@ -336,7 +336,8 @@
   BT.screen('settings', {
     title: 'Settings',
     render(root) {
-      const s = BT.data.settings, theme = getTheme(), cloud = BT.storage === 'cloud', sample = BT.hasSample();
+      const s = BT.data.settings, theme = getTheme(), cloud = BT.storage !== 'device', sample = BT.hasSample(), acct = BT.account;
+      const where = BT.storage === 'firebase' ? 'Synced to your Google account' : cloud ? 'Synced to your Claude account' : 'Saved on this device';
       root.innerHTML = `${BT.navHeader('Settings')}
         <section class="card stack">
           <div class="field"><label for="s-name">Your name</label><input id="s-name" class="input" type="text" autocomplete="given-name" placeholder="Used in your greeting" value="${BT.esc(s.name || '')}"></div>
@@ -344,10 +345,13 @@
           <div class="stack-s"><div class="li-title">Theme</div><span data-theme></span></div>
         </section>
         <section class="card stack">
-          <div class="row gap"><span class="t-ac-ic">${BT.icon(cloud ? 'check' : 'info', 18)}</span><div class="grow"><div class="li-title">Storage</div><div class="li-sub">${cloud ? 'Synced to your Claude account' : 'Saved on this device'}</div></div></div>
+          <div class="row gap"><span class="t-ac-ic">${BT.icon(cloud ? 'check' : 'info', 18)}</span><div class="grow"><div class="li-title">Storage</div><div class="li-sub">${where}</div></div></div>
+          ${acct ? `<div class="row gap"><span class="t-ac-ic">${BT.icon('person', 18)}</span><div class="grow"><div class="li-title">${BT.esc(acct.name || 'Signed in')}</div><div class="li-sub">${BT.esc(acct.email)}</div></div><button class="btn sm" data-signout>Sign out</button></div>` : ''}
           <div class="row gap wrap">${sample ? '<button class="btn grow" data-clear>Clear sample data</button>' : '<button class="btn grow" data-load>Load sample data</button>'}<button class="btn grow" data-export>${BT.icon('edit', 16)} Export CSV</button></div>
         </section>
         <p class="disclaimer">For personal tracking only. Not medical advice.</p>`;
+      const so = root.querySelector('[data-signout]'); if (so) so.onclick = () => window.BT_CLOUD.signOut();
+      if (!s.name && acct && acct.name) root.querySelector('#s-name').placeholder = acct.name.split(' ')[0];
       root.querySelector('#s-name').onchange = (e) => BT.save('settings', { name: e.target.value.trim() });
       root.querySelector('[data-step]').replaceWith(intervalStepper((v) => BT.save('settings', { intervalWeeks: v })));
       root.querySelector('[data-theme]').replaceWith(BT.seg([['system', 'System'], ['light', 'Light'], ['dark', 'Dark']], theme, (v) => {
