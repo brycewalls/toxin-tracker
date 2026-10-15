@@ -62,7 +62,7 @@
     { id: 'oris', label: 'Lip Flip', muscle: 'Orbicularis oris', treats: 'Lip flip, smoker lines', group: 'Lower face', side: 'c', range: [4, 6], points: '4 to 6', caution: 'Very superficial. Can make straws and whistling harder for a few weeks.' },
     { id: 'dao-l', label: 'Left DAO', muscle: 'Depressor anguli oris', treats: 'Downturned mouth corners', group: 'Lower face', side: 'l', range: [1, 4], points: '1', caution: 'Too medial reaches the lower lip depressor.' },
     { id: 'dao-r', label: 'Right DAO', muscle: 'Depressor anguli oris', treats: 'Downturned mouth corners', group: 'Lower face', side: 'r', range: [1, 4], points: '1', caution: 'Too medial reaches the lower lip depressor.' },
-    { id: 'mentalis', label: 'Mentalis', muscle: 'Mentalis', treats: 'Pebbled chin', group: 'Lower face', side: 'c', range: [4, 10], points: '1 to 2', caution: '' },
+    { id: 'mentalis', label: 'Mentalis', muscle: 'Mentalis', treats: 'Pebbled chin, mental crease', group: 'Lower face', side: 'c', range: [4, 10], points: '1 to 2', caution: '' },
     { id: 'masseter-l', label: 'Left Masseter', muscle: 'Masseter', treats: 'Jaw slimming, clenching', group: 'Lower face', side: 'l', range: [10, 30], points: '3 to 5', caution: 'Stay in the lower half and behind the front border to protect the smile.' },
     { id: 'masseter-r', label: 'Right Masseter', muscle: 'Masseter', treats: 'Jaw slimming, clenching', group: 'Lower face', side: 'r', range: [10, 30], points: '3 to 5', caution: 'Stay in the lower half and behind the front border to protect the smile.' },
     { id: 'platysma-l', label: 'Left Platysma', muscle: 'Platysma', treats: 'Neck bands, jawline', group: 'Neck', side: 'l', range: [8, 18], points: '4 to 9', caution: 'Large doses can affect swallowing.' },
