@@ -142,8 +142,14 @@
 
   /* ---------- store ----------
      BT.data = { injections, vials, reactions, photos, moods, settings }
-     Records persist via the artifact db capability (private per signed-in user) and fall back to localStorage.
-     API: BT.save(kind, record) upserts and returns record; BT.remove(kind, id); BT.on('change', fn). */
+     The hosted app keeps records in Firestore users/{uid}/records (app/cloud.js); app/preview.html keeps them in
+     localStorage. API: BT.save(kind, record, {replaces}) upserts and returns record; BT.remove(kind, id);
+     BT.on('change', fn); BT.unsaved() lists changes the server refused.
+     Hosted writes (#57, #58, #66): each change is one WriteBatch of the record, sealed on the phone ({v, iv, ct}),
+     plus an append-only audit entry {kind, recordId, action, at} that never holds record contents. Batches are
+     issued in order but never awaited for the UI, because offline a commit resolves only when the connection
+     returns; Firestore's cache has the change at once. Each commit's promise is still tracked: a refusal by the
+     rules shows an error and keeps the record on screen marked Not saved, with Retry and Discard. */
   const KINDS = ['injections', 'vials', 'reactions', 'photos', 'moods'];
   BT.data = { injections: [], vials: [], reactions: [], photos: [], moods: [], settings: { intervalWeeks: 12, name: '' } };
   const listeners = {};
@@ -151,47 +157,235 @@
   BT.emit = (ev, arg) => (listeners[ev] || []).forEach((f) => { try { f(arg); } catch (e) { console.error(e); } });
 
   let col = null; // db collection for this user, or null
+  let cloud = null; // hosted app: {db, audit, device, seal, open, isSealed} from BT_CLOUD.ready
+  let stopped = false, unsub = null;
   const LS = 'bt-v1';
   // The hosted app keeps no localStorage copy: Firestore's own offline cache covers it, and a
   // shared device must never carry one account's log into another's.
   const lsWrite = () => { if (window.BT_CLOUD) return; try { localStorage.setItem(LS, JSON.stringify(BT.data)); } catch (e) {} };
   const lsRead = () => { try { return JSON.parse(localStorage.getItem(LS) || 'null'); } catch (e) { return null; } };
+  const docId = (kind, id) => kind + '__' + id;
+  const SETTINGS = docId('settings', 'settings');
 
-  BT.save = (kind, rec) => {
+  const inflight = new Map(); // docId -> commits not settled yet; the listener leaves these documents alone
+  const failed = new Map(); // docId -> {kind, id, op: 'save' | 'delete'}: refused by the server, kept on screen
+  const confirmed = new Map(); // docId -> {updatedAt, by}: the last version the server confirmed (the stale check's base)
+  const mineIv = new Map(); // docId -> iv of this device's latest sealed write, so its own echo is not decrypted again
+  const dirty = new Set(); // settings fields changed here since the server last confirmed settings
+  let queue = Promise.resolve();
+  const unsavedMark = (rec, on) => { if (rec && typeof rec === 'object') Object.defineProperty(rec, '_unsaved', { value: on, configurable: true, enumerable: false, writable: true }); };
+
+  BT.save = (kind, rec, opts = {}) => {
     rec.id ||= BT.uid();
     rec.updatedAt = Date.now();
-    if (kind === 'settings') { BT.data.settings = { ...BT.data.settings, ...rec }; persist('settings', 'settings', BT.data.settings); BT.refreshProducts(); }
-    else {
+    if (kind === 'settings') {
+      Object.keys(rec).forEach((k) => k !== 'id' && k !== 'updatedAt' && dirty.add(k));
+      const action = confirmed.has(SETTINGS) || failed.has(SETTINGS) ? 'update' : 'create';
+      BT.data.settings = { ...BT.data.settings, ...rec };
+      persist([{ kind: 'settings', id: 'settings', rec: BT.data.settings, action }]);
+      BT.refreshProducts();
+    } else {
       const arr = BT.data[kind], i = arr.findIndex((r) => r.id === rec.id);
+      const action = i >= 0 ? 'update' : 'create';
       i >= 0 ? (arr[i] = rec) : arr.push(rec);
-      persist(kind, rec.id, rec);
+      const ops = [{ kind, id: rec.id, rec, action }];
+      // Replacing (a new photo for an old one): both in one commit, so the old one is never gone without the new.
+      if (opts.replaces && opts.replaces !== rec.id) {
+        const j = arr.findIndex((r) => r.id === opts.replaces);
+        if (j >= 0) { arr.splice(j, 1); ops.push({ kind, id: opts.replaces, del: true, action: 'delete' }); }
+      }
+      persist(ops);
     }
     BT.emit('change', kind);
     return rec;
   };
   BT.remove = (kind, id) => {
     BT.data[kind] = BT.data[kind].filter((r) => r.id !== id);
-    lsWrite();
-    if (col) col.doc(kind + '__' + id).delete().catch(writeFailed);
+    if (cloud) {
+      const d = docId(kind, id);
+      // Never reached the server (a refused create): removing it here is the whole job.
+      if (failed.has(d) && !confirmed.has(d)) { failed.delete(d); renderUnsaved(); }
+      else persist([{ kind, id, del: true, action: 'delete' }]);
+    } else {
+      lsWrite();
+      if (col) col.doc(docId(kind, id)).delete().catch(writeFailed);
+    }
     BT.emit('change', kind);
   };
-  function persist(kind, id, rec) {
+
+  // One commit for a list of ops. The claude.ai db path (retired) and preview.html write as before.
+  function persist(ops, extra = {}) {
     lsWrite();
-    // Never awaited: Firestore's set() resolves only when the server confirms, which offline can be hours
-    // later. The change is already in the offline cache and queued; it syncs when the connection returns.
-    if (col) col.doc(kind + '__' + id).set({ kind, rec: JSON.parse(JSON.stringify(rec)) }).catch(writeFailed);
+    if (!col || stopped) return;
+    if (!cloud) {
+      ops.forEach((o) => (o.del ? col.doc(docId(o.kind, o.id)).delete() : col.doc(docId(o.kind, o.id)).set({ kind: o.kind, rec: JSON.parse(JSON.stringify(o.rec)) })).catch(writeFailed));
+      return;
+    }
+    const ids = ops.map((o) => docId(o.kind, o.id));
+    ids.forEach((d) => { inflight.set(d, (inflight.get(d) || 0) + 1); if (failed.has(d)) { failed.delete(d); unsavedMark(findRec(d), false); } });
+    renderUnsaved();
+    // Plain copies now: the record may change again before this one is sealed.
+    const plain = ops.map((o) => (o.del ? null : JSON.parse(JSON.stringify(o.rec))));
+    const step = queue.then(async () => {
+      if (stopped) return null;
+      const FV = firebase.firestore.FieldValue, b = cloud.db.batch();
+      for (let i = 0; i < ops.length; i++) {
+        const o = ops[i], d = ids[i], aref = cloud.audit.doc(), ref = col.doc(d);
+        const entry = { kind: o.kind, recordId: o.id, action: o.action, at: FV.serverTimestamp() };
+        if (extra.conflict) entry.conflict = true;
+        if (o.del) b.delete(ref);
+        else {
+          const rec = await cloud.seal(d, plain[i]);
+          const base = confirmed.has(d) ? confirmed.get(d).updatedAt || null : null;
+          b.set(ref, { kind: o.kind, rec, updatedAt: FV.serverTimestamp(), base, by: cloud.device, aid: aref.id });
+          mineIv.set(d, rec.iv);
+        }
+        b.set(aref, entry);
+      }
+      return { commit: b.commit() }; // wrapped, so the queue waits for sealing only, never for the server
+    });
+    queue = step.then(() => {}, () => {});
+    step.then((r) => r && r.commit).then(
+      () => settle(ids, null),
+      (e) => settle(ids, e, ops, extra));
   }
-  // Only a rejected write is a real failure. 'unavailable' is a dropped connection (Firestore retries) and
-  // 'failed-precondition' covers writes cut off by sign-out's wipe. Logs the error code only, never the record.
+  // Only a refusal is a real failure. 'unavailable' is a dropped connection (Firestore retries) and
+  // 'failed-precondition' / 'cancelled' cover writes cut off by sign-out's wipe. Logs the error code only, never the record.
+  const ignorable = (code) => code === 'unavailable' || code === 'failed-precondition' || code === 'cancelled' || stopped || (window.BT_CLOUD && BT_CLOUD.signingOut);
   function writeFailed(e) {
     const code = (e && e.code) || 'unknown';
     console.warn('db write failed:', code);
-    if (code === 'unavailable' || code === 'failed-precondition' || code === 'cancelled' || (window.BT_CLOUD && BT_CLOUD.signingOut)) return;
+    if (ignorable(code)) return;
     BT.toast(code === 'permission-denied' ? 'Could not save. This account does not have access.' : 'Could not save that change. Try again.');
+  }
+  async function settle(ids, err, ops, extra = {}) {
+    ids.forEach((d) => { const n = (inflight.get(d) || 1) - 1; n ? inflight.set(d, n) : inflight.delete(d); });
+    if (!err) {
+      if (ids.includes(SETTINGS) && !inflight.has(SETTINGS)) dirty.clear();
+      // The listener skipped these documents while the commit was open; catch up with what the cache holds now.
+      for (const d of ids) if (!inflight.has(d) && !failed.has(d)) await resync(d);
+      return;
+    }
+    const code = (err && err.code) || (err && err.name) || 'unknown';
+    console.warn('db write refused:', code);
+    if (ignorable(code)) return;
+    // Settings are one document both devices touch: merge this device's changed fields onto the server copy and
+    // try once more before calling it a failure.
+    if (ids.length === 1 && ids[0] === SETTINGS && !extra.retried && !inflight.has(SETTINGS)) {
+      const server = await cachedPlain(SETTINGS);
+      const mine = {}; dirty.forEach((k) => (mine[k] = BT.data.settings[k]));
+      BT.data.settings = { ...BT.data.settings, ...(server || {}), ...mine };
+      BT.refreshProducts(); BT.emit('change', 'sync');
+      return persist([{ kind: 'settings', id: 'settings', rec: BT.data.settings, action: server ? 'update' : 'create' }], { retried: true, conflict: true });
+    }
+    let saves = 0, dels = 0;
+    for (const o of ops) {
+      const d = docId(o.kind, o.id);
+      if (inflight.has(d)) continue; // a newer write for the same record is on its way
+      if (o.del) {
+        // The record is still on the server (the cache now holds it again): put it back on screen.
+        const back = await cachedPlain(d);
+        if (!back) continue; // already gone
+        restore(o.kind, back);
+        failed.set(d, { kind: o.kind, id: o.id, op: 'delete' });
+        dels++;
+      } else {
+        failed.set(d, { kind: o.kind, id: o.id, op: 'save' });
+        unsavedMark(findRec(d), true);
+        saves++;
+      }
+    }
+    if (!saves && !dels) return;
+    BT.toast(saves ? 'Not saved. The server refused this change. Tap Retry at the top.' : 'Could not delete that. It is still saved. Tap Retry at the top.');
+    renderUnsaved();
+    BT.emit('change', 'sync');
+  }
+  function findRec(d) {
+    if (d === SETTINGS) return BT.data.settings;
+    const [kind, ...rest] = d.split('__'), id = rest.join('__');
+    return (BT.data[kind] || []).find((r) => r.id === id) || null;
+  }
+  function restore(kind, rec) {
+    if (kind === 'settings') { BT.data.settings = { ...BT.data.settings, ...rec }; BT.refreshProducts(); return; }
+    const arr = BT.data[kind], i = arr.findIndex((r) => r.id === rec.id);
+    i >= 0 ? (arr[i] = rec) : arr.push(rec);
+  }
+  // The decrypted record in this device's Firestore cache, or null.
+  async function cachedPlain(d) {
+    try {
+      const s = await col.doc(d).get({ source: 'cache' });
+      if (!s.exists) return null;
+      const v = s.data();
+      return v && v.rec ? await openRec(d, v.rec) : null;
+    } catch (e) { return null; }
+  }
+  async function resync(d) {
+    try {
+      const s = await col.doc(d).get({ source: 'cache' });
+      if (await applyItem({ type: s.exists ? 'modified' : 'removed', id: d, data: s.exists ? s.data() : null, pending: s.metadata && s.metadata.hasPendingWrites })) BT.emit('change', 'sync');
+    } catch (e) {}
+  }
+
+  // Changes the server refused, for the Not saved bar: [{kind, id, op}].
+  BT.unsaved = () => [...failed.values()];
+  BT.retryUnsaved = () => {
+    const list = [...failed.values()];
+    list.forEach((f) => {
+      const d = docId(f.kind, f.id), c = confirmed.get(d);
+      // Retry is the person choosing this device's version, so it builds on whatever the server has now.
+      const conflict = !!(c && c.by && c.by !== cloud.device);
+      if (f.op === 'delete') { BT.data[f.kind] = BT.data[f.kind].filter((r) => r.id !== f.id); persist([{ kind: f.kind, id: f.id, del: true, action: 'delete' }], { conflict }); }
+      else {
+        const rec = findRec(d);
+        if (!rec) { failed.delete(d); return; }
+        persist([{ kind: f.kind, id: f.id, rec, action: confirmed.has(d) ? 'update' : 'create' }], { conflict });
+      }
+    });
+    BT.emit('change', 'sync');
+  };
+  BT.discardUnsaved = async () => {
+    const list = [...failed.entries()];
+    failed.clear();
+    for (const [d, f] of list) {
+      const server = await cachedPlain(d);
+      if (f.kind === 'settings') { dirty.clear(); if (server) { BT.data.settings = { ...BT.data.settings, ...server }; BT.refreshProducts(); } continue; }
+      BT.data[f.kind] = BT.data[f.kind].filter((r) => r.id !== f.id);
+      if (server) BT.data[f.kind].push(server);
+    }
+    renderUnsaved();
+    BT.emit('change', 'sync');
+  };
+  const NAMES = { injections: ['treatment', 'treatments'], vials: ['vial', 'vials'], reactions: ['reaction', 'reactions'], photos: ['photo', 'photos'], moods: ['check-in', 'check-ins'], settings: ['setting', 'settings'] };
+  let bar = null;
+  function renderUnsaved() {
+    const list = BT.unsaved();
+    if (!list.length) { if (bar) { bar.remove(); bar = null; } return; }
+    if (!document.getElementById('bt-unsaved-css')) {
+      const st = document.createElement('style'); st.id = 'bt-unsaved-css';
+      st.textContent = `.bt-unsaved { position: fixed; z-index: 90; left: 50%; transform: translateX(-50%); top: calc(env(safe-area-inset-top, 0px) + 10px); width: min(448px, calc(100% - 32px));
+        display: flex; align-items: center; gap: 10px; padding: 8px 8px 8px 14px; border-radius: 16px; background: var(--card, #fff); color: var(--fg, #111);
+        border: 1px solid color-mix(in srgb, var(--red, #D93A3A) 45%, transparent); box-shadow: var(--shadow, 0 8px 24px rgba(0,0,0,.15)); font-size: 13.5px; line-height: 1.35; }
+        .bt-unsaved .ic { color: var(--red, #D93A3A); flex: none; } .bt-unsaved span { flex: 1; min-width: 0; }
+        .bt-unsaved button { min-height: 36px; padding: 0 12px; border-radius: 99px; font-weight: 500; font-size: 13.5px; }
+        .bt-unsaved [data-retry] { background: var(--accent, #2F55E4); color: var(--accent-ink, #fff); } .bt-unsaved [data-discard] { background: transparent; color: inherit; }`;
+      document.head.appendChild(st);
+    }
+    const counts = {};
+    list.forEach((f) => (counts[f.kind] = (counts[f.kind] || 0) + 1));
+    const what = Object.entries(counts).map(([k, n]) => `${n} ${NAMES[k][n === 1 ? 0 : 1]}`).join(', ');
+    const dels = list.every((f) => f.op === 'delete');
+    if (!bar) {
+      bar = BT.h(`<div class="bt-unsaved" role="alert">${BT.icon('alert', 18)}<span data-t></span><button type="button" data-discard>Discard</button><button type="button" data-retry>Retry</button></div>`);
+      bar.querySelector('[data-retry]').onclick = () => BT.retryUnsaved();
+      bar.querySelector('[data-discard]').onclick = () => BT.discardUnsaved();
+      document.body.appendChild(bar);
+    }
+    bar.querySelector('[data-t]').textContent = dels ? `Not deleted: ${what}. It is still saved.` : `Not saved: ${what}. It may have changed on another device.`;
+    bar.querySelector('[data-discard]').textContent = dels ? 'Keep' : 'Discard';
   }
 
   BT.storage = 'device';
-  // Load every record of one user's collection into BT.data.
+  // Load every record of one user's collection into BT.data (claude.ai db path).
   const loadAll = (snap) => {
     const fresh = { injections: [], vials: [], reactions: [], photos: [], moods: [] };
     snap.docs.forEach((d) => { const v = d.data(); if (!v) return; if (v.kind === 'settings') BT.data.settings = { ...BT.data.settings, ...v.rec }; else if (fresh[v.kind]) fresh[v.kind].push(v.rec); });
@@ -203,39 +397,81 @@
      offline launch does not wait for get()'s server timeout. Each later snapshot merges only docChanges()
      and emits 'change' only when a record really differs, so this phone's own writes (already in BT.data)
      and metadata-only snapshots cost no render. The change listener in index.html defers renders while a
-     sheet is open. BT.sync = {pending, fromCache} comes from snapshot metadata; 'status' fires when it moves. */
+     sheet is open. BT.sync = {pending, fromCache} comes from snapshot metadata; 'status' fires when it moves.
+     Records arrive sealed (#66): each snapshot's records are decrypted in parallel, and snapshots are applied in
+     order. Records still in plain form (from before #66, or from a device on an older build) are read as they
+     are and encrypted in place by migrate(). */
   BT.sync = { pending: false, fromCache: false, live: false };
   const stable = (v) => JSON.stringify(v, (k, x) => (x && typeof x === 'object' && !Array.isArray(x) ? Object.keys(x).sort().reduce((o, key) => ((o[key] = x[key]), o), {}) : x));
   const same = (a, b) => !!a && !!b && (a.updatedAt && a.updatedAt === b.updatedAt ? true : stable(a) === stable(b));
-  function applyDoc(type, d) {
-    const v = type === 'removed' ? null : d.data();
-    const [kind, ...rest] = d.id.split('__'), id = rest.join('__');
+  let openFails = 0;
+  const openRec = async (d, rec) => (cloud && cloud.isSealed(rec) ? cloud.open(d, rec) : rec);
+  const plainSeen = new Set(); // documents still in plain form, for migrate()
+  // One document change into BT.data. Returns true when something on screen changed.
+  async function applyItem(it) {
+    const d = it.id, [kind] = d.split('__');
+    if (!it.pending) {
+      if (it.type === 'removed' || !it.data) confirmed.delete(d);
+      else confirmed.set(d, { updatedAt: it.data.updatedAt || null, by: it.data.by || null });
+    }
+    if (it.pending || inflight.has(d) || failed.has(d)) return false; // this device's version wins until it settles
+    const v = it.type === 'removed' ? null : it.data;
+    if (v && v.rec && cloud && cloud.isSealed(v.rec) && mineIv.get(d) === v.rec.iv) return false; // our own write, confirmed
+    let rec = null;
+    if (v && v.rec) {
+      try { rec = await openRec(d, v.rec); } catch (e) { openFails++; return false; }
+      if (cloud && !cloud.isSealed(v.rec)) plainSeen.add(d); else plainSeen.delete(d);
+    }
     if (kind === 'settings') {
-      if (!v || !v.rec) return false;
-      const next = { ...BT.data.settings, ...v.rec };
+      if (!rec) return false;
+      const next = { ...BT.data.settings, ...rec };
       if (stable(next) === stable(BT.data.settings)) return false;
       BT.data.settings = next; BT.refreshProducts(); return true;
     }
     const k = (v && v.kind) || kind;
     if (!KINDS.includes(k)) return false;
-    const arr = BT.data[k], i = arr.findIndex((r) => r.id === ((v && v.rec && v.rec.id) || id));
+    const id = d.slice(k.length + 2);
+    const arr = BT.data[k], i = arr.findIndex((r) => r.id === ((rec && rec.id) || id));
     if (!v) { if (i < 0) return false; arr.splice(i, 1); return true; }
-    if (!v.rec) return false;
-    if (i >= 0) { if (same(arr[i], v.rec)) return false; arr[i] = v.rec; } else arr.push(v.rec);
+    if (!rec) return false;
+    if (i >= 0) { if (same(arr[i], rec)) return false; arr[i] = rec; } else arr.push(rec);
     return true;
   }
   function listen() {
     return new Promise((resolve) => {
-      let first = true;
+      let first = true, seen = false, chain = Promise.resolve();
       const done = () => { if (first) { first = false; resolve(); } };
-      col.onSnapshot({ includeMetadataChanges: true }, (snap) => {
-        if (first) { loadAll(snap); done(); }
-        else {
-          let changed = false;
-          // Local echoes (hasPendingWrites) are this phone's own saves, already applied by BT.save/remove.
-          snap.docChanges().forEach((ch) => { if (!ch.doc.metadata.hasPendingWrites && applyDoc(ch.type, ch.doc)) changed = true; });
-          if (changed) BT.emit('change', 'sync');
-        }
+      unsub = col.onSnapshot({ includeMetadataChanges: true }, (snap) => {
+        const initial = !seen;
+        seen = true;
+        // Captured now; applied in order once decrypted.
+        const items = (initial ? snap.docs.map((doc) => ({ type: 'added', doc })) : snap.docChanges())
+          .map((ch) => ({ type: ch.type, id: ch.doc.id, pending: ch.doc.metadata.hasPendingWrites, data: ch.type === 'removed' ? null : ch.doc.data() }));
+        chain = chain.then(async () => {
+          if (stopped) return;
+          if (initial) {
+            // First load: everything in the cache, this device's queued changes included.
+            const fresh = { injections: [], vials: [], reactions: [], photos: [], moods: [] };
+            const opened = await Promise.all(items.map(async (it) => {
+              if (!it.pending && it.data) confirmed.set(it.id, { updatedAt: it.data.updatedAt || null, by: it.data.by || null });
+              if (!it.data || !it.data.rec) return null;
+              if (cloud && !cloud.isSealed(it.data.rec) && !it.pending) plainSeen.add(it.id);
+              try { return { it, rec: await openRec(it.id, it.data.rec) }; } catch (e) { openFails++; return null; }
+            }));
+            opened.forEach((o) => {
+              if (!o) return;
+              if (o.it.data.kind === 'settings') BT.data.settings = { ...BT.data.settings, ...o.rec };
+              else if (fresh[o.it.data.kind]) fresh[o.it.data.kind].push(o.rec);
+            });
+            Object.assign(BT.data, fresh);
+            done();
+          } else {
+            const results = await Promise.all(items.map((it) => applyItem(it)));
+            if (results.some(Boolean)) BT.emit('change', 'sync');
+          }
+          if (openFails) { console.warn('records not decrypted:', openFails); BT.toast('Some records could not be unlocked on this device.'); openFails = 0; }
+          if (plainSeen.size) migrate();
+        });
         const m = snap.metadata, next = { pending: !!m.hasPendingWrites, fromCache: !!m.fromCache, live: true };
         if (next.pending !== BT.sync.pending || next.fromCache !== BT.sync.fromCache || !BT.sync.live) { BT.sync = next; BT.emit('status', BT.sync); }
       }, (e) => {
@@ -247,11 +483,34 @@
       });
     });
   }
+  // Encrypt in place every record still stored in plain form (#66), a few per commit with their audit entries.
+  // Runs after the first load and whenever a plain record shows up (a device still on an older build).
+  let migrating = false;
+  async function migrate() {
+    if (migrating || !cloud || stopped) return;
+    migrating = true;
+    try {
+      while (plainSeen.size && !stopped) {
+        const ids = [...plainSeen].filter((d) => !inflight.has(d) && !failed.has(d)).slice(0, 5);
+        if (!ids.length) break;
+        const ops = [];
+        for (const d of ids) {
+          plainSeen.delete(d);
+          const [kind] = d.split('__'), rec = findRec(d);
+          if (rec) ops.push({ kind, id: kind === 'settings' ? 'settings' : d.slice(kind.length + 2), rec, action: 'update' });
+        }
+        if (ops.length) persist(ops);
+        await queue;
+      }
+    } finally { migrating = false; }
+  }
+  BT.stopSync = () => { stopped = true; if (unsub) { try { unsub(); } catch (e) {} unsub = null; } };
+
   BT.init = async function () {
     // Hosted web app: Firebase Auth + Firestore users/{uid}/records (app/cloud.js).
     if (window.BT_CLOUD) {
       const c = await window.BT_CLOUD.ready;
-      col = c.col; BT.account = c.user; BT.storage = 'firebase';
+      col = c.col; cloud = c; BT.account = c.user; BT.storage = 'firebase';
       await listen();
       BT.refreshProducts();
       BT.emit('change', 'all');
@@ -269,8 +528,8 @@
           loadAll(snap); lsWrite();
         } else if (local) {
           // first sign-in on this device: push local records up
-          for (const k of KINDS) for (const r of BT.data[k]) persist(k, r.id, r);
-          persist('settings', 'settings', BT.data.settings);
+          for (const k of KINDS) for (const r of BT.data[k]) persist([{ kind: k, id: r.id, rec: r }]);
+          persist([{ kind: 'settings', id: 'settings', rec: BT.data.settings }]);
         }
         BT.storage = 'cloud';
       }
