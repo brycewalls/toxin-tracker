@@ -15,7 +15,7 @@
       ],
     },
     {
-      version: '0.6', date: '2026-10-15', title: 'Live face map on your camera',
+      version: '0.6', date: '2026-10-14', title: 'Live face map on your camera',
       items: [
         'Face Map, Live: tap Start live camera and the muscle map follows your face as you move.',
         'Tap your face on the camera to drop a point. It stays pinned to that spot as you turn your head.',
