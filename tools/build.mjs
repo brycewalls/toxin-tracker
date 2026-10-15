@@ -1,6 +1,7 @@
 // Builds the hosted web app into dist/ from the same app/ files the claude.ai artifact publishes.
 // app/index.html is a page body (the artifact host adds the document shell), so this wraps it in a
-// full document, adds the Firebase SDK and app/cloud.js before core.js, and copies the scripts.
+// full document, adds the Firebase SDK and app/cloud.js before core.js, adds app/livecam.js after
+// facemap.js, and copies the scripts.
 // Run: node tools/build.mjs   (firebase deploy runs it as the hosting predeploy step)
 import { readFileSync, writeFileSync, mkdirSync, copyFileSync, readdirSync, rmSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -19,6 +20,9 @@ body = body.replace(/<title>[^<]*<\/title>\s*/, '');
 const firebase = ['app', 'auth', 'firestore'].map((m) => `<script src="https://www.gstatic.com/firebasejs/${SDK}/firebase-${m}-compat.js"></script>`).join('\n');
 if (!body.includes('<script src="core.js"></script>')) throw new Error('app/index.html no longer loads core.js; update tools/build.mjs');
 body = body.replace('<script src="core.js"></script>', `${firebase}\n<script src="core.js"></script>\n<script src="cloud.js"></script>`);
+// Live camera face mapping (app/livecam.js) needs a camera, which the claude.ai artifact does not have.
+if (!body.includes('<script src="facemap.js"></script>')) throw new Error('app/index.html no longer loads facemap.js; update tools/build.mjs');
+body = body.replace('<script src="facemap.js"></script>', '<script src="facemap.js"></script>\n<script src="livecam.js"></script>');
 
 const head = `<!doctype html>
 <html lang="en">
