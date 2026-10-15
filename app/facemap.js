@@ -284,9 +284,12 @@
 .fm-stage{position:relative}
 .fm-stage svg{display:block;width:100%;height:100%;overflow:hidden;-webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none}
 .fm[data-mode=edit] .fm-stage svg{touch-action:pan-y;cursor:crosshair}
+.fm.fm-zoomable .fm-stage svg{touch-action:pan-y}
 .fm.fm-zoomed .fm-stage svg{touch-action:none}
+.fm.fm-zoomed .fm-lead,.fm.fm-zoomed .fm-labs{visibility:hidden}
 .fm-zbar{position:absolute;right:6px;top:6px;display:flex;align-items:center;background:var(--card);border:1px solid var(--line);border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,.08);overflow:hidden;z-index:2}
 .fm-zbar[hidden]{display:none}
+.fm-zbar.below{position:static;width:max-content;margin:8px 0 0 auto;box-shadow:none}
 .fm-zbar button{min-width:40px;height:40px;font-size:20px;line-height:1;color:var(--accent);display:grid;place-items:center}
 .fm-zbar button[data-z=lvl]{font-size:12px;min-width:44px;color:var(--muted);font-variant-numeric:tabular-nums;border-left:1px solid var(--line);border-right:1px solid var(--line)}
 .fm-zbar button:disabled{color:var(--faint);opacity:.6}
@@ -407,12 +410,14 @@
     let heat = opts.heat || null;
     let hov = null; // {muscle, caution}
     let mscale = opts.markerScale || 1, showMus = true, lastW = 0, drag = null;
-    // Zoom (#11): edit maps zoom by narrowing the SVG viewBox, so taps still land in face
-    // coordinates through getScreenCTM. Not on photo overlays, where the photo would not follow.
+    // Zoom (#11, #26): maps zoom by narrowing the SVG viewBox, so taps still land in face
+    // coordinates through getScreenCTM. Display maps zoom too; while zoomed their gutter labels hide
+    // and each dot shows its units. Not on photo overlays, where the photo would not follow.
     let zk = 1, zx = VB[0] + VB[2] / 2, zy = VB[1] + VB[3] / 2, pz = null, pinched = false;
     const touches = new Map();
     const ZMAX = 4;
-    const zoomable = () => opts.zoom !== false && !opts.overlay && opts.mode === 'edit';
+    const zoomable = () => opts.zoom !== false && !opts.overlay;
+    const zoomed = () => zk > 1.001;
     const wantCap = opts.caption == null ? opts.mode === 'edit' : !!opts.caption;
     const wantTog = opts.toggle == null ? opts.mode === 'edit' && !opts.overlay : !!opts.toggle;
 
@@ -478,12 +483,16 @@
 
     function ptMarkup(p, m) {
       const sel = p.id === selId, edit = isEdit();
-      const ms = Math.max(0.55, Math.min(1.6, 1 / mscale)) / zk;
+      // While zoomed, a labeled map has widened into its gutters (render), so its markers grow to match.
+      const zs = zoomed() ? (m.lab ? Math.min(2, m.W / m.faceW) : 1) / zk : 1;
+      const ms = Math.max(0.55, Math.min(1.6, 1 / mscale)) * zs;
       const r = (m.lab ? 4.2 : 4.6) * ms, side = p.x >= 150 ? 1 : -1;
       const u = num(p.units);
-      const lab = m.lab ? '' : `<text class="lab" x="${r1(side * (r + 2.2))}" y="${r1(3 * ms)}" text-anchor="${side > 0 ? 'start' : 'end'}" style="font-size:${r1(8.4 * ms)}px">${esc(u)}</text>`;
+      // strokes are in face units, so they shrink with the zoom too or they swamp the dot
+      const sw = (w) => (zs !== 1 ? ` style="stroke-width:${(w * zs).toFixed(2)}px"` : '');
+      const lab = m.lab && !zoomed() ? '' : `<text class="lab" x="${r1(side * (r + 2.2))}" y="${r1(3 * ms)}" text-anchor="${side > 0 ? 'start' : 'end'}" style="font-size:${r1(8.4 * ms)}px${zs !== 1 ? `;stroke-width:${(2.6 * zs).toFixed(2)}px` : ''}">${esc(u)}</text>`;
       return `<g class="fm-pt${sel ? ' sel' : ''}" data-id="${esc(p.id)}" transform="translate(${p.x} ${p.y})"${edit ? ' tabindex="0" role="button"' : ''} aria-label="${esc(labelOf(keyOf(p)))}, ${esc(u)} units">` +
-        (sel ? `<circle class="ring" r="${r1(r + 3.4 * ms)}"/>` : '') + `<circle class="dot" r="${r1(r)}"/>${lab}` +
+        (sel ? `<circle class="ring" r="${r1(r + 3.4 * ms)}"${sw(1.5)}/>` : '') + `<circle class="dot" r="${r1(r)}"${sw(1.4)}/>${lab}` +
         (edit ? `<circle class="hit" r="${r1(12 * ms)}"/>` : '') + '</g>';
     }
     function rmMarkup(p) {
@@ -497,11 +506,13 @@
       lastW = root.clientWidth;
       root.dataset.mode = opts.mode;
       root.classList.toggle('tap', !!opts.onTapMuscle);
-      stage.style.width = m.faceW + 'px'; stage.style.height = m.H + 'px'; stage.style.marginLeft = m.left + 'px';
+      const wide = m.lab && zoomed(); // labels hide while zoomed, so the view takes the gutters too
+      stage.style.width = (wide ? m.W : m.faceW) + 'px'; stage.style.height = m.H + 'px'; stage.style.marginLeft = (wide ? 0 : m.left) + 'px';
       let out = '';
       if (heat) {
         const hv = {}; Object.keys(heat).forEach((k) => { const id = BT.site(k).id; hv[id] = (hv[id] || 0) + (+heat[k] || 0); });
-        Object.keys(hv).forEach((id) => { const c = MUS[id]; if (c && hv[id] > 0) out += `<text class="fm-hn" x="${r1(c.cx)}" y="${r1(c.cy)}">${esc(num(hv[id]))}</text>`; });
+        const hs = zoomed() ? ` style="font-size:${r1(9 / zk)}px;stroke-width:${(2.4 / zk).toFixed(2)}px"` : '';
+        Object.keys(hv).forEach((id) => { const c = MUS[id]; if (c && hv[id] > 0) out += `<text class="fm-hn" x="${r1(c.cx)}" y="${r1(c.cy)}"${hs}>${esc(num(hv[id]))}</text>`; });
       } else {
         const order = pts.slice().sort((a, b) => (a.id === selId) - (b.id === selId));
         out = order.map((p) => ptMarkup(p, m)).join('');
@@ -599,19 +610,25 @@
 
     /* zoom */
     let zbar = null;
+    // Visible face span at the current zoom. A labeled display map widens while zoomed, so its view is wider than VB.
+    function span() {
+      const h = VB[3] / zk, m = metrics();
+      return { w: m.lab && zk > 1.001 ? (h * m.W) / m.H : VB[2] / zk, h };
+    }
     function applyView() {
       if (!zoomable()) { zk = 1; }
-      const w = VB[2] / zk, h = VB[3] / zk;
-      zx = Math.max(VB[0] + w / 2, Math.min(VB[0] + VB[2] - w / 2, zx));
+      const { w, h } = span();
+      zx = w >= VB[2] ? VB[0] + VB[2] / 2 : Math.max(VB[0] + w / 2, Math.min(VB[0] + VB[2] - w / 2, zx));
       zy = Math.max(VB[1] + h / 2, Math.min(VB[1] + VB[3] - h / 2, zy));
       svg.setAttribute('viewBox', zk > 1.001 ? `${r1(zx - w / 2)} ${r1(zy - h / 2)} ${r1(w)} ${r1(h)}` : VB.join(' '));
       root.classList.toggle('fm-zoomed', zk > 1.001);
+      root.classList.toggle('fm-zoomable', zoomable());
       if (zbar) { zbar.hidden = !zoomable(); zbar.querySelector('[data-z=lvl]').textContent = (Math.round(zk * 10) / 10) + 'x'; zbar.querySelector('[data-z=out]').disabled = zk <= 1.001; zbar.querySelector('[data-z=in]').disabled = zk >= ZMAX - 0.001; }
     }
     // Zoom to k keeping face point (ax, ay) under the screen fraction (fx, fy) of the map.
     function zoomAt(k, ax, ay, fx, fy) {
       zk = Math.max(1, Math.min(ZMAX, k));
-      const w = VB[2] / zk, h = VB[3] / zk;
+      const { w, h } = span();
       zx = ax - fx * w + w / 2; zy = ay - fy * h + h / 2;
       applyView(); render();
     }
@@ -622,7 +639,8 @@
       zbar = document.createElement('div'); zbar.className = 'fm-zbar'; zbar.hidden = true;
       zbar.innerHTML = '<button type="button" data-z="out" aria-label="Zoom out">&minus;</button><button type="button" data-z="lvl" aria-label="Reset zoom">1x</button><button type="button" data-z="in" aria-label="Zoom in">+</button>';
       zbar.onclick = (e) => { const b = e.target.closest('[data-z]'); if (!b) return; const z = b.dataset.z; if (z === 'in') zoomStep(1.6); else if (z === 'out') zoomStep(1 / 1.6); else { zk = 1; applyView(); render(); } };
-      stage.appendChild(zbar);
+      // Display maps keep the bar under the drawing so it never covers points or labels.
+      if (opts.mode === 'display') { zbar.classList.add('below'); root.after(zbar); } else stage.appendChild(zbar);
     }
     const onWheel = (e) => {
       if (!zoomable() || !e.ctrlKey) return; // trackpad pinch arrives as ctrl+wheel
@@ -666,7 +684,7 @@
         // One finger on empty space while zoomed pans the view.
         if (!drag.moved && Math.hypot(e.clientX - drag.sx, e.clientY - drag.sy) > 6) { drag.moved = true; drag.zx = zx; drag.zy = zy; }
         if (drag.moved) {
-          const r = svg.getBoundingClientRect(), u = VB[2] / zk / (r.width || 1);
+          const r = svg.getBoundingClientRect(), u = span().h / (r.height || 1);
           zx = drag.zx - (e.clientX - drag.sx) * u; zy = drag.zy - (e.clientY - drag.sy) * u;
           applyView();
         }
@@ -739,7 +757,7 @@
     labs.addEventListener('click', onLabel);
 
     let ro = null;
-    if (window.ResizeObserver) { ro = new ResizeObserver(() => { if (Math.abs(root.clientWidth - lastW) > 1) render(); }); ro.observe(el); }
+    if (window.ResizeObserver) { ro = new ResizeObserver(() => { if (Math.abs(root.clientWidth - lastW) > 1) { applyView(); render(); } }); ro.observe(el); }
     applyView();
     render();
 
