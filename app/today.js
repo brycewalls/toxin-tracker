@@ -54,7 +54,7 @@
 .t-out { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
 .t-out .cell { background:var(--card-2); border-radius:14px; padding:12px 14px; }
 .t-out .cell .big-num { font-size:28px; margin-top:4px; }
-.t-csv { width:100%; min-height:200px; font-family:var(--mono); font-size:12px; border:1px solid var(--line); border-radius:14px; padding:12px; background:var(--card); resize:vertical; }
+.t-csv { width:100%; min-height:200px; font-family:var(--mono); font-size:16px; border:1px solid var(--line); border-radius:14px; padding:12px; background:var(--card); resize:vertical; }
 .t-set-row { display:flex; align-items:center; justify-content:space-between; gap:12px; min-height:48px; }
 .t-ci { display:grid; gap:12px; }
 .t-ci .card-h { margin-bottom:0; }
