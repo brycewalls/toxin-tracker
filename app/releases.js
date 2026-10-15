@@ -6,6 +6,17 @@
 (function () {
   BT.RELEASES = [
     {
+      version: '0.9', date: '2026-10-15', title: 'Live map melts onto your face',
+      items: [
+        'The Live map now follows the full shape of your face, curving over your cheeks, nose and jaw, and blends into your skin instead of sitting on top.',
+        'The camera starts much faster, and after the first time the face tracker loads from your phone instead of downloading again.',
+        'Zoomed maps use the full width and more height, with no box cutting off the face.',
+        'Picking a mood fills only the day you tapped.',
+        'New vials, treatments and reactions show up right away after you save.',
+        'Date fields fit the screen on iPhone, nothing scrolls sideways, and tapping into a field no longer zooms the page.',
+      ],
+    },
+    {
       version: '0.8', date: '2026-10-14', title: 'Day 7 check-in',
       items: [
         'A week after each treatment, Today shows a check-in: take your after photo, compare it with the before, then log a touch-up or mark that you did not need one.',
