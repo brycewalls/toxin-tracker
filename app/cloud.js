@@ -23,6 +23,9 @@
   };
 
   const WIPE = 'tt-wipe-pending'; // a flag only, never data: a sign-out's local wipe has not finished yet
+  const WARM = 'tt-cache-synced'; // a flag only: the offline cache has had a full server snapshot since the last wipe (#83)
+  const HOLD = 'tt-wipe-after-sync'; // a flag only: an idle sign-out is waiting for unsynced changes to reach the server (#83)
+  const SYNC_WAIT_MS = 5000;
   const NOTICE = 'tt-notice'; // sessionStorage, a reason code only ('idle' or 'denied'), shown on the sign-in screen after the reload
   const IDLE_KEY = 'tt-idle-minutes', ACTIVE_KEY = 'tt-last-active'; // localStorage: this device's choice, and a timestamp
   const IDLE_DEFAULT = 30, WARN_MS = 60 * 1000, RECENT_MS = 10 * 60 * 1000;
@@ -100,8 +103,12 @@
     // same for every account, and without it the app could not open offline again until the next deploy.
     try { for (const key of await caches.keys()) if (!key.startsWith('tt-shell-')) await caches.delete(key); } catch (e) {}
     if (window.BT && BT.data) for (const k of Object.keys(BT.data)) BT.data[k] = Array.isArray(BT.data[k]) ? [] : {};
-    ls.del(ACTIVE_KEY);
+    ls.del(ACTIVE_KEY); ls.del(WARM); ls.del(HOLD);
   };
+  // Read by core.js (#83): whether a snapshot from the offline cache is the whole log for this account.
+  cloud.cacheWarm = () => ls.get(WARM) === '1';
+  cloud.markWarm = () => ls.set(WARM, '1');
+  cloud.deleteField = () => firebase.firestore.FieldValue.delete();
 
   // The SDK comes from gstatic. The service worker keeps a copy (#52), so this only fails on a first visit with
   // no connection (or a worker that could not store it). Say so instead of leaving 'Loading your log' up.
@@ -125,6 +132,7 @@
   // It opens only once someone is signed in, so a signed-out device (after a wipe, or never signed in) holds
   // no Firestore database at all. A wipe that could not finish last time is completed first.
   const wipe = ls.get(WIPE) === '1';
+  if (wipe) ls.del(WARM);
   const cleared = wipe ? db.clearPersistence().then(() => ls.del(WIPE)).catch(() => {}) : Promise.resolve();
   let dbReady = null;
   const openDb = () => dbReady || (dbReady = cleared.then(() => db.enablePersistence({ synchronizeTabs: true }).catch(() => {}))); // fails harmlessly in private windows
@@ -148,26 +156,84 @@
     }
   };
 
-  let signingOut = false;
+  /* ---------- unsynced changes at sign-out (#83) ----------
+     The wipe deletes Firestore's offline cache, which is the only copy of any change the server has not
+     confirmed yet. drain(ms) resolves true once there is none: settings changes core.js is still holding for
+     the first load have been handed to Firestore, then Firestore's own queue is empty (waitForPendingWrites).
+     It resolves false if that has not happened within ms. Offline, a short wait is enough to tell: with nothing
+     queued, waitForPendingWrites resolves at once. */
+  const later = (ms, v) => new Promise((r) => setTimeout(() => r(v), ms));
+  async function drain(ms) {
+    const all = (async () => {
+      if (window.BT && BT.whenLoaded) await BT.whenLoaded();
+      await db.waitForPendingWrites();
+      return true;
+    })().catch(() => false);
+    return Promise.race([all, later(ms, false)]);
+  }
+  const waitMs = () => (navigator.onLine ? SYNC_WAIT_MS : 800);
+
+  let signingOut = false, holding = false;
   // The one way a session ends (#54): sign-out, the idle timeout and a denied account all come here.
   async function endSession(reason) {
     if (signingOut) return;
     signingOut = true; cloud.signingOut = true;
     idle.stop();
     if (reason) ss.set(NOTICE, reason);
-    // Idle: give changes made while online a moment to reach the server before their only copy is wiped.
-    if (reason === 'idle' && navigator.onLine) await Promise.race([db.waitForPendingWrites().catch(() => {}), new Promise((r) => setTimeout(r, 5000))]);
+    // Idle: changes the server has not confirmed must not be wiped. Wait for them; if they cannot sync now
+    // (offline, or the server does not answer in time), lock the app and wipe once they have (holdForSync).
+    if (reason === 'idle' && !(await drain(waitMs()))) return holdForSync();
     try { await auth.signOut(); } catch (e) {}
     await cloud.wipeLocal();
     location.reload();
   }
   cloud.endSession = endSession;
   cloud.denyAccess = () => endSession('denied');
+
+  /* An idle timeout with unsynced changes. Signing out of Auth now would make Firestore's queued writes fail
+     on the server (they need the session), and the wipe would delete them, so the session stays signed in to
+     Firebase but the app is locked: the sign-in screen covers it with no button, the records listener stops,
+     the log leaves memory and the screen under the gate is cleared. Firestore keeps sending the queued writes;
+     once they are confirmed (checked on 'online' and every 15 seconds) the usual sign-out and wipe run and the
+     page reloads to the sign-in screen. HOLD survives a relaunch, so closing the app in the meantime brings
+     back the lock, not the log. */
+  const HOLD_MSG = 'Signed out after a while without use. Some changes have not synced yet; this phone\'s copy of your log will be cleared as soon as they reach the server. Connect to the internet to finish.';
+  function holdForSync() {
+    if (holding) return; holding = true;
+    signingOut = true; cloud.signingOut = true; idle.stop();
+    ls.set(HOLD, '1'); ss.set(NOTICE, 'idle');
+    document.querySelectorAll('.sheet-wrap').forEach((w) => w.remove());
+    if (window.BT) { if (BT.stopSync) BT.stopSync(); if (BT.data) for (const k of Object.keys(BT.data)) BT.data[k] = Array.isArray(BT.data[k]) ? [] : {}; }
+    const view = document.getElementById('view'); if (view) view.innerHTML = '';
+    showGate(HOLD_MSG, true);
+    let trying = false;
+    const retry = async () => {
+      if (trying || !navigator.onLine) return; trying = true;
+      const ok = await drain(SYNC_WAIT_MS);
+      trying = false;
+      if (!ok) return;
+      try { await auth.signOut(); } catch (e) {}
+      await cloud.wipeLocal();
+      location.reload();
+    };
+    addEventListener('online', retry);
+    setInterval(retry, 15000);
+    retry();
+  }
+
+  // Sign-out from Settings or the 'Still there?' sheet. Online, it waits up to 5 seconds for unsynced changes to
+  // reach the server. If some are still waiting (offline, or a slow server), it asks before wiping them.
+  let leaving = false;
   cloud.signOut = async () => {
-    // Changes made offline that have not reached the server live only in the cache the wipe removes.
-    if (window.BT && BT.sync && BT.sync.pending &&
-      !(await BT.confirm('Some changes have not synced yet. Signing out now removes them from this phone.', 'Sign out'))) return;
-    await endSession('');
+    if (leaving || signingOut) return;
+    leaving = true;
+    try {
+      const note = setTimeout(() => window.BT && BT.toast('Syncing your last changes…'), 400);
+      const synced = await drain(waitMs());
+      clearTimeout(note);
+      if (!synced && !(await BT.confirm('Some changes have not synced yet. Sign out anyway?', 'Sign out'))) return;
+      await endSession('');
+    } finally { leaving = false; }
   };
 
   /* ---------- idle timeout (#54) ----------
@@ -198,7 +264,7 @@
       s.body.innerHTML = `<p class="muted" style="margin:0 0 20px" data-left></p><div class="row gap"><button class="btn ghost grow" data-out>Sign out now</button><button class="btn primary grow" data-stay>Stay signed in</button></div>`;
       s.body.querySelector('[data-left]').textContent = text;
       s.body.querySelector('[data-stay]').onclick = () => { closeWarn(); mark(true); };
-      s.body.querySelector('[data-out]').onclick = () => { closeWarn(); endSession(''); };
+      s.body.querySelector('[data-out]').onclick = () => { closeWarn(); cloud.signOut(); };
     }
     function check() {
       if (!running || signingOut) return;
@@ -296,8 +362,9 @@
     if (started || signingOut) return;
     started = true;
     await openDb();
-    // A session that sat unused past the limit while the app was closed ends before anything is shown.
-    if (idle.expired()) return endSession('idle');
+    // A session that sat unused past the limit while the app was closed ends before anything is shown, and so
+    // does one whose idle sign-out was still waiting for changes to sync when the app closed (HOLD).
+    if (ls.get(HOLD) === '1' || idle.expired()) return endSession('idle');
     if ((await probe(user.uid)) === 'denied') return endSession('denied');
     cloud.user = { uid: user.uid, name: user.displayName || '', email: user.email || '', photo: user.photoURL || '' };
     if (gate) { gate.remove(); gate = null; }
