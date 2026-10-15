@@ -172,12 +172,22 @@
   BT.remove = (kind, id) => {
     BT.data[kind] = BT.data[kind].filter((r) => r.id !== id);
     lsWrite();
-    if (col) col.doc(kind + '__' + id).delete().catch((e) => console.warn('db delete', e));
+    if (col) col.doc(kind + '__' + id).delete().catch(writeFailed);
     BT.emit('change', kind);
   };
   function persist(kind, id, rec) {
     lsWrite();
-    if (col) col.doc(kind + '__' + id).set({ kind, rec: JSON.parse(JSON.stringify(rec)) }).catch((e) => { console.warn('db write', e); BT.toast('Saved on this device only'); });
+    // Never awaited: Firestore's set() resolves only when the server confirms, which offline can be hours
+    // later. The change is already in the offline cache and queued; it syncs when the connection returns.
+    if (col) col.doc(kind + '__' + id).set({ kind, rec: JSON.parse(JSON.stringify(rec)) }).catch(writeFailed);
+  }
+  // Only a rejected write is a real failure. 'unavailable' is a dropped connection (Firestore retries) and
+  // 'failed-precondition' covers writes cut off by sign-out's wipe. Logs the error code only, never the record.
+  function writeFailed(e) {
+    const code = (e && e.code) || 'unknown';
+    console.warn('db write failed:', code);
+    if (code === 'unavailable' || code === 'failed-precondition' || code === 'cancelled' || (window.BT_CLOUD && BT_CLOUD.signingOut)) return;
+    BT.toast(code === 'permission-denied' ? 'Could not save. This account does not have access.' : 'Could not save that change. Try again.');
   }
 
   BT.storage = 'device';
@@ -187,12 +197,60 @@
     snap.docs.forEach((d) => { const v = d.data(); if (!v) return; if (v.kind === 'settings') BT.data.settings = { ...BT.data.settings, ...v.rec }; else if (fresh[v.kind]) fresh[v.kind].push(v.rec); });
     Object.assign(BT.data, fresh);
   };
+  /* Live sync (#52). One onSnapshot listener on the records collection does the first load and then keeps
+     BT.data current: the other device's edits, and the server's copy once offline changes sync, appear
+     without a reload. With persistence on, the first snapshot comes from the offline cache at once, so an
+     offline launch does not wait for get()'s server timeout. Each later snapshot merges only docChanges()
+     and emits 'change' only when a record really differs, so this phone's own writes (already in BT.data)
+     and metadata-only snapshots cost no render. The change listener in index.html defers renders while a
+     sheet is open. BT.sync = {pending, fromCache} comes from snapshot metadata; 'status' fires when it moves. */
+  BT.sync = { pending: false, fromCache: false, live: false };
+  const stable = (v) => JSON.stringify(v, (k, x) => (x && typeof x === 'object' && !Array.isArray(x) ? Object.keys(x).sort().reduce((o, key) => ((o[key] = x[key]), o), {}) : x));
+  const same = (a, b) => !!a && !!b && (a.updatedAt && a.updatedAt === b.updatedAt ? true : stable(a) === stable(b));
+  function applyDoc(type, d) {
+    const v = type === 'removed' ? null : d.data();
+    const [kind, ...rest] = d.id.split('__'), id = rest.join('__');
+    if (kind === 'settings') {
+      if (!v || !v.rec) return false;
+      const next = { ...BT.data.settings, ...v.rec };
+      if (stable(next) === stable(BT.data.settings)) return false;
+      BT.data.settings = next; BT.refreshProducts(); return true;
+    }
+    const k = (v && v.kind) || kind;
+    if (!KINDS.includes(k)) return false;
+    const arr = BT.data[k], i = arr.findIndex((r) => r.id === ((v && v.rec && v.rec.id) || id));
+    if (!v) { if (i < 0) return false; arr.splice(i, 1); return true; }
+    if (!v.rec) return false;
+    if (i >= 0) { if (same(arr[i], v.rec)) return false; arr[i] = v.rec; } else arr.push(v.rec);
+    return true;
+  }
+  function listen() {
+    return new Promise((resolve) => {
+      let first = true;
+      const done = () => { if (first) { first = false; resolve(); } };
+      col.onSnapshot({ includeMetadataChanges: true }, (snap) => {
+        if (first) { loadAll(snap); done(); }
+        else {
+          let changed = false;
+          // Local echoes (hasPendingWrites) are this phone's own saves, already applied by BT.save/remove.
+          snap.docChanges().forEach((ch) => { if (!ch.doc.metadata.hasPendingWrites && applyDoc(ch.type, ch.doc)) changed = true; });
+          if (changed) BT.emit('change', 'sync');
+        }
+        const m = snap.metadata, next = { pending: !!m.hasPendingWrites, fromCache: !!m.fromCache, live: true };
+        if (next.pending !== BT.sync.pending || next.fromCache !== BT.sync.fromCache || !BT.sync.live) { BT.sync = next; BT.emit('status', BT.sync); }
+      }, (e) => {
+        console.warn('records listener stopped:', (e && e.code) || 'unknown');
+        if (!(window.BT_CLOUD && BT_CLOUD.signingOut)) BT.toast('Could not load your log. Check your connection.');
+        done();
+      });
+    });
+  }
   BT.init = async function () {
     // Hosted web app: Firebase Auth + Firestore users/{uid}/records (app/cloud.js).
     if (window.BT_CLOUD) {
       const c = await window.BT_CLOUD.ready;
       col = c.col; BT.account = c.user; BT.storage = 'firebase';
-      try { loadAll(await col.get()); } catch (e) { console.warn('firestore read', e); BT.toast('Could not load your log. Check your connection.'); }
+      await listen();
       BT.refreshProducts();
       BT.emit('change', 'all');
       return;

@@ -1,9 +1,11 @@
 // Builds the hosted web app into dist/ from the same app/ files the claude.ai artifact publishes.
 // app/index.html is a page body (the artifact host adds the document shell), so this wraps it in a
 // full document, adds the Firebase SDK and app/cloud.js before core.js, adds app/livecam.js after
-// facemap.js, and copies the scripts.
+// facemap.js, adds app/offline.js (service worker, update pill, offline banner), copies the scripts,
+// and generates dist/sw.js: the offline app shell with a content-hash version stamp (#52).
 // Run: node tools/build.mjs   (firebase deploy runs it as the hosting predeploy step)
 import { readFileSync, writeFileSync, mkdirSync, copyFileSync, readdirSync, rmSync } from 'node:fs';
+import { createHash } from 'node:crypto';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -17,9 +19,10 @@ mkdirSync(dist, { recursive: true });
 let body = readFileSync(join(app, 'index.html'), 'utf8');
 const title = (body.match(/<title>([^<]*)<\/title>/) || [, 'Toxin Tracker'])[1];
 body = body.replace(/<title>[^<]*<\/title>\s*/, '');
-const firebase = ['app', 'auth', 'firestore'].map((m) => `<script src="https://www.gstatic.com/firebasejs/${SDK}/firebase-${m}-compat.js"></script>`).join('\n');
+const SDK_URLS = ['app', 'auth', 'firestore'].map((m) => `https://www.gstatic.com/firebasejs/${SDK}/firebase-${m}-compat.js`);
+const firebase = SDK_URLS.map((u) => `<script src="${u}"></script>`).join('\n');
 if (!body.includes('<script src="core.js"></script>')) throw new Error('app/index.html no longer loads core.js; update tools/build.mjs');
-body = body.replace('<script src="core.js"></script>', `${firebase}\n<script src="core.js"></script>\n<script src="cloud.js"></script>`);
+body = body.replace('<script src="core.js"></script>', `${firebase}\n<script src="core.js"></script>\n<script src="cloud.js"></script>\n<script src="offline.js"></script>`);
 // Live camera face mapping (app/livecam.js) needs a camera, which the claude.ai artifact does not have.
 if (!body.includes('<script src="facemap.js"></script>')) throw new Error('app/index.html no longer loads facemap.js; update tools/build.mjs');
 body = body.replace('<script src="facemap.js"></script>', '<script src="facemap.js"></script>\n<script src="livecam.js"></script>');
@@ -55,4 +58,18 @@ writeFileSync(join(dist, 'index.html'), head + body + '\n</body>\n</html>\n');
 
 for (const f of readdirSync(app)) if (f.endsWith('.js')) copyFileSync(join(app, f), join(dist, f));
 for (const f of readdirSync(join(root, 'web'))) copyFileSync(join(root, 'web', f), join(dist, f));
-console.log('Built dist/ (' + readdirSync(dist).join(', ') + ')');
+
+// Service worker (#52). The version is a hash of every built file, so any change to the app ships a new
+// worker, and the precache holds the whole shell from one build (no mix of old and new scripts).
+// The page itself is precached as './' because Firebase Hosting's cleanUrls redirects /index.html.
+const files = readdirSync(dist).filter((f) => f !== 'index.html' && f !== 'sw.js').sort();
+const hash = createHash('sha256');
+for (const f of ['index.html', ...files]) hash.update(f + '\0').update(readFileSync(join(dist, f)));
+const version = hash.digest('hex').slice(0, 12);
+const sw = readFileSync(join(root, 'tools', 'sw.template.js'), 'utf8')
+  .replace("'__VERSION__'", JSON.stringify(version))
+  .replace("'__SHELL__'", JSON.stringify(['./', ...files]))
+  .replace("'__SDK__'", JSON.stringify(SDK_URLS));
+if (sw.includes('__VERSION__') || sw.includes('__SHELL__') || sw.includes('__SDK__')) throw new Error('tools/sw.template.js placeholders changed; update tools/build.mjs');
+writeFileSync(join(dist, 'sw.js'), sw);
+console.log('Built dist/ version ' + version + ' (' + readdirSync(dist).join(', ') + ')');
