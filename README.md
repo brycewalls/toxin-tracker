@@ -20,7 +20,6 @@ This README is the guide to how work on this project is tracked. Design notes an
 - `tools/build.mjs` wraps `app/index.html` in a full document, adds the Firebase SDK and `cloud.js`, and copies the scripts and `web/` (icons, manifest) into `dist/` (git-ignored).
 - `firebase/firestore.rules` lets each signed-in person read and write only their own records.
 - **Sign-in setup outside the repo:** the Google provider is on in Firebase Authentication, and the auto-created OAuth web client in Google Cloud Console lists `https://toxin-tracker-bw.web.app` as a JavaScript origin and `https://toxin-tracker-bw.web.app/__/auth/handler` as a redirect URI. Without the redirect URI, sign-in fails with `redirect_uri_mismatch` (#9). A custom domain needs both added the same way.
-- **Sign-in setup outside the repo:** the Google provider is on in Firebase Authentication, and the auto-created OAuth web client in Google Cloud Console lists `https://toxin-tracker-bw.web.app` as a JavaScript origin and `https://toxin-tracker-bw.web.app/__/auth/handler` as a redirect URI. Without the redirect URI, sign-in fails with `redirect_uri_mismatch` (#). A custom domain needs both added the same way.
 - `replica/` holds the PepPedia recon (screens, feature list) the UI was copied from.
 
 ## The loop
