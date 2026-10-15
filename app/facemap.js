@@ -1094,6 +1094,7 @@
     render(root) {
       mounts.forEach((m) => { try { m.destroy(); } catch (e) {} });
       mounts = [];
+      if (BT.liveCam && BT.liveCam.supported()) BT.liveCam.preload(); // #44: load the tracker as soon as the Face Map opens
       root.appendChild(BT.h('<header class="page-h"><h1 class="title-xl">Face Map</h1><span></span></header>'));
       const card = BT.h('<section class="card"><div class="card-h"><h3>Injection Sites</h3><span data-seg></span></div><div data-body></div></section>');
       card.querySelector('[data-seg]').replaceWith(BT.seg([['map', 'Map'], ['live', 'Live']], state.view, (v) => { state.view = v; BT.render(); }));
