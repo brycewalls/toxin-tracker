@@ -85,6 +85,12 @@ writeFileSync(join(dist, 'index.html'), head + body + '\n</body>\n</html>\n');
 
 for (const f of readdirSync(app)) if (f.endsWith('.js')) copyFileSync(join(app, f), join(dist, f));
 for (const f of readdirSync(join(root, 'web'))) copyFileSync(join(root, 'web', f), join(dist, f));
+// Botox Academy content (#69): served same-origin as academy.json and precached with the shell below, so the
+// Academy works offline. Minified; the source of truth stays in research/.
+{
+  const src = join(root, 'research', '2026-10-15_botox-academy-content.json');
+  writeFileSync(join(dist, 'academy.json'), JSON.stringify(JSON.parse(readFileSync(src, 'utf8'))));
+}
 
 // Service worker (#52). The version is a hash of every built file, so any change to the app ships a new
 // worker, and the precache holds the whole shell from one build (no mix of old and new scripts).
