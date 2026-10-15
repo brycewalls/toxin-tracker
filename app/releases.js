@@ -6,6 +6,15 @@
 (function () {
   BT.RELEASES = [
     {
+      version: '0.7', date: '2026-10-14', title: 'Zoom everywhere and a new icon',
+      items: [
+        'Zoom into the Injection Sites and Frequency maps on the Face Map tab, and the map on a treatment. Labels hide while zoomed and come back at 1x.',
+        'Freeze the Live camera, then pinch or use the minus and plus buttons to zoom in and place points precisely.',
+        'A new app icon. Remove the app from your home screen and add it again to see it.',
+        'Fixed a white bar showing under the bottom tab bar on some screens.',
+      ],
+    },
+    {
       version: '0.6', date: '2026-10-15', title: 'Live face map on your camera',
       items: [
         'Face Map, Live: tap Start live camera and the muscle map follows your face as you move.',
