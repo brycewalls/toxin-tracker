@@ -75,12 +75,8 @@
   const WEEK = 7 * BT.DAY;
   const pad = (n) => String(n).padStart(2, '0');
   const localKey = (d) => { d = new Date(d); return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); };
-  const utcKey = (d) => new Date(d).toISOString().slice(0, 10);
-  const moodFor = (day) => {
-    const keys = [localKey(day), utcKey(day)];
-    for (const k of keys) { const m = BT.data.moods.find((x) => x.date === k); if (m) return m; }
-    return null;
-  };
+  // Moods are keyed by local calendar date only. Never match on a UTC date: late in the evening it is already tomorrow in UTC.
+  const moodFor = (day) => BT.data.moods.find((x) => x.date === localKey(day)) || null;
   const maxAftercareH = () => Math.max(...BT.aftercare.map((a) => a.hours));
   const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
   const intervalWeeks = () => BT.data.settings.intervalWeeks || 12;
@@ -234,8 +230,10 @@
       // Mood
       let days = '';
       const todayKey = localKey(now);
+      const nd = new Date(now);
       for (let k = 6; k >= 0; k--) {
-        const day = now - k * BT.DAY, m = moodFor(day), isT = localKey(day) === todayKey;
+        // Local noon of each calendar day, so DST shifts and late-evening clocks never slide a cell onto a neighbor.
+        const day = new Date(nd.getFullYear(), nd.getMonth(), nd.getDate() - k, 12).getTime(), m = moodFor(day), isT = localKey(day) === todayKey;
         days += `<button class="t-day ${isT ? 'today' : ''}" data-mood="${localKey(day)}" aria-label="Mood for ${BT.esc(BT.fmt.date(day))}">
           <span class="wd">${BT.esc(new Date(day).toLocaleDateString(undefined, { weekday: 'short' }).slice(0, 3))}</span>
           <span class="t-face ${m ? 's' + m.score : 'empty-f'}">${BT.moodFace(m ? m.score : 3, 28)}</span>
@@ -296,7 +294,7 @@
   function moodSheet(key) {
     const [y, m, dd] = key.split('-').map(Number);
     const dayDate = new Date(y, m - 1, dd, 12);
-    const existing = BT.data.moods.find((x) => x.date === key) || moodFor(dayDate);
+    const existing = moodFor(dayDate);
     const sh = BT.sheet({ title: dayDate.toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' }) });
     sh.body.innerHTML = `<div class="small muted">How are you feeling?</div><div class="t-moods">${[1, 2, 3, 4, 5].map((n) => `<button class="t-mood ${existing && existing.score === n ? 'on' : ''}" data-n="${n}" aria-label="${moodLabels[n - 1]}"><span class="t-face s${n}">${BT.moodFace(n, 30)}</span>${moodLabels[n - 1]}</button>`).join('')}</div>${existing ? '<button class="btn ghost" data-rm>Clear this day</button>' : ''}`;
     sh.body.querySelectorAll('[data-n]').forEach((b) => (b.onclick = () => {
