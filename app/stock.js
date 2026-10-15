@@ -6,6 +6,8 @@
     st.textContent = `
 .stk-add { width: 44px; height: 44px; border-radius: 50%; background: var(--accent); color: var(--accent-ink); display: grid; place-items: center; flex: none; box-shadow: 0 6px 16px color-mix(in srgb, var(--accent) 35%, transparent); }
 .stk-sum { display: grid; gap: 12px; }
+.stk-pg { display: grid; gap: 6px; margin-bottom: 10px; }
+.stk-other { background: var(--card-2); border: 1px solid var(--line); border-radius: 14px; padding: 12px; }
 .stk-pills { display: flex; flex-wrap: wrap; gap: 6px; }
 .stk-vial { cursor: pointer; display: grid; gap: 12px; padding: 16px; }
 .stk-vial:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
@@ -217,6 +219,8 @@
       openedOn: v && v.openedAt ? dateStr(v.openedAt) : '',
       cost: v && v.cost ? String(v.cost) : '',
       notes: v ? v.notes || '' : '',
+      // "Other": a product that is not in the list (#20). Saved to settings on Save.
+      cName: '', cMaker: '', cRatio: '1',
     };
     let err = {};
     const used = edit ? BT.data.injections.filter((i) => i.vialId === v.id).reduce((a, i) => a + BT.injectionUnits(i), 0) : 0;
@@ -225,6 +229,9 @@
     function save(close) {
       err = {};
       const units = Math.round((+f.units) * 10) / 10, ml = +f.ml, cost = f.cost === '' ? 0 : +f.cost;
+      const custom = f.productId === '__other';
+      if (custom && !f.cName.trim()) err.cName = 'Enter the product name.';
+      if (custom && !(+f.cRatio > 0)) err.cRatio = 'Enter how many of its units equal 1 Botox unit.';
       if (!(units >= 1)) err.units = 'Enter the total units in the vial.';
       else if (edit && units < used) err.units = `${used}U has already been drawn from this vial.`;
       if (!(ml > 0)) err.ml = 'Choose how much saline was added.';
@@ -233,6 +240,7 @@
       else if (f.opened && parseDate(f.openedOn) > Date.now() + day()) err.openedOn = 'Opened date cannot be in the future.';
       if (!(cost >= 0)) err.cost = 'Enter a valid amount.';
       if (Object.keys(err).length) { draw(); const el = sh.body.querySelector('.stk-err'); el && el.scrollIntoView({ block: 'center', behavior: 'smooth' }); return; }
+      if (custom) f.productId = BT.addCustomProduct({ name: f.cName, maker: f.cMaker, vialUnits: units, ratio: f.cRatio }).id;
       BT.save('vials', {
         ...(v || {}),
         productId: f.productId, unitsTotal: units, dilutionMl: ml,
@@ -247,10 +255,22 @@
 
     const sh = BT.sheet({ title: edit ? 'Edit vial' : 'Add vial', action: { label: 'Save', onClick: save } });
 
+    // Product chips grouped by where the product is sold, then the user's own, then Other.
+    function productPicker() {
+      const chip = (p) => `<button type="button" class="chip ${p.id === f.productId ? 'on' : ''}" data-prod="${p.id}">${BT.esc(p.name)}</button>`;
+      const groups = [['US', 'FDA approved'], ['Korea', 'Korean'], ['Custom', 'Your products']];
+      return groups.map(([o, label]) => { const ps = BT.products.filter((p) => p.origin === o); return ps.length ? `<div class="stk-pg"><div class="tiny muted">${label}</div><div class="chips">${ps.map(chip).join('')}</div></div>` : ''; }).join('') +
+        `<div class="chips"><button type="button" class="chip ${f.productId === '__other' ? 'on' : ''}" data-prod="__other" style="display:inline-flex;align-items:center;gap:4px">${BT.icon('plus', 14)} Other</button></div>`;
+    }
     function draw() {
       const mls = [...new Set([1, 2, 2.5, 3, 4, ...(f.ml > 0 ? [+f.ml] : [])])].sort((a, b) => a - b);
       sh.body.innerHTML = `
-        <div class="field"><label>Product</label><div class="chips">${BT.products.map((p) => `<button type="button" class="chip ${p.id === f.productId ? 'on' : ''}" data-prod="${p.id}">${BT.esc(p.name)}</button>`).join('')}</div></div>
+        <div class="field"><label>Product</label>${productPicker()}</div>
+        ${f.productId === '__other' ? `<div class="stk-other stack">
+          <div class="grid-2"><div class="field"><label for="stk-cn">Product name</label><input id="stk-cn" class="input" data-f="cName" value="${BT.esc(f.cName)}" autocomplete="off">${E('cName')}</div>
+          <div class="field"><label for="stk-cm">Maker (optional)</label><input id="stk-cm" class="input" data-f="cMaker" value="${BT.esc(f.cMaker)}" autocomplete="off"></div></div>
+          <div class="field"><label for="stk-cr">Units equal to 1 Botox unit</label><input id="stk-cr" class="input" data-f="cRatio" type="number" inputmode="decimal" min="0.1" step="0.1" value="${BT.esc(f.cRatio)}"><div class="tiny muted">1 for most toxins. Dysport is about 2.5. Saved for next time.</div>${E('cRatio')}</div></div>` : ''}
+        ${BT.product(f.productId).aka && f.productId !== '__other' ? `<div class="tiny muted" style="margin-top:-6px">${BT.esc(BT.product(f.productId).maker)} · ${BT.esc(BT.product(f.productId).aka)}</div>` : ''}
         <div class="field"><label for="stk-u">Total units in vial</label>
           <div class="row gap"><div class="stepper"><button type="button" data-step="-10" aria-label="Minus 10">−</button><input id="stk-u" class="num" data-f="units" type="number" inputmode="decimal" min="1" value="${BT.esc(f.units)}"><button type="button" data-step="10" aria-label="Plus 10">+</button></div><span class="small muted">units</span></div>${E('units')}</div>
         <div class="field"><label>Saline added (mL)</label><div class="chips">${mls.map((m) => `<button type="button" class="chip ${+f.ml === m ? 'on' : ''}" data-ml="${m}">${m} mL</button>`).join('')}</div>${E('ml')}
@@ -271,7 +291,7 @@
     sh.body.addEventListener('input', (e) => { const k = e.target.dataset && e.target.dataset.f; if (k) f[k] = e.target.value; });
     sh.body.addEventListener('click', (e) => {
       const t = e.target.closest('[data-prod],[data-ml],[data-step],[data-open]'); if (!t) return;
-      if (t.dataset.prod) { f.productId = t.dataset.prod; f.units = BT.product(t.dataset.prod).vialUnits; err = {}; }
+      if (t.dataset.prod) { f.productId = t.dataset.prod; if (t.dataset.prod !== '__other') f.units = BT.product(t.dataset.prod).vialUnits; err = {}; }
       else if (t.dataset.ml) { f.ml = +t.dataset.ml; delete err.ml; }
       else if (t.dataset.step) { f.units = Math.max(1, (+f.units || 0) + +t.dataset.step); delete err.units; }
       else if (t.dataset.open) { f.opened = t.dataset.open === '1'; if (f.opened && !f.openedOn) f.openedOn = dateStr(Date.now()); delete err.openedOn; }
