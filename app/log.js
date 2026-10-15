@@ -54,6 +54,7 @@
 .lg-th{position:relative;aspect-ratio:3/4;border-radius:12px;overflow:hidden;background:var(--card-2);border:1px solid var(--line)}
 .lg-th img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
 .lg-th span{position:absolute;left:6px;bottom:6px;background:var(--card);font-size:11px;padding:2px 8px;border-radius:99px}
+.lg-save{width:100%;margin-bottom:calc(env(safe-area-inset-bottom,0px) + 8px)}
 .lg-hero-top{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 `;
     document.head.appendChild(st);
@@ -159,7 +160,8 @@
         ${stepHeader(5, 'Notes')}
         <div class="field"><label for="lg-notes">Notes</label><textarea class="input" id="lg-notes" rows="3" placeholder="Anything worth remembering" data-notes></textarea></div>
         <div class="field"><label for="lg-cost">Cost (optional)</label><input class="input" id="lg-cost" type="number" inputmode="decimal" min="0" step="0.01" placeholder="$" data-cost></div>
-      </section>`;
+      </section>
+      <button type="button" class="btn primary lg-save" data-save>${editing ? 'Save changes' : 'Save treatment'}</button>`;
     const $ = (s) => body.querySelector(s);
 
     $('[data-at]').value = BT.toLocalInput(st.at);
@@ -329,6 +331,7 @@
     function updateTotals() {
       const total = sumU(st.points);
       $('[data-total]').innerHTML = `${esc(fmtN(total))}<small>U</small>`;
+      if (!editing && !st.busy) $('[data-save]').textContent = `Save treatment \u00b7 ${fmtN(total)}U`;
       const v = BT.data.vials.find((x) => x.id === st.vialId), w = $('[data-warn]');
       if (v && total > adjRemaining(v) + 1e-9) {
         w.hidden = false;
@@ -364,6 +367,7 @@
 
     /* --- save --- */
     const showErr = (sel, msg) => { const el = $(sel); el.textContent = msg; el.hidden = false; el.scrollIntoView({ block: 'center', behavior: 'smooth' }); };
+    $('[data-save]').onclick = () => save(sheet.close);
     async function save(close) {
       if (st.busy) return;
       $('[data-err-when]').hidden = true; $('[data-err-sites]').hidden = true;
@@ -371,8 +375,8 @@
       if (at == null) { showErr('[data-err-when]', 'Enter a valid date and time.'); return; }
       const sites = st.points.map((p) => ({ id: p.id, siteId: p.siteId || '', x: p.x, y: p.y, units: Number(p.units) || 0 }));
       if (!sites.some((s) => s.units > 0)) { showErr('[data-err-sites]', 'Add at least one point with units above 0.'); return; }
-      const act = sheet.el.querySelector('[data-act]');
-      st.busy = true; if (act) { act.disabled = true; act.textContent = 'Saving'; }
+      const act = sheet.el.querySelector('[data-act]'), sv = $('[data-save]');
+      st.busy = true; if (act) { act.disabled = true; act.textContent = 'Saving'; } sv.disabled = true; sv.textContent = 'Saving';
       try {
         const costRaw = $('[data-cost]').value.trim();
         const cost = costRaw === '' || !Number.isFinite(+costRaw) ? null : +costRaw;
@@ -398,7 +402,7 @@
         if (editing) BT.render(); else BT.go('today');
       } catch (err) {
         console.error(err);
-        st.busy = false; if (act) { act.disabled = false; act.textContent = 'Save'; }
+        st.busy = false; if (act) { act.disabled = false; act.textContent = 'Save'; } sv.disabled = false; sv.textContent = editing ? 'Save changes' : 'Save treatment'; updateTotals();
         showErr('[data-err-sites]', 'Could not save. Try again.');
       }
     }
@@ -441,7 +445,8 @@
         <div class="field"><label for="rx-notes">Notes</label><textarea class="input" id="rx-notes" rows="3" placeholder="Details, what helped" data-notes></textarea></div>
         <div class="lg-err" data-err hidden></div>
       </section>
-      ${editing ? `<button type="button" class="btn danger" data-del>${BT.icon('trash', 18)} Delete reaction</button>` : ''}`;
+      ${editing ? `<button type="button" class="btn danger" data-del>${BT.icon('trash', 18)} Delete reaction</button>` : ''}
+      <button type="button" class="btn primary lg-save" data-save>${editing ? 'Save changes' : 'Save reaction'}</button>`;
     const $ = (s) => body.querySelector(s);
 
     $('[data-inj]').value = st.injectionId;
@@ -489,6 +494,7 @@
       };
     }
 
+    $('[data-save]').onclick = () => save(sheet.close);
     function save(close) {
       const err = $('[data-err]'); err.hidden = true;
       const at = parseLocal($('[data-at]').value);
