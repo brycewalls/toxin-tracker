@@ -158,10 +158,15 @@
   const lsRead = () => { try { return JSON.parse(localStorage.getItem(LS) || 'null'); } catch (e) { return null; } };
 
   BT.save = (kind, rec) => {
-    rec.id ||= BT.uid();
+    if (kind !== 'settings') rec.id ||= BT.uid(); // settings is one document; an id on it meant nothing
     rec.updatedAt = Date.now();
-    if (kind === 'settings') { BT.data.settings = { ...BT.data.settings, ...rec }; persist('settings', 'settings', BT.data.settings); BT.refreshProducts(); }
-    else {
+    if (kind === 'settings') {
+      const delta = settingsDelta(BT.data.settings, rec);
+      // A copy, so a caller that keeps changing the object it saved (academy.js check()) changes nothing here
+      // and its next save diffs against what was really stored.
+      BT.data.settings = { ...BT.data.settings, ...JSON.parse(JSON.stringify(rec)) };
+      persistSettings(delta); BT.refreshProducts();
+    } else {
       const arr = BT.data[kind], i = arr.findIndex((r) => r.id === rec.id);
       i >= 0 ? (arr[i] = rec) : arr.push(rec);
       persist(kind, rec.id, rec);
@@ -172,15 +177,122 @@
   BT.remove = (kind, id) => {
     BT.data[kind] = BT.data[kind].filter((r) => r.id !== id);
     lsWrite();
-    if (col) col.doc(kind + '__' + id).delete().catch(writeFailed);
+    if (col) track(col.doc(kind + '__' + id).delete());
     BT.emit('change', kind);
   };
   function persist(kind, id, rec) {
     lsWrite();
     // Never awaited: Firestore's set() resolves only when the server confirms, which offline can be hours
     // later. The change is already in the offline cache and queued; it syncs when the connection returns.
-    if (col) col.doc(kind + '__' + id).set({ kind, rec: JSON.parse(JSON.stringify(rec)) }).catch(writeFailed);
+    if (col) track(col.doc(kind + '__' + id).set({ kind, rec: JSON.parse(JSON.stringify(rec)) }));
   }
+  let inflight = 0; // writes handed to the db that the server has not confirmed (this page load only)
+  const track = (p) => { inflight++; p.then(() => inflight--, (e) => { inflight--; writeFailed(e); }); };
+
+  /* ---------- settings: field-level merges (#83) ----------
+     Settings is one Firestore document (settings__settings) that many features share: name, interval, check-in
+     day, custom products, the What's New flag, reaction nudges and all Academy progress. Writing the whole
+     object let any save made from a partial copy (for example right after signing back in, before the server's
+     copy had loaded) replace everything else in the document. So the hosted app now:
+       1. writes only the fields a save changed, as set({kind, rec: {<changed leaves>}}, {merge: true}). Nested
+          maps (academy.lessons, academy.achievements, academy.resources, rxNudge) are diffed key by key, so
+          completing a lesson writes rec.academy.lessons.<id> and nothing else, and two devices combine. A key
+          that a save removes is written as FieldValue.delete(). Arrays (customProducts) are single values.
+       2. holds every settings write until the first full snapshot from the server for this account has
+          loaded (or this device's cache is known complete, see BT_CLOUD.cacheWarm), then re-applies the held
+          changes on top of the server's values and writes them, merged. Records of the other kinds are not
+          held: a new record has a unique id, and an existing one can only be edited once it has loaded.
+     The claude.ai artifact path (window.claude db) and the local preview keep the whole-object write. */
+  const DEL = Symbol('delete');
+  const plain = (x) => !!x && typeof x === 'object' && !Array.isArray(x);
+  // Changed leaves from a to b. Keys a has and b lacks become DEL. Never emits an empty map (merging {} would
+  // replace the stored map with an empty one).
+  function diffMap(a, b) {
+    const out = {};
+    for (const k of Object.keys(b)) { const d = diffVal(a ? a[k] : undefined, b[k]); if (d !== undefined) out[k] = d; }
+    if (a) for (const k of Object.keys(a)) if (!(k in b) && a[k] !== undefined) out[k] = DEL;
+    return Object.keys(out).length ? out : undefined;
+  }
+  function diffVal(x, y) {
+    if (y === undefined) return x === undefined ? undefined : DEL;
+    if (plain(y)) return diffMap(plain(x) ? x : null, y);
+    return stable(x) === stable(y) ? undefined : JSON.parse(JSON.stringify(y));
+  }
+  // Only the top-level keys a save names are compared, as BT.save('settings', patch) has always merged.
+  function settingsDelta(prev, patch) {
+    const out = {};
+    for (const k of Object.keys(patch)) { const d = diffVal(prev[k], patch[k]); if (d !== undefined) out[k] = d; }
+    return out;
+  }
+  // Applies a delta to a settings object (DEL removes), returning a new object.
+  function applyDelta(obj, delta) {
+    const o = { ...obj };
+    for (const [k, v] of Object.entries(delta)) {
+      if (v === DEL) delete o[k];
+      else if (plain(v)) o[k] = applyDelta(plain(o[k]) ? o[k] : {}, v);
+      else o[k] = v;
+    }
+    return o;
+  }
+  // Combines two deltas, the later one winning leaf by leaf.
+  function mergeDelta(a, b) {
+    const o = { ...a };
+    for (const [k, v] of Object.entries(b)) o[k] = plain(v) && plain(o[k]) ? mergeDelta(o[k], v) : v;
+    return o;
+  }
+  // Academy progress made from a partial copy must not replace progress the server already has: an unlock
+  // time, the certificate and the Live view date keep the first value, and a lesson the server has as done
+  // stays as the server has it. Everything else in a held change applies on top.
+  function keepServerProgress(delta, server) {
+    const a = delta.academy, s = server.academy;
+    if (!plain(a) || !plain(s)) return delta;
+    const out = { ...a };
+    for (const key of ['achievements', 'resources']) if (plain(out[key]) && plain(s[key])) {
+      const m = { ...out[key] }; for (const id of Object.keys(m)) if (s[key][id] != null && m[id] !== DEL) delete m[id];
+      Object.keys(m).length ? (out[key] = m) : delete out[key];
+    }
+    if (plain(out.lessons) && plain(s.lessons)) {
+      const m = { ...out.lessons }; for (const id of Object.keys(m)) if (s.lessons[id] && s.lessons[id].done) delete m[id];
+      Object.keys(m).length ? (out.lessons = m) : delete out.lessons;
+    }
+    for (const key of ['certificate', 'liveAt']) if (s[key] != null && key in out) delete out[key];
+    const d = { ...delta };
+    Object.keys(out).length ? (d.academy = out) : delete d.academy;
+    return d;
+  }
+  const wire = (v) => (v === DEL ? BT_CLOUD.deleteField() : plain(v) ? Object.fromEntries(Object.entries(v).map(([k, x]) => [k, wire(x)])) : v);
+  const SETTINGS_DEFAULTS = { intervalWeeks: 12, name: '' };
+  let loaded = false, held = [], loadWaiters = [], unsub = null;
+  function persistSettings(delta) {
+    if (!window.BT_CLOUD) return persist('settings', 'settings', BT.data.settings); // artifact db and preview
+    if (!Object.keys(delta).length) return;
+    if (!loaded) { held.push(delta); syncStatus(); return; }
+    writeSettings(delta);
+  }
+  function writeSettings(delta) {
+    if (col && Object.keys(delta).length) track(col.doc('settings__settings').set({ kind: 'settings', rec: wire(delta) }, { merge: true }));
+  }
+  // The first full load for this account: write the held settings changes, merged into the server's values.
+  function markLoaded(fromServer) {
+    if (loaded) return;
+    loaded = true;
+    if (fromServer && BT_CLOUD.markWarm) BT_CLOUD.markWarm();
+    const delta = keepServerProgress(held.reduce(mergeDelta, {}), serverSettings); held = [];
+    if (!stopped) BT.data.settings = applyDelta({ ...SETTINGS_DEFAULTS, ...serverSettings }, delta);
+    writeSettings(delta);
+    loadWaiters.splice(0).forEach((r) => r());
+  }
+  // Resolves once no settings change is held, that is, every one has been handed to Firestore (sign-out waits
+  // on this, cloud.js). Resolves at once when nothing is held, including before the log has started loading.
+  BT.whenLoaded = () => (loaded || !held.length ? Promise.resolve() : new Promise((r) => loadWaiters.push(r)));
+  // Unsynced work this page knows about: held settings plus writes the server has not confirmed.
+  BT.unsynced = () => held.length + inflight;
+  BT.isLoaded = () => loaded;
+  // cloud.js, while an idle sign-out waits for unsynced changes: BT.data is no longer updated or rendered.
+  // If settings changes are still held (signed in offline, nothing loaded yet), the listener stays on, silent,
+  // until the server's snapshot arrives and they can be written; then it stops. Firestore keeps sending writes.
+  let stopped = false;
+  BT.stopSync = () => { stopped = true; if (loaded && unsub) { unsub(); unsub = null; } };
   // Only a rejected write is a real failure. 'unavailable' is a dropped connection (Firestore retries) and
   // 'failed-precondition' covers writes cut off by sign-out's wipe. Logs the error code only, never the record.
   function writeFailed(e) {
@@ -191,20 +303,37 @@
   }
 
   BT.storage = 'device';
-  // Load every record of one user's collection into BT.data.
+  // Load every record of one user's collection into BT.data. Hosted app: settings are the stored values over
+  // the defaults, with any settings changes still held (see markLoaded) applied on top.
+  let serverSettings = {};
+  const settingsIn = (snap) => { const d = snap.docs.find((x) => { const v = x.data(); return v && v.kind === 'settings'; }); return d ? d.data().rec || {} : {}; };
   const loadAll = (snap) => {
     const fresh = { injections: [], vials: [], reactions: [], photos: [], moods: [] };
-    snap.docs.forEach((d) => { const v = d.data(); if (!v) return; if (v.kind === 'settings') BT.data.settings = { ...BT.data.settings, ...v.rec }; else if (fresh[v.kind]) fresh[v.kind].push(v.rec); });
+    let srv = null;
+    snap.docs.forEach((d) => { const v = d.data(); if (!v) return; if (v.kind === 'settings') srv = v.rec || {}; else if (fresh[v.kind]) fresh[v.kind].push(v.rec); });
+    if (window.BT_CLOUD) { serverSettings = srv || {}; BT.data.settings = held.reduce(applyDelta, { ...SETTINGS_DEFAULTS, ...serverSettings }); }
+    else if (srv) BT.data.settings = { ...BT.data.settings, ...srv };
     Object.assign(BT.data, fresh);
   };
   /* Live sync (#52). One onSnapshot listener on the records collection does the first load and then keeps
      BT.data current: the other device's edits, and the server's copy once offline changes sync, appear
-     without a reload. With persistence on, the first snapshot comes from the offline cache at once, so an
-     offline launch does not wait for get()'s server timeout. Each later snapshot merges only docChanges()
-     and emits 'change' only when a record really differs, so this phone's own writes (already in BT.data)
-     and metadata-only snapshots cost no render. The change listener in index.html defers renders while a
-     sheet is open. BT.sync = {pending, fromCache} comes from snapshot metadata; 'status' fires when it moves. */
+     without a reload. Each later snapshot merges only docChanges() and emits 'change' only when a record
+     really differs, so this phone's own writes (already in BT.data) and metadata-only snapshots cost no render.
+     The change listener in index.html defers renders while a sheet is open. BT.sync = {pending, fromCache}
+     comes from snapshot metadata; 'status' fires when it moves.
+     First load (#83). A snapshot from the offline cache is complete only when this device has had a full
+     server snapshot since its last wipe (BT_CLOUD.cacheWarm). Right after signing in, the cache is not empty
+     but partial: the access check in cloud.js reads one record from the server, which Firestore caches, so
+     the listener's first snapshot holds that one record and no settings. Until a complete snapshot arrives,
+     the app keeps showing 'Loading your log' while online (up to 10 seconds) and holds settings writes; every
+     snapshot until then reloads BT.data whole. Offline with a cold cache, the app opens on what it has and
+     keeps holding settings writes until the server answers. A warm cache opens at once, offline or online. */
   BT.sync = { pending: false, fromCache: false, live: false };
+  let lastMeta = { pending: false, fromCache: false };
+  function syncStatus() {
+    const next = { pending: lastMeta.pending || held.length > 0, fromCache: lastMeta.fromCache, live: !!col };
+    if (next.pending !== BT.sync.pending || next.fromCache !== BT.sync.fromCache || next.live !== BT.sync.live) { BT.sync = next; BT.emit('status', BT.sync); }
+  }
   const stable = (v) => JSON.stringify(v, (k, x) => (x && typeof x === 'object' && !Array.isArray(x) ? Object.keys(x).sort().reduce((o, key) => ((o[key] = x[key]), o), {}) : x));
   const same = (a, b) => !!a && !!b && (a.updatedAt && a.updatedAt === b.updatedAt ? true : stable(a) === stable(b));
   function applyDoc(type, d) {
@@ -212,7 +341,9 @@
     const [kind, ...rest] = d.id.split('__'), id = rest.join('__');
     if (kind === 'settings') {
       if (!v || !v.rec) return false;
-      const next = { ...BT.data.settings, ...v.rec };
+      // The stored document is the merged result of every device's writes, so it replaces the local copy.
+      const next = window.BT_CLOUD ? { ...SETTINGS_DEFAULTS, ...v.rec } : { ...BT.data.settings, ...v.rec };
+      if (window.BT_CLOUD) serverSettings = v.rec;
       if (stable(next) === stable(BT.data.settings)) return false;
       BT.data.settings = next; BT.refreshProducts(); return true;
     }
@@ -226,24 +357,39 @@
   }
   function listen() {
     return new Promise((resolve) => {
-      let first = true;
-      const done = () => { if (first) { first = false; resolve(); } };
-      col.onSnapshot({ includeMetadataChanges: true }, (snap) => {
-        if (first) { loadAll(snap); done(); }
-        else {
+      let shown = false;
+      const show = () => { if (!shown) { shown = true; clearTimeout(slow); resolve(); } };
+      // The server is slow or unreachable while the browser reports a connection: open on what the cache has.
+      // Settings writes stay held until a complete snapshot arrives.
+      const slow = setTimeout(show, 10000);
+      const warm = !!(BT_CLOUD.cacheWarm && BT_CLOUD.cacheWarm());
+      unsub = col.onSnapshot({ includeMetadataChanges: true }, (snap) => {
+        const m = snap.metadata;
+        if (stopped) {
+          if (!loaded && (!m.fromCache || warm)) { serverSettings = settingsIn(snap); markLoaded(!m.fromCache); }
+          if (loaded && unsub) { unsub(); unsub = null; }
+          return;
+        }
+        if (!loaded) {
+          loadAll(snap);
+          if (!m.fromCache || warm) markLoaded(!m.fromCache);
+          if (loaded || !navigator.onLine) { if (shown) { BT.refreshProducts(); BT.emit('change', 'sync'); } show(); }
+          else if (shown) { BT.refreshProducts(); BT.emit('change', 'sync'); }
+        } else {
           let changed = false;
           // Local echoes (hasPendingWrites) are this phone's own saves, already applied by BT.save/remove.
           snap.docChanges().forEach((ch) => { if (!ch.doc.metadata.hasPendingWrites && applyDoc(ch.type, ch.doc)) changed = true; });
+          if (!m.fromCache && !(BT_CLOUD.cacheWarm && BT_CLOUD.cacheWarm()) && BT_CLOUD.markWarm) BT_CLOUD.markWarm();
           if (changed) BT.emit('change', 'sync');
         }
-        const m = snap.metadata, next = { pending: !!m.hasPendingWrites, fromCache: !!m.fromCache, live: true };
-        if (next.pending !== BT.sync.pending || next.fromCache !== BT.sync.fromCache || !BT.sync.live) { BT.sync = next; BT.emit('status', BT.sync); }
+        lastMeta = { pending: !!m.hasPendingWrites, fromCache: !!m.fromCache };
+        syncStatus();
       }, (e) => {
         console.warn('records listener stopped:', (e && e.code) || 'unknown');
         // Access removed in the rules while signed in (#53): sign out and clear this device's copy.
         if (e && e.code === 'permission-denied' && window.BT_CLOUD && BT_CLOUD.denyAccess) { BT_CLOUD.denyAccess(); return; }
         if (!(window.BT_CLOUD && BT_CLOUD.signingOut)) BT.toast('Could not load your log. Check your connection.');
-        done();
+        show();
       });
     });
   }
