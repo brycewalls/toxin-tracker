@@ -179,7 +179,7 @@ textarea.input { min-height: 84px; resize: vertical; }
   // iOS Safari ignores user-scalable=no; its gesture events are the only way to stop a pinch zoom.
   ['gesturestart', 'gesturechange'].forEach((t) => document.addEventListener(t, (e) => e.preventDefault(), { passive: false }));
   document.querySelector('.tabbar').addEventListener('click', (e) => { const t = e.target.closest('[data-tab]'); if (t) BT.go(t.dataset.tab); });
-  let rt; BT.on('change', () => { clearTimeout(rt); rt = setTimeout(() => { if (!document.querySelector('.sheet-wrap')) BT.render(); }, 30); });
+  let rt; BT.on('change', () => { clearTimeout(rt); rt = setTimeout(() => { if (BT.sheetOpen()) BT._stale = true; else { BT._stale = false; BT.render(); } }, 30); });
   BT.render();
   BT.init().then(() => {
     // The artifact opens with marked sample data; the hosted app starts empty (Settings can load the sample).
