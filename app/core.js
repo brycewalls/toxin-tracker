@@ -309,6 +309,8 @@
     requestAnimationFrame(() => el.classList.add('in'));
     setTimeout(() => { el.classList.remove('in'); setTimeout(() => el.remove(), 300); }, 2200);
   };
+  BT.sheetOpen = () => !!document.querySelector('.sheet-wrap:not([data-closing])');
+  BT.flushAfterSheet = () => { if (BT._stale && !BT.sheetOpen()) { BT._stale = false; BT.render(); } };
   // Bottom sheet. Returns {el, body, close}. opts: {title, action:{label, onClick}} ; onClose callback.
   BT.sheet = (opts = {}) => {
     const wrap = BT.h(`<div class="sheet-wrap"><div class="sheet-scrim"></div><section class="sheet" role="dialog" aria-modal="true" aria-label="${BT.esc(opts.title || '')}">
@@ -316,7 +318,16 @@
       <header class="sheet-h"><button class="icon-btn" data-x aria-label="Close">${BT.icon('close')}</button><h2>${BT.esc(opts.title || '')}</h2>${opts.action ? `<button class="link-btn" data-act>${BT.esc(opts.action.label)}</button>` : '<span style="width:36px"></span>'}</header>
       <div class="sheet-b"></div></section></div>`);
     document.body.appendChild(wrap);
-    const close = () => { wrap.classList.remove('in'); setTimeout(() => wrap.remove(), 280); opts.onClose && opts.onClose(); };
+    // A closing wrap stays in the DOM for its 280ms animation but no longer counts as open. If a change
+    // landed while any sheet was open, the screen under it is stale: render once the last sheet is closing.
+    let closed = false;
+    const close = () => {
+      if (closed) return;
+      closed = true;
+      wrap.dataset.closing = '1'; wrap.classList.remove('in'); setTimeout(() => wrap.remove(), 280);
+      opts.onClose && opts.onClose();
+      BT.flushAfterSheet();
+    };
     wrap.querySelector('[data-x]').onclick = close;
     wrap.querySelector('.sheet-scrim').onclick = close;
     if (opts.action) wrap.querySelector('[data-act]').onclick = () => opts.action.onClick(close);
@@ -369,6 +380,7 @@
   };
   BT.back = () => { const prev = stack.pop() || { name: 'today' }; BT.route = prev; BT.render(); };
   BT.render = () => {
+    BT._stale = false;
     const root = document.getElementById('view'), s = BT.screens[BT.route.name];
     BT.$$('.tab').forEach((t) => t.classList.toggle('on', t.dataset.tab === BT.route.name));
     root.dataset.screen = BT.route.name;

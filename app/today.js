@@ -300,10 +300,10 @@
     sh.body.querySelectorAll('[data-n]').forEach((b) => (b.onclick = () => {
       const rec = existing ? { ...existing } : {};
       rec.date = key; rec.score = +b.dataset.n; delete rec.sample;
-      BT.save('moods', rec); sh.close(); setTimeout(() => BT.render(), 40);
+      BT.save('moods', rec); sh.close();
     }));
     const rm = sh.body.querySelector('[data-rm]');
-    if (rm) rm.onclick = () => { BT.remove('moods', existing.id); sh.close(); setTimeout(() => BT.render(), 40); };
+    if (rm) rm.onclick = () => { BT.remove('moods', existing.id); sh.close(); };
   }
 
   /* ---------- EFFECT TIMELINE ---------- */
