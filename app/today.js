@@ -433,6 +433,7 @@
     title: 'Settings',
     render(root) {
       const s = BT.data.settings, theme = getTheme(), cloud = BT.storage !== 'device', sample = BT.hasSample(), acct = BT.account;
+      const idle = acct && window.BT_CLOUD && BT_CLOUD.idle; // hosted app only: a per-device choice, kept out of Firestore
       const where = BT.storage === 'firebase' ? 'Synced to your Google account' : cloud ? 'Synced to your Claude account' : 'Saved on this device';
       root.innerHTML = `${BT.navHeader('Settings')}
         <section class="card stack">
@@ -446,11 +447,14 @@
         <section class="card stack">
           <div class="row gap"><span class="t-ac-ic">${BT.icon(cloud ? 'check' : 'info', 18)}</span><div class="grow"><div class="li-title">Storage</div><div class="li-sub">${where}</div></div></div>
           ${acct ? `<div class="row gap"><span class="t-ac-ic">${BT.icon('person', 18)}</span><div class="grow"><div class="li-title">${BT.esc(acct.name || 'Signed in')}</div><div class="li-sub">${BT.esc(acct.email)}</div></div><button class="btn sm" data-signout>Sign out</button></div>` : ''}
+          ${idle ? `<div class="field"><label for="s-idle">Sign out automatically</label><select id="s-idle" class="input">${idle.options.map(([v, l]) => `<option value="${v}" ${v === idle.get() ? 'selected' : ''}>${BT.esc(l)}</option>`).join('')}</select>
+            <div class="tiny muted">After this long without use. Signing out clears this phone's copy of your log. Choose Never only on your own phone.</div></div>` : ''}
           <div class="row gap wrap">${sample ? '<button class="btn grow" data-clear>Clear sample data</button>' : '<button class="btn grow" data-load>Load sample data</button>'}<button class="btn grow" data-export>${BT.icon('edit', 16)} Export CSV</button></div>
         </section>
         <p class="disclaimer">For personal tracking only. Not medical advice.</p>`;
       root.querySelectorAll('[data-go]').forEach((b) => (b.onclick = () => BT.go(b.dataset.go)));
       const so = root.querySelector('[data-signout]'); if (so) so.onclick = () => window.BT_CLOUD.signOut();
+      const ic = root.querySelector('#s-idle'); if (ic) ic.onchange = (e) => { idle.set(e.target.value); BT.toast(e.target.value === 'never' ? 'Stays signed in on this device' : 'Saved'); };
       if (!s.name && acct && acct.name) root.querySelector('#s-name').placeholder = acct.name.split(' ')[0];
       root.querySelector('#s-name').onchange = (e) => BT.save('settings', { name: e.target.value.trim() });
       root.querySelector('[data-step]').replaceWith(intervalStepper((v) => BT.save('settings', { intervalWeeks: v })));
@@ -460,7 +464,9 @@
       }));
       const ld = root.querySelector('[data-load]'); if (ld) ld.onclick = () => { BT.loadSample(); BT.toast('Sample data loaded'); };
       const cl = root.querySelector('[data-clear]'); if (cl) cl.onclick = () => { BT.clearSample(); BT.toast('Sample data cleared'); };
-      root.querySelector('[data-export]').onclick = () => {
+      root.querySelector('[data-export]').onclick = async () => {
+        // Hosted app: an export takes the whole log off the app, so it asks for a sign-in from the last 10 minutes (#54).
+        if (window.BT_CLOUD && BT_CLOUD.requireRecentAuth && !(await BT_CLOUD.requireRecentAuth())) return;
         const csv = buildCsv(), sh = BT.sheet({ title: 'Export CSV' });
         sh.body.innerHTML = `<p class="small muted" style="margin:0">${BT.data.injections.length} treatment${BT.data.injections.length === 1 ? '' : 's'}. Copy this into a spreadsheet or a note.</p><textarea class="t-csv" readonly></textarea><button class="btn primary" data-copy>Copy</button>`;
         const ta = sh.body.querySelector('textarea'); ta.value = csv;

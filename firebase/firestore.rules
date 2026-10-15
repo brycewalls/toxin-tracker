@@ -1,7 +1,9 @@
 rules_version = '2';
 // Each signed-in person reads and writes only their own records: users/{uid}/records/{kind__id}.
 // Nothing else in the database is reachable from the app.
-// The app is private to the Google accounts below (#22). Keep this list in step with ALLOWED in app/cloud.js.
+// The app is private to the approved Google accounts in member() (#22). This is the only place the list lives (#53):
+// this file deploys to Firestore, not to Hosting, so it is never served to the public. Keep addresses out of comments.
+// The app checks access by reading one of the person's own records and treats permission-denied as no access.
 service cloud.firestore {
   match /databases/{database}/documents {
     function member() {
