@@ -1,0 +1,59 @@
+{
+  "comment": "Pinned third-party files served from /vendor/ (#55). Checked by tools/vendor.mjs on every build. Change only with node tools/vendor.mjs --update.",
+  "files": [
+    {
+      "url": "https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js",
+      "path": "firebase/10.14.1/firebase-app-compat.js",
+      "sha256": "2ac3f051aa8c357f050c18b6a8d57867f59ed85b61949acf21142139581f5cc4",
+      "bytes": 31799
+    },
+    {
+      "url": "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js",
+      "path": "firebase/10.14.1/firebase-auth-compat.js",
+      "sha256": "444be4c9e8bb4d16d2778177bb35fcad0f7b5b3927a81e6095a4978bad324572",
+      "bytes": 139319
+    },
+    {
+      "url": "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js",
+      "path": "firebase/10.14.1/firebase-firestore-compat.js",
+      "sha256": "a0f75faf230ae93e1618625b89d32497fed320eae790227c06aace4fc127d9ae",
+      "bytes": 343790
+    },
+    {
+      "url": "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@1.0.1/vision_bundle.mjs",
+      "path": "mediapipe/tasks-vision/1.0.1/vision_bundle.mjs",
+      "sha256": "d885630c297c0b20b1fe86096cb06291c4c8080876f27852e724f24ac603713f",
+      "bytes": 155439
+    },
+    {
+      "url": "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@1.0.1/wasm/vision_wasm_internal.js",
+      "path": "mediapipe/tasks-vision/1.0.1/wasm/vision_wasm_internal.js",
+      "sha256": "e170ee67dd4e16c1a6fcd8840a206687e5a59b22c20e4a902bc445b095454d73",
+      "bytes": 323377
+    },
+    {
+      "url": "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@1.0.1/wasm/vision_wasm_internal.wasm",
+      "path": "mediapipe/tasks-vision/1.0.1/wasm/vision_wasm_internal.wasm",
+      "sha256": "8da277a733926eacd0474b8704b36742d6ec3231c57a860c5b889dff8f1df886",
+      "bytes": 11756954
+    },
+    {
+      "url": "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@1.0.1/wasm/vision_wasm_nosimd_internal.js",
+      "path": "mediapipe/tasks-vision/1.0.1/wasm/vision_wasm_nosimd_internal.js",
+      "sha256": "e81d715a3d42cc3373602eb2f7aff795d164934db680e32496b65dab537f9658",
+      "bytes": 323180
+    },
+    {
+      "url": "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@1.0.1/wasm/vision_wasm_nosimd_internal.wasm",
+      "path": "mediapipe/tasks-vision/1.0.1/wasm/vision_wasm_nosimd_internal.wasm",
+      "sha256": "a28483cd42e74e855bf5ebdb6b40d9b66a5b49e35e95020bc97669e6822a3192",
+      "bytes": 10960242
+    },
+    {
+      "url": "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task",
+      "path": "mediapipe/models/face_landmarker/float16/1/face_landmarker.task",
+      "sha256": "64184e229b263107bc2b804c6625db1341ff2bb731874b0bcc2fe6544e0bc9ff",
+      "bytes": 3758596
+    }
+  ]
+}

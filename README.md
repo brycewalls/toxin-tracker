@@ -17,11 +17,22 @@ This README is the guide to how work on this project is tracked. Design notes an
 - `app/index.html` is the artifact page body. `app/core.js` is the shared contract (data, storage, the `window.claude` runtime calls); `facemap.js`, `today.js`, `log.js`, `history.js` and `stock.js` are one tab each.
 - `app/preview.html` loads `index.html` and runs its scripts in order, so the app opens outside claude.ai. This is the page CI tests; `index.html` itself is in `tools/smoke.ignore` because it is a fragment.
 - `app/cloud.js` is the Firebase backend, loaded only by the hosted build: the Google sign-in screen, then Firestore `users/{uid}/records/{kind__id}` (one document per record, `{kind, rec}`). `core.js` uses it when `window.BT_CLOUD` exists and the `window.claude` db otherwise. Photos are stored as compressed JPEGs inside their records, because Firebase Storage needs the Blaze plan.
-- `tools/build.mjs` wraps `app/index.html` in a full document, adds the Firebase SDK, `cloud.js` and `offline.js`, copies the scripts and `web/` (icons, manifest) into `dist/` (git-ignored), and generates `dist/sw.js` from `tools/sw.template.js`.
-- **Offline (#52):** `dist/sw.js` precaches the app shell (page, scripts, icons, manifest, the Firebase SDK) under a cache named for a hash of the build, so the app opens with no connection. It never caches Firestore, Auth or `/__/` traffic. `app/offline.js` (hosted build only) registers it, shows 'Update ready' when a deploy lands, and shows the offline banner and 'Synced' toast. Firestore's offline cache holds the log and queues changes; `core.js` listens to the records collection live. Sign-out runs `BT_CLOUD.wipeLocal()`, which clears Firestore's local cache and the runtime caches.
+- `tools/build.mjs` wraps `app/index.html` in a full document, adds the Firebase SDK, `cloud.js` and `offline.js`, copies the scripts, `web/` (icons, manifest) and the vendored third-party files (see Vendored code) into `dist/` (git-ignored), and generates `dist/sw.js` from `tools/sw.template.js`.
+- **Offline (#52):** `dist/sw.js` precaches the app shell (page, scripts, icons, manifest, the vendored Firebase SDK) under a cache named for a hash of the build, so the app opens with no connection. It never caches Firestore, Auth or `/__/` traffic. `app/offline.js` (hosted build only) registers it, shows 'Update ready' when a deploy lands, and shows the offline banner and 'Synced' toast. Firestore's offline cache holds the log and queues changes; `core.js` listens to the records collection live. Sign-out runs `BT_CLOUD.wipeLocal()`, which clears Firestore's local cache and the runtime caches.
 - `firebase/firestore.rules` lets each signed-in person read and write only their own records.
 - **Sign-in setup outside the repo:** the Google provider is on in Firebase Authentication, and the auto-created OAuth web client in Google Cloud Console lists `https://toxin-tracker-bw.web.app` as a JavaScript origin and `https://toxin-tracker-bw.web.app/__/auth/handler` as a redirect URI. Without the redirect URI, sign-in fails with `redirect_uri_mismatch` (#9). A custom domain needs both added the same way.
 - `replica/` holds the PepPedia recon (screens, feature list) the UI was copied from.
+
+## Vendored code
+
+Nothing the app runs loads from a CDN (#55). The Firebase compat SDK 10.14.1, MediaPipe tasks-vision 1.0.1 (bundle, wasm loaders and wasm) and the float16 face landmarker model are served from our own host under `/vendor/`.
+
+- `tools/vendor.lock.json` pins each file: its source `url`, the `path` it is served at, its `sha256` and `bytes`.
+- `node tools/build.mjs` fetches anything missing into `.vendor-cache/` (git-ignored) once, checks every file against the lock, and copies them into `dist/vendor/`. A hash or size mismatch, or a file the build needs with no lock entry, fails the build. With a warm cache the build needs no network. `node tools/vendor.mjs` runs the same check on its own.
+- The Firebase `<script>` tags carry `integrity` (SHA-384, computed from the checked files). `app/livecam.js` checks the wasm and model SHA-256 again before storing them, and the build fails if its copy of those hashes drifts from the lock.
+- To bump a version or add a file: edit `url` and `path` in the lock (use `"sha256": ""` for a new entry), run `node tools/vendor.mjs --update`, and review the printed diff before committing. Hashes never change any other way.
+- `firebase.json` serves `/vendor/**` with `Cache-Control: public, max-age=31536000, immutable` (every path carries a version) and sets `application/wasm` for `.wasm`. The service worker precaches the Firebase SDK with the shell and caches the MediaPipe files on first Live use.
+- `app/preview.html` has no `/vendor/`, so the Live view there falls back to the photo flow. Test Live from a served `dist/`.
 
 ## The loop
 
