@@ -1,0 +1,334 @@
+/* Botox Tracker core: data, store, UI kit, router.
+   Every screen module registers itself with BT.screen(name, {title, render(root)}).
+   Shared contract for all modules lives here; keep it stable. */
+(function () {
+  const BT = (window.BT = {});
+
+  /* ---------- reference data ---------- */
+  // Educational reference only. Duration values are typical published ranges, not advice.
+  BT.products = [
+    { id: 'botox', name: 'Botox', generic: 'onabotulinumtoxinA', maker: 'Allergan', vialUnits: 100, ratio: 1, onsetDays: 3, peakDays: 14, wearWeeks: 13, color: '#2F55E4' },
+    { id: 'dysport', name: 'Dysport', generic: 'abobotulinumtoxinA', maker: 'Galderma', vialUnits: 300, ratio: 2.5, onsetDays: 2, peakDays: 14, wearWeeks: 14, color: '#7A5AF8' },
+    { id: 'xeomin', name: 'Xeomin', generic: 'incobotulinumtoxinA', maker: 'Merz', vialUnits: 100, ratio: 1, onsetDays: 4, peakDays: 14, wearWeeks: 13, color: '#0E9384' },
+    { id: 'jeuveau', name: 'Jeuveau', generic: 'prabotulinumtoxinA', maker: 'Evolus', vialUnits: 100, ratio: 1, onsetDays: 2, peakDays: 14, wearWeeks: 13, color: '#DD2590' },
+    { id: 'daxxify', name: 'Daxxify', generic: 'daxibotulinumtoxinA', maker: 'Revance', vialUnits: 100, ratio: 2, onsetDays: 2, peakDays: 14, wearWeeks: 24, color: '#F79009' },
+    { id: 'letybo', name: 'Letybo', generic: 'letibotulinumtoxinA', maker: 'Hugel', vialUnits: 50, ratio: 1, onsetDays: 3, peakDays: 14, wearWeeks: 13, color: '#155EEF' },
+  ];
+  BT.product = (id) => BT.products.find((p) => p.id === id) || BT.products[0];
+
+  // Facial treatment zones. range = common Botox-equivalent unit range per zone (reference only).
+  // view: which face view the zone is visible on. Coordinates live in facemap.js.
+  BT.sites = [
+    { id: 'frontalis', label: 'Forehead', muscle: 'Frontalis', range: [6, 20], view: 'front' },
+    { id: 'glabella', label: 'Glabella (11s)', muscle: 'Procerus', range: [4, 10], view: 'front' },
+    { id: 'corrugator-l', label: 'Left Corrugator', muscle: 'Corrugator', range: [4, 8], view: 'front' },
+    { id: 'corrugator-r', label: 'Right Corrugator', muscle: 'Corrugator', range: [4, 8], view: 'front' },
+    { id: 'brow-l', label: 'Left Brow Tail', muscle: 'Orbicularis oculi', range: [1, 3], view: 'front' },
+    { id: 'brow-r', label: 'Right Brow Tail', muscle: 'Orbicularis oculi', range: [1, 3], view: 'front' },
+    { id: 'crows-l', label: "Left Crow's Feet", muscle: 'Lateral orbicularis', range: [6, 12], view: 'front' },
+    { id: 'crows-r', label: "Right Crow's Feet", muscle: 'Lateral orbicularis', range: [6, 12], view: 'front' },
+    { id: 'bunny', label: 'Bunny Lines', muscle: 'Nasalis', range: [2, 6], view: 'front' },
+    { id: 'lipflip', label: 'Lip Flip', muscle: 'Orbicularis oris', range: [2, 6], view: 'front' },
+    { id: 'gummy', label: 'Gummy Smile', muscle: 'LLSAN', range: [1, 4], view: 'front' },
+    { id: 'dao-l', label: 'Left DAO', muscle: 'Depressor anguli oris', range: [2, 4], view: 'front' },
+    { id: 'dao-r', label: 'Right DAO', muscle: 'Depressor anguli oris', range: [2, 4], view: 'front' },
+    { id: 'mentalis', label: 'Chin', muscle: 'Mentalis', range: [4, 8], view: 'front' },
+    { id: 'masseter-l', label: 'Left Masseter', muscle: 'Masseter', range: [20, 40], view: 'front' },
+    { id: 'masseter-r', label: 'Right Masseter', muscle: 'Masseter', range: [20, 40], view: 'front' },
+    { id: 'platysma', label: 'Neck Bands', muscle: 'Platysma', range: [10, 30], view: 'front' },
+  ];
+  BT.site = (id) => BT.sites.find((s) => s.id === id) || { id, label: id, muscle: '', range: [0, 0] };
+
+  // Aftercare windows, counted from the injection time.
+  BT.aftercare = [
+    { id: 'upright', label: 'Stay upright', detail: 'No lying down or bending over', hours: 4, icon: 'person' },
+    { id: 'touch', label: 'Hands off', detail: 'No rubbing, massage, or facials', hours: 24, icon: 'hand' },
+    { id: 'exercise', label: 'Exercise', detail: 'No strenuous workouts or hot yoga', hours: 24, icon: 'run' },
+    { id: 'heat', label: 'Heat & sauna', detail: 'Skip saunas, steam, and hot tubs', hours: 24, icon: 'flame' },
+    { id: 'alcohol', label: 'Alcohol', detail: 'Can increase bruising', hours: 24, icon: 'glass' },
+  ];
+
+  BT.reactionKinds = ['Bruising', 'Swelling', 'Redness', 'Headache', 'Tenderness', 'Brow heaviness', 'Eyelid droop', 'Asymmetry', 'Flu-like', 'Other'];
+
+  /* ---------- helpers ---------- */
+  BT.uid = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-4);
+  BT.esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  BT.$ = (sel, root = document) => root.querySelector(sel);
+  BT.$$ = (sel, root = document) => [...root.querySelectorAll(sel)];
+  BT.h = (html) => { const t = document.createElement('template'); t.innerHTML = html.trim(); return t.content.firstElementChild; };
+  BT.HOUR = 3600e3; BT.DAY = 86400e3;
+  BT.fmt = {
+    date: (t) => new Date(t).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
+    dateLong: (t) => new Date(t).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' }),
+    weekday: (t) => new Date(t).toLocaleDateString(undefined, { weekday: 'short' }),
+    time: (t) => new Date(t).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' }),
+    ago: (t) => {
+      const d = Date.now() - t, m = Math.round(d / 60e3);
+      if (m < 1) return 'just now'; if (m < 60) return m + 'm ago';
+      const h = Math.round(m / 60); if (h < 24) return h + 'h ago';
+      const days = Math.round(h / 24); if (days < 14) return days + 'd ago';
+      return Math.round(days / 7) + 'w ago';
+    },
+    countdown: (ms) => {
+      if (ms <= 0) return 'Clear';
+      const h = Math.floor(ms / BT.HOUR), m = Math.floor((ms % BT.HOUR) / 60e3), s = Math.floor((ms % 60e3) / 1e3);
+      return h ? `${h}h ${String(m).padStart(2, '0')}m` : `${m}m ${String(s).padStart(2, '0')}s`;
+    },
+    units: (n) => (Math.round(n * 10) / 10) + 'U',
+  };
+  BT.toLocalInput = (t) => { const d = new Date(t); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0, 16); };
+
+  /* ---------- derived data ---------- */
+  BT.injectionUnits = (inj) => (inj.sites || []).reduce((a, s) => a + (+s.units || 0), 0);
+  BT.sortedInjections = () => [...BT.data.injections].sort((a, b) => b.at - a.at);
+  BT.lastInjection = () => BT.sortedInjections()[0] || null;
+  BT.vialRemaining = (v) => Math.max(0, (v.unitsTotal || 0) - BT.data.injections.filter((i) => i.vialId === v.id).reduce((a, i) => a + BT.injectionUnits(i), 0));
+  // Relative effect 0..1 for an injection at time t (simple onset ramp, plateau, linear wear-off). Illustrative only.
+  BT.effectAt = (inj, t) => {
+    const p = BT.product(inj.productId), d = (t - inj.at) / BT.DAY, wear = p.wearWeeks * 7;
+    if (d < 0) return 0;
+    if (d < p.peakDays) return Math.min(1, d / p.peakDays) ** 0.7;
+    if (d < wear * 0.55) return 1;
+    return Math.max(0, 1 - (d - wear * 0.55) / (wear * 0.45));
+  };
+  BT.nextDue = () => { const l = BT.lastInjection(); return l ? l.at + (BT.data.settings.intervalWeeks || 12) * 7 * BT.DAY : null; };
+
+  /* ---------- store ----------
+     BT.data = { injections, vials, reactions, photos, moods, settings }
+     Records persist via the artifact db capability (private per signed-in user) and fall back to localStorage.
+     API: BT.save(kind, record) upserts and returns record; BT.remove(kind, id); BT.on('change', fn). */
+  const KINDS = ['injections', 'vials', 'reactions', 'photos', 'moods'];
+  BT.data = { injections: [], vials: [], reactions: [], photos: [], moods: [], settings: { intervalWeeks: 12, name: '' } };
+  const listeners = {};
+  BT.on = (ev, fn) => ((listeners[ev] ||= []).push(fn), () => (listeners[ev] = listeners[ev].filter((f) => f !== fn)));
+  BT.emit = (ev, arg) => (listeners[ev] || []).forEach((f) => { try { f(arg); } catch (e) { console.error(e); } });
+
+  let col = null; // db collection for this user, or null
+  const LS = 'bt-v1';
+  const lsWrite = () => { try { localStorage.setItem(LS, JSON.stringify(BT.data)); } catch (e) {} };
+  const lsRead = () => { try { return JSON.parse(localStorage.getItem(LS) || 'null'); } catch (e) { return null; } };
+
+  BT.save = (kind, rec) => {
+    rec.id ||= BT.uid();
+    rec.updatedAt = Date.now();
+    if (kind === 'settings') { BT.data.settings = { ...BT.data.settings, ...rec }; persist('settings', 'settings', BT.data.settings); }
+    else {
+      const arr = BT.data[kind], i = arr.findIndex((r) => r.id === rec.id);
+      i >= 0 ? (arr[i] = rec) : arr.push(rec);
+      persist(kind, rec.id, rec);
+    }
+    BT.emit('change', kind);
+    return rec;
+  };
+  BT.remove = (kind, id) => {
+    BT.data[kind] = BT.data[kind].filter((r) => r.id !== id);
+    lsWrite();
+    if (col) col.doc(kind + '__' + id).delete().catch((e) => console.warn('db delete', e));
+    BT.emit('change', kind);
+  };
+  function persist(kind, id, rec) {
+    lsWrite();
+    if (col) col.doc(kind + '__' + id).set({ kind, rec: JSON.parse(JSON.stringify(rec)) }).catch((e) => { console.warn('db write', e); BT.toast('Saved on this device only'); });
+  }
+
+  BT.storage = 'device';
+  BT.init = async function () {
+    const local = lsRead();
+    if (local) Object.assign(BT.data, local);
+    try {
+      const [db, user] = await Promise.all([window.claude?.use?.('db'), window.claude?.use?.('user')]);
+      const uid = db && user ? await user.id() : null;
+      if (db && uid) {
+        col = db.collection('data/users/' + uid);
+        const snap = await col.get();
+        if (!snap.empty) {
+          const fresh = { injections: [], vials: [], reactions: [], photos: [], moods: [] };
+          snap.docs.forEach((d) => { const v = d.data(); if (!v) return; if (v.kind === 'settings') BT.data.settings = { ...BT.data.settings, ...v.rec }; else if (fresh[v.kind]) fresh[v.kind].push(v.rec); });
+          Object.assign(BT.data, fresh); lsWrite();
+        } else if (local) {
+          // first sign-in on this device: push local records up
+          for (const k of KINDS) for (const r of BT.data[k]) persist(k, r.id, r);
+          persist('settings', 'settings', BT.data.settings);
+        }
+        BT.storage = 'cloud';
+      }
+    } catch (e) { console.warn('db unavailable', e); }
+    BT.emit('change', 'all');
+  };
+
+  /* ---------- photos ----------
+     BT.photo.pick({capture}) -> Promise<File|null>; BT.photo.store(file) -> Promise<src string>
+     Uses the assets capability when granted, else a downscaled JPEG data URL. */
+  BT.photo = {
+    pick({ capture } = {}) {
+      return new Promise((res) => {
+        const inp = document.createElement('input');
+        inp.type = 'file'; inp.accept = 'image/*';
+        if (capture) inp.setAttribute('capture', capture === true ? 'user' : capture);
+        inp.onchange = () => res(inp.files[0] || null);
+        inp.click();
+      });
+    },
+    async downscale(file, max = 900) {
+      const url = URL.createObjectURL(file);
+      const img = await new Promise((r, j) => { const i = new Image(); i.onload = () => r(i); i.onerror = j; i.src = url; });
+      const k = Math.min(1, max / Math.max(img.width, img.height));
+      const c = document.createElement('canvas'); c.width = Math.round(img.width * k); c.height = Math.round(img.height * k);
+      c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+      URL.revokeObjectURL(url);
+      return c;
+    },
+    async store(file) {
+      const canvas = await this.downscale(file, 1400);
+      try {
+        const assets = await window.claude?.use?.('assets');
+        if (assets) {
+          const blob = await new Promise((r) => canvas.toBlob(r, 'image/jpeg', 0.85));
+          const up = await assets.upload(blob);
+          return up.url;
+        }
+      } catch (e) { console.warn('asset upload failed', e); }
+      const small = await this.downscale(file, 720);
+      return small.toDataURL('image/jpeg', 0.72);
+    },
+  };
+
+  /* ---------- icons (thin outline, 24 grid) ---------- */
+  const P = {
+    home: 'M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z',
+    face: 'M12 3c-4 0-7 3.2-7 8 0 5 3.4 10 7 10s7-5 7-10c0-4.8-3-8-7-8zM9 10.5h.01M15 10.5h.01M9.5 15.5c1.4 1 3.6 1 5 0',
+    plus: 'M12 5v14M5 12h14',
+    box: 'M3.5 7.5 12 3l8.5 4.5v9L12 21l-8.5-4.5zM3.5 7.5 12 12l8.5-4.5M12 12v9',
+    clock: 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 7v5l3 2',
+    chart: 'M4 20V4M4 20h16M8 16l4-5 3 3 5-7',
+    check: 'M5 12.5 10 17l9-10',
+    chevron: 'm9 6 6 6-6 6',
+    back: 'm15 6-6 6 6 6',
+    close: 'M6 6l12 12M18 6 6 18',
+    gear: 'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z',
+    camera: 'M4 8h3l2-3h6l2 3h3a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1zM12 17a4 4 0 1 0 0-8 4 4 0 0 0 0 8z',
+    image: 'M4 4h16v16H4zM4 16l5-5 4 4 3-3 4 4M15 8.5h.01',
+    syringe: 'm18 2 4 4M17 7l3-3M19 9 9 19l-4 1 1-4L16 6zM12 9l3 3M9 12l3 3M2 22l4-4',
+    vial: 'M9 3h6M10 3v4l-3 4v9a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1v-9l-3-4V3M7 14h10',
+    alert: 'M12 9v4M12 17h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z',
+    run: 'M13 4a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3zM7 21l3-6 3 2v5M6 12l3-4 4 1 3 4 3 1M10 15l1-6',
+    person: 'M12 7a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM12 9v7M8 22l4-6 4 6M7 12h10',
+    hand: 'M8 13V5a1.5 1.5 0 0 1 3 0v6M11 11V4a1.5 1.5 0 0 1 3 0v7M14 11V5.5a1.5 1.5 0 0 1 3 0V14a7 7 0 0 1-7 7h-.5a6 6 0 0 1-4.6-2.2L2.6 16a1.5 1.5 0 0 1 2.3-2L8 16',
+    flame: 'M12 22c4 0 7-2.7 7-7 0-3-2-5.5-3.5-7-.4 2-1.5 3-2.5 3 0-3-1-6-4-9 0 4-5 6.5-5 13 0 4.3 3.6 7 8 7z',
+    glass: 'M7 3h10l-1 7a4 4 0 0 1-8 0zM12 14v7M8 21h8',
+    calc: 'M6 2h12a1 1 0 0 1 1 1v18a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1zM8 6h8v3H8zM8 13h.01M12 13h.01M16 13h.01M8 17h.01M12 17h.01M16 17h.01',
+    dots: 'M12 6h.01M12 12h.01M12 18h.01',
+    trash: 'M4 7h16M10 11v6M14 11v6M5 7l1 13a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1l1-13M9 7V4h6v3',
+    edit: 'M4 20h4L19 9l-4-4L4 16zM14 6l4 4',
+    sparkle: 'M12 3v4M12 17v4M3 12h4M17 12h4M6 6l2.5 2.5M15.5 15.5 18 18M6 18l2.5-2.5M15.5 8.5 18 6',
+    calendar: 'M4 6h16v15H4zM4 10h16M8 3v4M16 3v4',
+    drop: 'M12 3s6 6.5 6 11a6 6 0 0 1-12 0c0-4.5 6-11 6-11z',
+    info: 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 11v6M12 7.5h.01',
+    compare: 'M12 3v18M4 6h5v12H4zM15 6h5v12h-5z',
+    grid: 'M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z',
+    flip: 'M7 4 3 8l4 4M3 8h13a5 5 0 0 1 0 10h-3',
+  };
+  BT.icon = (name, size = 20, cls = '') => `<svg class="ic ${cls}" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${P[name] || P.info}"/></svg>`;
+  // Mood faces 1..5 (1 = rough, 5 = great)
+  BT.moodFace = (score, size = 22) => {
+    const mouth = ['M8.5 16.5c1.5-2 5.5-2 7 0', 'M8.5 16c1.5-1 5.5-1 7 0', 'M9 15.5h6', 'M8.5 14.5c1.5 1.3 5.5 1.3 7 0', 'M8 14c1.5 2.2 6.5 2.2 8 0'][Math.max(0, Math.min(4, score - 1))];
+    return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M9 10h.01M15 10h.01"/><path d="${mouth}"/></svg>`;
+  };
+
+  /* ---------- UI kit ----------
+     Markup classes (styled in index.html): .card .card-h .eyebrow .pill(.green .blue .amber .red .grey) .seg>.seg-b(.on)
+     .row .btn(.primary .ghost .danger .sm) .field>label+input .chips>.chip(.on) .list>.li .stat-ring .empty
+     JS helpers below. */
+  BT.toast = (msg) => {
+    const el = BT.h(`<div class="toast" role="status">${BT.esc(msg)}</div>`);
+    document.body.appendChild(el);
+    requestAnimationFrame(() => el.classList.add('in'));
+    setTimeout(() => { el.classList.remove('in'); setTimeout(() => el.remove(), 300); }, 2200);
+  };
+  // Bottom sheet. Returns {el, body, close}. opts: {title, action:{label, onClick}} ; onClose callback.
+  BT.sheet = (opts = {}) => {
+    const wrap = BT.h(`<div class="sheet-wrap"><div class="sheet-scrim"></div><section class="sheet" role="dialog" aria-modal="true" aria-label="${BT.esc(opts.title || '')}">
+      <div class="sheet-grab"></div>
+      <header class="sheet-h"><button class="icon-btn" data-x aria-label="Close">${BT.icon('close')}</button><h2>${BT.esc(opts.title || '')}</h2>${opts.action ? `<button class="link-btn" data-act>${BT.esc(opts.action.label)}</button>` : '<span style="width:36px"></span>'}</header>
+      <div class="sheet-b"></div></section></div>`);
+    document.body.appendChild(wrap);
+    const close = () => { wrap.classList.remove('in'); setTimeout(() => wrap.remove(), 280); opts.onClose && opts.onClose(); };
+    wrap.querySelector('[data-x]').onclick = close;
+    wrap.querySelector('.sheet-scrim').onclick = close;
+    if (opts.action) wrap.querySelector('[data-act]').onclick = () => opts.action.onClick(close);
+    requestAnimationFrame(() => wrap.classList.add('in'));
+    return { el: wrap, body: wrap.querySelector('.sheet-b'), close };
+  };
+  // In-page confirm (window.confirm is disabled in artifacts). Resolves true/false.
+  BT.confirm = (msg, okLabel = 'Delete') => new Promise((res) => {
+    const s = BT.sheet({ title: 'Are you sure?', onClose: () => res(false) });
+    s.body.innerHTML = `<p class="muted" style="margin:0 0 20px">${BT.esc(msg)}</p><div class="row gap"><button class="btn ghost grow" data-n>Cancel</button><button class="btn danger grow" data-y>${BT.esc(okLabel)}</button></div>`;
+    s.body.querySelector('[data-n]').onclick = () => s.close();
+    s.body.querySelector('[data-y]').onclick = () => { res(true); s.el.remove(); };
+  });
+  // Segmented control: BT.seg(['Front','Left'], 'Front', onChange) -> element
+  BT.seg = (options, value, onChange) => {
+    const el = BT.h(`<div class="seg" role="tablist">${options.map((o) => { const [v, l] = Array.isArray(o) ? o : [o, o]; return `<button class="seg-b ${v === value ? 'on' : ''}" data-v="${BT.esc(v)}" role="tab">${BT.esc(l)}</button>`; }).join('')}</div>`);
+    el.onclick = (e) => { const b = e.target.closest('.seg-b'); if (!b) return; BT.$$('.seg-b', el).forEach((x) => x.classList.toggle('on', x === b)); onChange && onChange(b.dataset.v); };
+    return el;
+  };
+  // Sparkline/area chart SVG string. points: [{x, y}] in data space.
+  BT.areaChart = (points, { w = 160, h = 64, color = 'var(--accent)', yMax, dot = true } = {}) => {
+    if (!points.length) return '';
+    const xs = points.map((p) => p.x), x0 = Math.min(...xs), x1 = Math.max(...xs) || 1;
+    const ym = yMax ?? Math.max(...points.map((p) => p.y), 1);
+    const sx = (x) => ((x - x0) / (x1 - x0 || 1)) * (w - 8) + 4, sy = (y) => h - 6 - (y / ym) * (h - 14);
+    const line = points.map((p, i) => `${i ? 'L' : 'M'}${sx(p.x).toFixed(1)},${sy(p.y).toFixed(1)}`).join(' ');
+    const id = 'g' + BT.uid();
+    const last = points[points.length - 1];
+    return `<svg viewBox="0 0 ${w} ${h}" width="100%" height="${h}" preserveAspectRatio="none" class="area"><defs><linearGradient id="${id}" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="${color}" stop-opacity=".28"/><stop offset="1" stop-color="${color}" stop-opacity="0"/></linearGradient></defs>
+      <path d="${line} L${sx(last.x)},${h} L${sx(points[0].x)},${h} Z" fill="url(#${id})"/><path d="${line}" fill="none" stroke="${color}" stroke-width="1.8" vector-effect="non-scaling-stroke"/>
+      ${dot ? `<circle cx="${sx(last.x)}" cy="${sy(last.y)}" r="3.5" fill="${color}" stroke="var(--card)" stroke-width="2"/>` : ''}</svg>`;
+  };
+
+  /* ---------- router ----------
+     Tabs: today, history, log (opens sheet), stock, face. Extra pushed screens: BT.go('calculator'), BT.go('injection', id), BT.go('compare'), BT.go('settings').
+     A screen module: BT.screen('today', { title: 'Today', render(root, param) { ... } }). render may be called again on data change. */
+  BT.screens = {};
+  BT.screen = (name, def) => (BT.screens[name] = def);
+  BT.tabs = ['today', 'history', 'log', 'stock', 'face'];
+  BT.route = { name: 'today', param: null };
+  const stack = [];
+  BT.go = (name, param, { replace } = {}) => {
+    if (name === 'log') return BT.openLog && BT.openLog();
+    if (!replace && !BT.tabs.includes(name)) stack.push({ ...BT.route });
+    if (BT.tabs.includes(name)) stack.length = 0;
+    BT.route = { name, param };
+    BT.render();
+    document.getElementById('view').scrollTop = 0;
+    window.scrollTo(0, 0);
+  };
+  BT.back = () => { const prev = stack.pop() || { name: 'today' }; BT.route = prev; BT.render(); };
+  BT.render = () => {
+    const root = document.getElementById('view'), s = BT.screens[BT.route.name];
+    BT.$$('.tab').forEach((t) => t.classList.toggle('on', t.dataset.tab === BT.route.name));
+    root.dataset.screen = BT.route.name;
+    if (!s) { root.innerHTML = `<div class="empty">Loading ${BT.esc(BT.route.name)}…</div>`; return; }
+    try { root.innerHTML = ''; s.render(root, BT.route.param); }
+    catch (e) { console.error(e); root.innerHTML = `<div class="empty">Something went wrong on this screen.<br><small>${BT.esc(e.message)}</small></div>`; }
+  };
+  // Standard pushed-screen header: BT.navHeader('Title', rightHtml)
+  BT.navHeader = (title, right = '') => `<header class="nav-h"><button class="icon-btn" onclick="BT.back()" aria-label="Back">${BT.icon('back', 22)}</button><h1>${BT.esc(title)}</h1><div class="nav-r">${right}</div></header>`;
+
+  /* ---------- sample data (clearly marked) ---------- */
+  BT.loadSample = () => {
+    const now = Date.now(), d = BT.DAY;
+    const v1 = BT.save('vials', { productId: 'botox', unitsTotal: 100, dilutionMl: 2.5, lot: 'C6123C3', clinic: 'Glow Med Spa', expiresAt: now + 120 * d, openedAt: now - 100 * d, cost: 520, sample: true });
+    const v2 = BT.save('vials', { productId: 'dysport', unitsTotal: 300, dilutionMl: 3, lot: 'D-2210K', clinic: 'Glow Med Spa', expiresAt: now + 200 * d, openedAt: null, cost: 0, sample: true });
+    const mk = (daysAgo, productId, vialId, sites, provider, extra = {}) => BT.save('injections', { at: now - daysAgo * d - 3 * BT.HOUR, productId, vialId, sites, provider, sample: true, ...extra });
+    const i1 = mk(98, 'botox', v1.id, [{ siteId: 'glabella', units: 10 }, { siteId: 'corrugator-l', units: 5 }, { siteId: 'corrugator-r', units: 5 }, { siteId: 'frontalis', units: 10 }], 'Dr. Patel', { notes: 'First full treatment.', cost: 280 });
+    const i2 = mk(9, 'botox', v1.id, [{ siteId: 'glabella', units: 10 }, { siteId: 'corrugator-l', units: 5 }, { siteId: 'corrugator-r', units: 5 }, { siteId: 'frontalis', units: 8 }, { siteId: 'crows-l', units: 8 }, { siteId: 'crows-r', units: 8 }], 'Dr. Patel', { notes: 'Added crow\'s feet this round.', cost: 400 });
+    BT.save('reactions', { injectionId: i2.id, at: i2.at + 6 * BT.HOUR, kind: 'Bruising', severity: 2, siteId: 'crows-l', resolvedAt: i2.at + 4 * d, notes: 'Small bruise, gone in 4 days', sample: true });
+    BT.save('reactions', { injectionId: i2.at ? i2.id : '', at: i2.at + 20 * BT.HOUR, kind: 'Headache', severity: 1, siteId: 'frontalis', resolvedAt: i2.at + 1.5 * d, notes: '', sample: true });
+    BT.save('reactions', { injectionId: i1.id, at: i1.at + 2 * BT.HOUR, kind: 'Redness', severity: 1, siteId: 'glabella', resolvedAt: i1.at + 5 * BT.HOUR, notes: '', sample: true });
+    for (let k = 0; k < 7; k++) BT.save('moods', { date: new Date(now - k * d).toISOString().slice(0, 10), score: [4, 5, 4, 3, 4, 2, 3][k], sample: true });
+    BT.save('settings', { sampleLoaded: true });
+  };
+  BT.clearSample = () => { for (const k of KINDS) BT.data[k].filter((r) => r.sample).forEach((r) => BT.remove(k, r.id)); BT.save('settings', { sampleLoaded: false, sampleCleared: true }); };
+  BT.hasSample = () => KINDS.some((k) => BT.data[k].some((r) => r.sample));
+})();
