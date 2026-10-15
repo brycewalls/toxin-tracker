@@ -77,7 +77,7 @@
   ];
   // Planned work, shown under "Coming next". Keep it short and drop items once they ship.
   BT.UPCOMING = [
-    'Work offline and bring over anything logged in the prototype.',
+    'Use the app with no connection, and full-size photos.',
   ];
   BT.VERSION = BT.RELEASES[0].version;
   BT.release = (v) => BT.RELEASES.find((r) => r.version === v) || null;
