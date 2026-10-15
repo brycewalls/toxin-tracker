@@ -382,6 +382,10 @@
 .fm-sw{width:10px;height:10px;border-radius:3px;background:var(--fm-mus);opacity:.75;flex:none}
 .fm-pli.sel{background:var(--accent-soft);margin:0 -10px;padding-left:10px;padding-right:10px;border-radius:12px}
 .fm-livecap{min-height:40px;text-align:center;justify-items:center}
+.fm-cam video,.fm-cam canvas{position:absolute;inset:0;width:100%;height:100%}
+.fm-cam video{object-fit:cover;transform:scaleX(-1);pointer-events:none}
+.fm-cam canvas{touch-action:pan-y;cursor:crosshair;transition:opacity .18s}
+.fm-camst{position:absolute;left:50%;top:12px;transform:translateX(-50%);z-index:1;max-width:calc(100% - 24px);background:rgba(0,0,0,.55);color:#fff;font-size:12.5px;line-height:1.3;padding:6px 12px;border-radius:999px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;pointer-events:none}
 `;
     document.head.appendChild(st);
   }
@@ -760,10 +764,18 @@
   }
 
   const paths = {}; ORDER.forEach((id) => (paths[id] = MUS[id].d));
-  BT.faceMap = { mount, hitTest, place, centroid, paths, viewBox: VB.slice(), cautionPaths: CZ.map((z) => ({ id: z.zid, d: z.d })) };
+  // Flattened outlines for drawing the map somewhere other than this SVG (livecam.js warps them onto a camera feed).
+  const LIPS = 'M150 227 C153 223 157 221 161 222 C168 223 175 228 182 234 C175 245 163 250 150 250 C137 250 125 245 118 234 C125 228 132 223 139 222 C143 221 147 223 150 227 Z';
+  const BROW = 'M158 140 C168 128 194 118 219 133 C214 131 207 128 199 127 C184 126 170 132 162 143 Z';
+  const polys = {
+    muscles: ORDER.map((id) => ({ id, poly: MUS[id].poly })),
+    caution: CZ.map((z) => ({ id: z.zid, poly: z.poly })),
+    features: [EYE, mirrorD(EYE), BROW, mirrorD(BROW), LIPS].map(flatten),
+  };
+  BT.faceMap = { mount, hitTest, hitInfo, inFace, place, centroid, paths, polys, viewBox: VB.slice(), cautionPaths: CZ.map((z) => ({ id: z.zid, d: z.d })) };
 
   /* ---------- screen ---------- */
-  const state = { view: 'map', live: { file: null, url: null, x: 0, y: 0, s: 1, rot: 0, op: 0.85, mode: 'align', points: [], sel: null } };
+  const state = { view: 'map', live: { file: null, url: null, x: 0, y: 0, s: 1, rot: 0, op: 0.85, mode: 'align', points: [], sel: null, cam: false } };
   let mounts = [];
   const plural = (n, a, b) => `${n} ${n === 1 ? a : b}`;
 
@@ -841,13 +853,21 @@
     return { card, mount: () => mounts.push(mount(card.querySelector('[data-freq]'), { mode: 'display', heat: count, onTapMuscle: openMuscle, maxWidth: 240 })) };
   }
 
-  /* ----- live view ----- */
+  /* ----- live view -----
+     Three states: the camera (hosted app, BT.liveCam from livecam.js), the start screen, and a photo
+     lined up by hand (the claude.ai artifact, or when the camera is refused). Both mapped views share
+     the points list and save buttons in pointsPanel. */
   function liveBody(body) {
     const L = state.live;
+    if (L.cam && BT.liveCam) return camBody(body);
     if (!L.url) {
-      body.innerHTML = `<div class="fm-drop">${BT.icon('camera', 34)}<div><div class="li-title">Map on your own face</div><div class="muted small" style="margin-top:4px">Take a selfie or pick a photo, line the muscle outline up with your face, then tap where each injection went.</div></div>
-        <div class="row gap wrap" style="justify-content:center"><button class="btn primary" data-cam>${BT.icon('camera', 18)} Take selfie</button><button class="btn" data-lib>${BT.icon('image', 18)} Choose photo</button></div></div>
-        <p class="tiny muted" style="margin:10px 2px 0">Your phone camera opens to take the photo. Nothing is saved until you choose to.</p>`;
+      const cam = !!(BT.liveCam && BT.liveCam.supported());
+      body.innerHTML = `<div class="fm-drop">${BT.icon('camera', 34)}<div><div class="li-title">Map on your own face</div><div class="muted small" style="margin-top:4px">${cam
+        ? 'Point your front camera at your face and the muscle map follows you as you move. Tap where each injection went.'
+        : 'Take a selfie or pick a photo, line the muscle outline up with your face, then tap where each injection went.'}</div></div>
+        ${cam ? `<button class="btn primary" data-live>${BT.icon('face', 18)} Start live camera</button>` : ''}
+        <div class="row gap wrap" style="justify-content:center"><button class="btn${cam ? '' : ' primary'}" data-cam>${BT.icon('camera', 18)} Take selfie</button><button class="btn" data-lib>${BT.icon('image', 18)} Choose photo</button></div></div>
+        <p class="tiny muted" style="margin:10px 2px 0">${cam ? 'The camera only runs while this screen is open, and the video stays on your phone.' : 'Your phone camera opens to take the photo.'} Nothing is saved until you choose to.</p>`;
       const pick = async (cap) => {
         const f = await BT.photo.pick(cap ? { capture: 'user' } : {});
         if (!f) return;
@@ -855,6 +875,10 @@
         Object.assign(L, { file: f, url: URL.createObjectURL(f), x: 0, y: 0, s: 1, rot: 0, mode: 'align' });
         BT.render();
       };
+      if (cam) {
+        BT.liveCam.preload();
+        body.querySelector('[data-live]').onclick = () => { L.cam = true; BT.render(); };
+      }
       body.querySelector('[data-cam]').onclick = () => pick(true);
       body.querySelector('[data-lib]').onclick = () => pick(false);
       return;
@@ -875,15 +899,17 @@
         <div class="stack-s"><button class="btn primary" data-log>${BT.icon('syringe', 18)} Save as injection</button><button class="btn" data-before>${BT.icon('image', 18)} Save photo as Before</button></div>
       </div>`;
     const lv = body.querySelector('.fm-live'), ovw = body.querySelector('.fm-ovw');
-    const help = body.querySelector('[data-help]'), list = body.querySelector('[data-list]');
+    const help = body.querySelector('[data-help]');
     const sl = (k) => body.querySelector(`[data-sl="${k}"]`);
+    let panel = null;
     const fm = mount(ovw, {
       mode: L.mode === 'points' ? 'edit' : 'display', points: L.points, overlay: true, maxWidth: 9999, selectedId: L.sel,
       caption: L.mode === 'points', captionEl: help, toggle: false,
-      onChange(points) { L.points = points; drawList(); },
-      onSelect(id) { L.sel = id; markSel(); },
+      onChange(points) { L.points = points; panel && panel.drawList(); },
+      onSelect(id) { L.sel = id; panel && panel.markSel(); },
     });
     mounts.push(fm);
+    panel = pointsPanel(body, fm, async () => L.file, 'Switch to Add points and tap your photo where each injection went.');
 
     function applyXf() {
       ovw.style.transform = `translate(-50%,-50%) translate(${L.x}px,${L.y}px) rotate(${L.rot}deg) scale(${L.s})`;
@@ -891,7 +917,7 @@
       fm.setMarkerScale(L.s);
       const set = (k, v, txt) => { const s = sl(k); s.querySelector('input').value = v; s.querySelector('output').textContent = txt; };
       set('size', Math.round(L.s * 100), Math.round(L.s * 100) + '%');
-      set('rot', Math.round(L.rot), Math.round(L.rot) + '\u00B0');
+      set('rot', Math.round(L.rot), Math.round(L.rot) + '°');
       set('op', Math.round(L.op * 100), Math.round(L.op * 100) + '%');
     }
     const modeUi = () => {
@@ -941,19 +967,70 @@
     lv.addEventListener('pointerup', up); lv.addEventListener('pointercancel', up);
     lv.addEventListener('wheel', (e) => { if (L.mode !== 'align') return; e.preventDefault(); L.s = clamp(L.s * Math.exp(-e.deltaY * 0.0015), 0.3, 2.5); applyXf(); }, { passive: false });
 
-    /* placed points with unit steppers */
+    applyXf(); modeUi(); panel.drawList();
+  }
+
+  /* camera view: the map tracks the face, a tap drops a point */
+  function camBody(body) {
+    const L = state.live;
+    body.innerHTML = `
+      <div class="fm-live fm-cam"><div class="fm-camst" data-st>Starting the camera</div></div>
+      <div class="stack" style="margin-top:12px">
+        <div class="muted small fm-livecap fm-cap" data-help></div>
+        <div class="fm-ctl"><div class="fm-sl" data-sl="op"><span>Opacity</span><input type="range" min="25" max="100" step="1" aria-label="Map opacity"><output></output></div></div>
+        <div class="row gap wrap"><button class="btn sm ghost" data-freeze aria-pressed="false">Freeze</button><button class="btn sm ghost" data-photo>${BT.icon('image', 16)} Use a photo instead</button></div>
+        <div data-list></div>
+        <div class="stack-s"><button class="btn primary" data-log>${BT.icon('syringe', 18)} Save as injection</button><button class="btn" data-before>${BT.icon('image', 18)} Save photo as Before</button></div>
+      </div>`;
+    const lv = body.querySelector('.fm-cam'), st = body.querySelector('[data-st]'), help = body.querySelector('[data-help]');
+    const op = body.querySelector('[data-sl="op"]'), frz = body.querySelector('[data-freeze]');
+    const MSG = { loading: 'Starting the camera', searching: 'Looking for your face', frozen: 'Frozen. Tap to add points.', tracking: '' };
+    let panel = null, frozen = false;
+
+    const showHelp = () => {
+      const p = L.points.find((q) => q.id === L.sel);
+      if (!p) { help.innerHTML = '<b>Tap your face where each injection went</b><span>Points stay pinned to your face as you move. Freeze holds the picture still.</span>'; return; }
+      const k = keyOf(p), s = BT.site(k);
+      help.innerHTML = p.caution ? `<b>${BT.esc(zoneInfo(p.caution).label)} (caution zone)</b><span class="warn">${BT.esc(zoneInfo(p.caution).note)}</span>`
+        : `<b>${BT.esc(labelOf(k))}</b><span>${k ? `${BT.esc(s.treats)} · common ${s.range[0]} to ${s.range[1]}U` : 'Outside the mapped muscles'}</span>`;
+    };
+    const cam = BT.liveCam.mount(lv, {
+      points: L.points, selectedId: L.sel, opacity: L.op,
+      onChange(points) { L.points = points; panel && panel.drawList(); },
+      onSelect(id) { L.sel = id; panel && panel.markSel(); showHelp(); },
+      onStatus(s) { st.textContent = MSG[s] || ''; st.hidden = !MSG[s]; lv.dataset.status = s; },
+      onError(err) {
+        L.cam = false;
+        BT.toast(err.denied ? 'Camera access is off, so use a photo instead. You can turn it on in your browser settings.' : 'Live tracking could not start, so use a photo instead.');
+        BT.render();
+      },
+    });
+    mounts.push(cam);
+    panel = pointsPanel(body, { setPoints: cam.setPoints, select: (id) => { cam.select(id); showHelp(); } }, () => cam.snapshot(), 'Tap your face on the camera where each injection went.');
+
+    const setOp = () => { op.querySelector('input').value = Math.round(L.op * 100); op.querySelector('output').textContent = Math.round(L.op * 100) + '%'; cam.setOpacity(L.op); };
+    op.querySelector('input').oninput = (e) => { L.op = e.target.value / 100; setOp(); };
+    frz.onclick = () => { frozen = !frozen; cam.setFrozen(frozen); frz.textContent = frozen ? 'Resume' : 'Freeze'; frz.setAttribute('aria-pressed', String(frozen)); };
+    body.querySelector('[data-photo]').onclick = () => { L.cam = false; BT.render(); };
+    setOp(); showHelp(); panel.drawList();
+  }
+
+  /* placed points with unit steppers, plus the save buttons; shared by the photo and camera views.
+     fm needs setPoints(points) and select(id). getFile resolves the photo to attach. */
+  function pointsPanel(body, fm, getFile, emptyHint) {
+    const L = state.live, list = body.querySelector('[data-list]');
     function markSel() { list.querySelectorAll('[data-pt]').forEach((r) => r.classList.toggle('sel', r.dataset.pt === L.sel)); }
     function drawList() {
       const sorted = L.points.slice().sort((a, b) => (ORDER.indexOf(keyOf(a)) - ORDER.indexOf(keyOf(b))) || a.y - b.y);
       const total = sorted.reduce((a, p) => a + (+p.units || 0), 0);
       syncBtns();
-      if (!sorted.length) { list.innerHTML = '<div class="empty" style="padding:16px 8px">No points yet. Switch to Add points and tap your photo where each injection went.</div>'; return; }
+      if (!sorted.length) { list.innerHTML = `<div class="empty" style="padding:16px 8px">No points yet. ${BT.esc(emptyHint)}</div>`; return; }
       const seen = {};
-      list.innerHTML = `<div class="card-h" style="margin-bottom:0"><h3>Points</h3><span class="pill blue num" data-total>${num(total)}U \u00B7 ${plural(sorted.length, 'point', 'points')}</span></div>
+      list.innerHTML = `<div class="card-h" style="margin-bottom:0"><h3>Points</h3><span class="pill blue num" data-total>${num(total)}U · ${plural(sorted.length, 'point', 'points')}</span></div>
         <div class="list">${sorted.map((p) => {
           const k = keyOf(p), s = BT.site(k); seen[k] = (seen[k] || 0) + 1;
           return `<div class="li fm-pli" data-pt="${BT.esc(p.id)}"><button class="grow fm-row-btn" data-pick><div class="li-title">${BT.esc(labelOf(k))} <span class="muted small">#${seen[k]}</span></div><div class="li-sub">${k ? `common ${s.range[0]} to ${s.range[1]}U` : (p.caution ? BT.esc(zoneInfo(p.caution).label) + ' caution zone' : 'Outside the mapped muscles')}</div></button>
-          <div class="stepper fm-step"><button data-d="-1" aria-label="Fewer units">\u2212</button><input inputmode="decimal" value="${num(p.units)}" aria-label="Units"><button data-d="1" aria-label="More units">+</button></div>
+          <div class="stepper fm-step"><button data-d="-1" aria-label="Fewer units">−</button><input inputmode="decimal" value="${num(p.units)}" aria-label="Units"><button data-d="1" aria-label="More units">+</button></div>
           <button class="icon-btn" data-rm aria-label="Remove point">${BT.icon('close', 18)}</button></div>`;
         }).join('')}</div>`;
       list.querySelectorAll('[data-pt]').forEach((row) => {
@@ -961,34 +1038,37 @@
         const setU = (v) => { if (!(v > 0)) return; L.points = L.points.map((p) => (p.id === id ? { ...p, units: Math.min(200, num(v)) } : p)); fm.setPoints(L.points); inp.value = num(v); refreshTotal(); };
         row.querySelectorAll('[data-d]').forEach((b) => (b.onclick = () => { const p = L.points.find((q) => q.id === id); setU(Math.max(0.5, (+p.units || 0) + +b.dataset.d)); }));
         inp.onchange = () => { const v = parseFloat(String(inp.value).replace(',', '.')); const p = L.points.find((q) => q.id === id); v > 0 ? setU(v) : (inp.value = num(p.units)); };
-        row.querySelector('[data-rm]').onclick = () => { L.points = L.points.filter((p) => p.id !== id); if (L.sel === id) L.sel = null; fm.setPoints(L.points); drawList(); };
+        row.querySelector('[data-rm]').onclick = () => { L.points = L.points.filter((p) => p.id !== id); if (L.sel === id) L.sel = null; fm.setPoints(L.points); fm.select(L.sel); drawList(); };
         row.querySelector('[data-pick]').onclick = () => { L.sel = id; fm.select(id); markSel(); };
       });
       markSel();
     }
     function refreshTotal() {
       const t = L.points.reduce((a, p) => a + (+p.units || 0), 0), pill = list.querySelector('[data-total]');
-      if (pill) pill.textContent = `${num(t)}U \u00B7 ${plural(L.points.length, 'point', 'points')}`;
+      if (pill) pill.textContent = `${num(t)}U · ${plural(L.points.length, 'point', 'points')}`;
     }
     function syncBtns() { body.querySelector('[data-log]').disabled = !L.points.length; }
 
-    body.querySelector('[data-log]').onclick = () => {
+    body.querySelector('[data-log]').onclick = async () => {
       if (!L.points.length) return;
       const points = L.points.map((p) => ({ id: p.id, siteId: p.siteId || '', x: p.x, y: p.y, units: +p.units || 0 }));
-      if (BT.openLog) BT.openLog({ points, photoFile: L.file });
+      let photoFile = null;
+      try { photoFile = await getFile(); } catch (err) { console.warn('no photo for the log', err); }
+      if (BT.openLog) BT.openLog({ points, photoFile });
       else BT.toast('Logging is not available yet');
     };
     body.querySelector('[data-before]').onclick = async (e) => {
       const btn = e.currentTarget; btn.disabled = true;
       try {
-        const src = await BT.photo.store(L.file);
+        const file = await getFile();
+        if (!file) throw new Error('no photo yet');
+        const src = await BT.photo.store(file);
         BT.save('photos', { kind: 'before', at: Date.now(), src, injectionId: null, note: 'Face map' });
         BT.toast('Saved as a Before photo');
-      } catch (err) { console.error(err); BT.toast('Could not save that photo'); }
+      } catch (err) { console.warn(err); BT.toast('Could not save that photo'); }
       btn.disabled = false;
     };
-
-    applyXf(); modeUi(); drawList();
+    return { drawList, markSel };
   }
 
   BT.screen('face', {
