@@ -432,11 +432,11 @@
   };
 
   /* ---------- router ----------
-     Tabs: today, history, academy, log (opens sheet), stock, face. Extra pushed screens: BT.go('calculator'), BT.go('injection', id), BT.go('compare'), BT.go('settings').
+     Tabs: today, history, log (opens sheet), stock, face. Extra pushed screens: BT.go('academy'), BT.go('calculator'), BT.go('injection', id), BT.go('compare'), BT.go('settings').
      A screen module: BT.screen('today', { title: 'Today', render(root, param) { ... } }). render may be called again on data change. */
   BT.screens = {};
   BT.screen = (name, def) => (BT.screens[name] = def);
-  BT.tabs = ['today', 'history', 'academy', 'log', 'stock', 'face'];
+  BT.tabs = ['today', 'history', 'log', 'stock', 'face'];
   BT.route = { name: 'today', param: null };
   const stack = [];
   BT.go = (name, param, { replace } = {}) => {

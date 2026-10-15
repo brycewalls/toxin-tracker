@@ -254,7 +254,7 @@
         const m = g.muscle, r = g.id ? rangeOf(g.id, prod()) : null;
         const per = m.side === 'c' ? 'in total' : 'per side';
         return `<div class="lg-grp" data-grp="${esc(g.id)}">
-          <div class="lg-grp-h"><div class="grow"><div class="li-title">${esc(m.label)}</div>${m.treats ? `<div class="li-sub">${esc(m.treats)}</div>` : ''}${r ? `<div class="tiny muted">Common ${r[0]} to ${r[1]} U ${per}, reference only</div>` : ''}</div><div class="num li-title" data-sub>${esc(fmtN(sumU(g.points)))}U</div></div>
+          <div class="lg-grp-h"><div class="grow"><div class="li-title">${esc(m.label)}</div>${m.treats ? `<div class="li-sub">${esc(m.treats)}</div>` : ''}${r ? `<div class="tiny muted">Common ${r[0]} to ${r[1]} U ${per}, reference only</div>` : ''}${g.id && BT.academyLearn ? BT.academyLearn(g.id, 'peek') : ''}</div><div class="num li-title" data-sub>${esc(fmtN(sumU(g.points)))}U</div></div>
           ${m.caution ? `<div class="tiny lg-caut">${esc(m.caution)}</div>` : ''}
           ${g.points.map((p, i) => `<div class="lg-site lg-pt" data-pt="${esc(p.id)}">
             <div class="grow li-title">Point ${i + 1}</div>
