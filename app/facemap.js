@@ -849,7 +849,7 @@
         <div class="eyebrow">${BT.esc(s.muscle)}</div>
         <div class="li-title" style="margin-top:6px">${BT.esc(s.treats)}</div>
         <div class="row between gap" style="margin-top:12px;align-items:flex-end">
-          <div><div class="muted small">Common range${s.side === 'c' ? '' : ' per side'}</div><div class="big-num num" style="margin-top:4px">${s.range[0]} to ${s.range[1]}<small>U</small></div></div>
+          <div><div class="muted small">Common range (reference only)${s.side === 'c' ? '' : ' per side'}</div><div class="big-num num" style="margin-top:4px">${s.range[0]} to ${s.range[1]}<small>U</small></div></div>
           <div style="text-align:right"><div class="muted small">Typical points</div><div class="li-title" style="margin-top:4px">${BT.esc(s.points || '')}</div></div>
         </div>
         <div class="row gap-s" style="margin-top:10px"><span class="pill">reference only</span><span class="pill">${BT.esc(s.group || '')}</span></div>
@@ -1044,7 +1044,7 @@
       if (!p) { help.innerHTML = '<b>Tap your face where each injection went</b><span>Points stay pinned to your face as you move. Freeze holds the picture still.</span>'; return; }
       const k = keyOf(p), s = BT.site(k);
       help.innerHTML = p.caution ? `<b>${BT.esc(zoneInfo(p.caution).label)} (caution zone)</b><span class="warn">${BT.esc(zoneInfo(p.caution).note)}</span>`
-        : `<b>${BT.esc(labelOf(k))}</b><span>${k ? `${BT.esc(s.treats)} · common ${s.range[0]} to ${s.range[1]}U` : 'Outside the mapped muscles'}</span>`;
+        : `<b>${BT.esc(labelOf(k))}</b><span>${k ? `${BT.esc(s.treats)} · common ${s.range[0]} to ${s.range[1]}U, reference only` : 'Outside the mapped muscles'}</span>`;
     };
     if (BT.academy) BT.academy.markLive(); // Academy 'Live view' achievement (#69)
     const cam = BT.liveCam.mount(lv, {
