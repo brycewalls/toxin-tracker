@@ -6,3 +6,6 @@ node_modules/
 dist/
 .firebase/
 firebase-debug.log
+
+# Vendored third-party files, fetched once and checked against tools/vendor.lock.json (#55)
+.vendor-cache/
