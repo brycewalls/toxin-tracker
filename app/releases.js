@@ -6,6 +6,18 @@
 (function () {
   BT.RELEASES = [
     {
+      version: '0.12', date: '2026-10-15', title: 'Muscles molded to your face',
+      items: [
+        'The Live view now places each muscle from the shape of your own face and shades it so it wraps your brow, cheeks and jaw. No outline art, only the muscle groups.',
+        'Pick a treatment area in the Live view to see its published reference pattern on your face, then copy the points into your log as suggested units.',
+        'Suggested units must be confirmed before a treatment saves, and a note appears when a muscle goes above its reference range.',
+        'The Academy moved out of the tab bar. Open it from the card on Today, the cap button at the top, or the shortcuts.',
+        'Videos and articles you have opened show a checkmark, and lessons count how many you have viewed.',
+        'Today asks whether an open reaction has cleared up, and reminds you to log reactions in the days after a treatment.',
+        'Fixed the spacing under the tab bar on History and Stock, and added browser security protections.',
+      ],
+    },
+    {
       version: '0.11', date: '2026-10-15', title: 'Botox Academy and stronger privacy',
       items: [
         'New Learn tab: the Botox Academy, with 22 courses and 35 lessons on how each treatment works, the anatomy, published patterns and safety, plus quizzes and vetted videos and reading.',
