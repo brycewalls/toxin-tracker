@@ -1046,6 +1046,7 @@
       help.innerHTML = p.caution ? `<b>${BT.esc(zoneInfo(p.caution).label)} (caution zone)</b><span class="warn">${BT.esc(zoneInfo(p.caution).note)}</span>`
         : `<b>${BT.esc(labelOf(k))}</b><span>${k ? `${BT.esc(s.treats)} · common ${s.range[0]} to ${s.range[1]}U` : 'Outside the mapped muscles'}</span>`;
     };
+    if (BT.academy) BT.academy.markLive(); // Academy 'Live view' achievement (#69)
     const cam = BT.liveCam.mount(lv, {
       points: L.points, selectedId: L.sel, opacity: L.op,
       onChange(points) { L.points = points; panel && panel.drawList(); },

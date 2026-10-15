@@ -272,6 +272,9 @@
         return `<button class="li" style="width:100%;text-align:left" data-inj="${BT.esc(i.id)}"><span class="dot" style="background:${p.color}"></span><div class="grow"><div class="li-title">${BT.esc(BT.fmt.dateLong(i.at))}</div><div class="li-sub">${i.touchUpOf ? 'Touch-up · ' : ''}${BT.esc(p.name)} · ${BT.fmt.units(BT.injectionUnits(i))} · ${(i.sites || []).length} site${(i.sites || []).length === 1 ? '' : 's'}</div></div><span class="muted">${BT.icon('chevron', 18)}</span></button>`;
       }).join('')}</div>` : '<div class="empty" style="padding:16px">No treatments logged yet. Tap the plus button to add one.</div>'}</section>`;
 
+      // Botox Academy progress (#69, app/academy.js)
+      if (BT.academyCard) h += BT.academyCard();
+
       // Shortcuts
       h += `<div class="t-short"><button data-go="calculator">${BT.icon('calc', 24)}<span>Dilution Calculator</span></button><button data-go="compare">${BT.icon('compare', 24)}<span>Before / After</span></button><button data-go="settings">${BT.icon('gear', 24)}<span>Settings</span></button></div>`;
 
@@ -283,6 +286,7 @@
       root.innerHTML = h;
       root.querySelectorAll('[data-go]').forEach((b) => (b.onclick = () => BT.go(b.dataset.go)));
       if (BT.bindWhatsNewCard) BT.bindWhatsNewCard(root);
+      if (BT.bindAcademyCard) BT.bindAcademyCard(root);
       bindCheckins(root);
       root.querySelectorAll('[data-inj]').forEach((b) => (b.onclick = () => BT.go('injection', b.dataset.inj)));
       root.querySelectorAll('[data-mood]').forEach((b) => (b.onclick = () => moodSheet(b.dataset.mood)));

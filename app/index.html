@@ -45,7 +45,7 @@ input, select, textarea { font-size: 16px; }
 #view > * { min-width: 0; }
 .tabbar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 20; padding: 8px 16px calc(10px + env(safe-area-inset-bottom, 0px));
   background: color-mix(in srgb, var(--bg) 82%, transparent); backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px); border-top: 1px solid var(--line); }
-.tabbar-in { max-width: 480px; margin: 0 auto; display: grid; grid-template-columns: repeat(5, 1fr); align-items: center; }
+.tabbar-in { max-width: 480px; margin: 0 auto; display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); align-items: center; }
 .tab { display: grid; justify-items: center; gap: 3px; font-size: 10.5px; color: var(--faint); padding: 4px 0; min-height: 44px; }
 .tab.on { color: var(--accent); }
 .tab-log { width: 52px; height: 52px; border-radius: 50%; background: var(--accent); color: var(--accent-ink); display: grid; place-items: center; justify-self: center;
@@ -168,6 +168,7 @@ input[type=date]::-webkit-date-and-time-value, input[type=datetime-local]::-webk
   <div class="tabbar-in">
     <button class="tab on" data-tab="today"><span data-ic="home"></span>Today</button>
     <button class="tab" data-tab="history"><span data-ic="clock"></span>History</button>
+    <button class="tab" data-tab="academy"><span data-ic="cap"></span>Learn</button>
     <button class="tab-log" data-tab="log" aria-label="Log injection"><span data-ic="plus"></span></button>
     <button class="tab" data-tab="stock"><span data-ic="vial"></span>Stock</button>
     <button class="tab" data-tab="face"><span data-ic="face"></span>Face Map</button>
@@ -180,6 +181,7 @@ input[type=date]::-webkit-date-and-time-value, input[type=datetime-local]::-webk
 <script src="log.js"></script>
 <script src="history.js"></script>
 <script src="stock.js"></script>
+<script src="academy.js"></script>
 <script src="releases.js"></script>
 <script>
   document.querySelectorAll('[data-ic]').forEach((s) => (s.outerHTML = BT.icon(s.dataset.ic, s.dataset.ic === 'plus' ? 26 : 22)));

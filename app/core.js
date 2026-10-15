@@ -351,6 +351,16 @@
     compare: 'M12 3v18M4 6h5v12H4zM15 6h5v12h-5z',
     grid: 'M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z',
     flip: 'M7 4 3 8l4 4M3 8h13a5 5 0 0 1 0 10h-3',
+    // Academy (#69)
+    cap: 'M2 9.5 12 5l10 4.5L12 14zM6 11.5V16c3.5 2.5 8.5 2.5 12 0v-4.5M22 9.5V15',
+    book: 'M4 5.5A2.5 2.5 0 0 1 6.5 3H20v15H6.5A2.5 2.5 0 0 0 4 20.5zM4 20.5A2.5 2.5 0 0 0 6.5 23H20v-5M8 7h8',
+    award: 'M12 15a6 6 0 1 0 0-12 6 6 0 0 0 0 12zM8.6 13.9 7 22l5-3 5 3-1.6-8.1',
+    lock: 'M6 11h12v10H6zM8.5 11V8a3.5 3.5 0 0 1 7 0v3',
+    search: 'M11 18a7 7 0 1 0 0-14 7 7 0 0 0 0 14zM20.5 20.5 16 16',
+    play: 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM10 8.5v7l6-3.5z',
+    doc: 'M6 3h9l4 4v14H6zM14 3v5h5M9 13h7M9 17h5',
+    external: 'M14 4h6v6M20 4l-9 9M18 14v6H4V6h6',
+    download: 'M12 4v11M7 10l5 5 5-5M5 20h14',
   };
   BT.icon = (name, size = 20, cls = '') => `<svg class="ic ${cls}" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${P[name] || P.info}"/></svg>`;
   // Mood faces 1..5 (1 = rough, 5 = great)
@@ -422,11 +432,11 @@
   };
 
   /* ---------- router ----------
-     Tabs: today, history, log (opens sheet), stock, face. Extra pushed screens: BT.go('calculator'), BT.go('injection', id), BT.go('compare'), BT.go('settings').
+     Tabs: today, history, academy, log (opens sheet), stock, face. Extra pushed screens: BT.go('calculator'), BT.go('injection', id), BT.go('compare'), BT.go('settings').
      A screen module: BT.screen('today', { title: 'Today', render(root, param) { ... } }). render may be called again on data change. */
   BT.screens = {};
   BT.screen = (name, def) => (BT.screens[name] = def);
-  BT.tabs = ['today', 'history', 'log', 'stock', 'face'];
+  BT.tabs = ['today', 'history', 'academy', 'log', 'stock', 'face'];
   BT.route = { name: 'today', param: null };
   const stack = [];
   BT.go = (name, param, { replace } = {}) => {
