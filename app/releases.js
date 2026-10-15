@@ -8,7 +8,7 @@
     {
       version: '0.5', date: '2026-10-14', title: 'Korean toxins and your own products',
       items: [
-        'Add Botulax, Nabota, Meditoxin, Innotox, Coretox, Hutox and Liztox to your stock.',
+        'Add Botulax, Nabota, Meditoxin, Innotox, Coretox, Liztox (Hutox) and Wondertox to your stock.',
         'Using something else? Pick Other when adding a vial, name it, and it is saved for next time.',
         'Log Injection shows the products you have in stock first, with the rest under All products.',
       ],

@@ -19,8 +19,8 @@
     { id: 'meditoxin', origin: 'Korea', name: 'Meditoxin', generic: 'botulinum toxin type A', maker: 'Medytox', vialUnits: 100, ratio: 1, onsetDays: 3, peakDays: 14, wearWeeks: 13, color: '#4E5BA6', aka: 'Neuronox outside Korea' },
     { id: 'innotox', origin: 'Korea', name: 'Innotox', generic: 'botulinum toxin type A (liquid)', maker: 'Medytox', vialUnits: 50, ratio: 1, onsetDays: 3, peakDays: 14, wearWeeks: 13, color: '#6172F3', aka: 'Premixed liquid, no saline' },
     { id: 'coretox', origin: 'Korea', name: 'Coretox', generic: 'botulinum toxin type A', maker: 'Medytox', vialUnits: 100, ratio: 1, onsetDays: 3, peakDays: 14, wearWeeks: 13, color: '#3E4784' },
-    { id: 'hutox', origin: 'Korea', name: 'Hutox', generic: 'botulinum toxin type A', maker: 'Huons', vialUnits: 100, ratio: 1, onsetDays: 3, peakDays: 14, wearWeeks: 13, color: '#B54708' },
-    { id: 'liztox', origin: 'Korea', name: 'Liztox', generic: 'botulinum toxin type A', maker: 'Huons', vialUnits: 100, ratio: 1, onsetDays: 3, peakDays: 14, wearWeeks: 13, color: '#93370D' },
+    { id: 'liztox', origin: 'Korea', name: 'Liztox (Hutox)', generic: 'botulinum toxin type A', maker: 'Huons', vialUnits: 100, ratio: 1, onsetDays: 3, peakDays: 14, wearWeeks: 13, color: '#93370D', aka: 'Sold as Hutox outside Korea' },
+    { id: 'wondertox', origin: 'Korea', name: 'Wondertox', generic: 'botulinum toxin type A', maker: 'Chong Kun Dang', vialUnits: 100, ratio: 1, onsetDays: 3, peakDays: 14, wearWeeks: 13, color: '#B54708', aka: 'Made by Huons, 100U and 200U vials' },
   ];
   BT.products.forEach((p) => (p.origin ||= 'US'));
   const BASE_PRODUCTS = BT.products.slice();
@@ -35,7 +35,7 @@
     BT.save('settings', { customProducts: [...(BT.data.settings.customProducts || []), p] });
     return BT.product(p.id);
   };
-  BT.product = (id) => BT.products.find((p) => p.id === id) || BT.products[0];
+  BT.product = (id) => BT.products.find((p) => p.id === (id === 'hutox' ? 'liztox' : id)) || BT.products[0];
 
   // Treatable muscles. Injection points are freeform: each point is {id, siteId: muscleId, x, y, units}
   // where x,y are in the face drawing's viewBox (facemap.js) and siteId is the muscle the point landed on.
