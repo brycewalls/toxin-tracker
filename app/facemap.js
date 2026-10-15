@@ -290,6 +290,10 @@
 .fm-zbar{position:absolute;right:6px;top:6px;display:flex;align-items:center;background:var(--card);border:1px solid var(--line);border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,.08);overflow:hidden;z-index:2}
 .fm-zbar[hidden]{display:none}
 .fm-zbar.below{position:static;width:max-content;margin:8px 0 0 auto;box-shadow:none}
+.fm.fm-zoomed .fm-stage{overflow:hidden}
+.fm.fm-zoomed .fm-zbar{top:10px;right:10px}
+.fm.fm-zoomed .fm-zbar.below{position:absolute;top:auto;bottom:10px;margin:0;box-shadow:0 2px 8px rgba(0,0,0,.08)}
+.fm-cam.lc-zoomed .fm-camst{display:none}
 .fm-zbar button{min-width:40px;height:40px;font-size:20px;line-height:1;color:var(--accent);display:grid;place-items:center}
 .fm-zbar button[data-z=lvl]{font-size:12px;min-width:44px;color:var(--muted);font-variant-numeric:tabular-nums;border-left:1px solid var(--line);border-right:1px solid var(--line)}
 .fm-zbar button:disabled{color:var(--faint);opacity:.6}
@@ -462,6 +466,30 @@
       const left = Math.round((W - faceW) / 2), s = faceW / VB[2];
       return { W, faceW, left, s, H: Math.round((faceW * VB[3]) / VB[2]), lab };
     }
+    // Zoomed box (#41): the full card width edge to edge (bleeding past the card's inner padding, rounded
+    // like the card) and taller than the 1x face by the side space the 1x layout left around it, up to 70%
+    // of the viewport, so the zoomed face is not cropped to the small 1x box.
+    function zbox(m) {
+      const c = root.closest('.card');
+      let bl = 0, br = 0, rad = '';
+      if (c) {
+        const rc = c.getBoundingClientRect(), rr = root.getBoundingClientRect(), cs = getComputedStyle(c);
+        bl = Math.max(0, Math.round(rr.left - rc.left - c.clientLeft));
+        br = Math.max(0, Math.round(rc.right - rr.right - (parseFloat(cs.borderRightWidth) || 0)));
+        rad = Math.max(0, (parseFloat(cs.borderTopLeftRadius) || 0) - c.clientLeft) + 'px';
+      }
+      const h = Math.round(Math.max(m.H, Math.min(m.H + (m.W - m.faceW), (window.innerHeight || 800) * 0.7)));
+      return { w: m.W + bl + br, h, bl, br, rad };
+    }
+    // Size the stage for the current zoom: the 1x face box, or the zoomed box.
+    function sizeStage() {
+      const m = metrics(), z = zoomed() ? zbox(m) : null;
+      // Zoomed, negative margins on both sides widen the stage without adding to the card's content width.
+      if (z) { stage.style.width = ''; stage.style.height = z.h + 'px'; stage.style.marginLeft = -z.bl + 'px'; stage.style.marginRight = -z.br + 'px'; stage.style.borderRadius = z.rad; }
+      else { stage.style.width = m.faceW + 'px'; stage.style.height = m.H + 'px'; stage.style.marginLeft = m.left + 'px'; stage.style.marginRight = ''; stage.style.borderRadius = ''; }
+      m.z = z;
+      return m;
+    }
 
     function paintStates() {
       const has = {}; pts.forEach((p) => (has[keyOf(p)] = 1));
@@ -483,7 +511,7 @@
 
     function ptMarkup(p, m) {
       const sel = p.id === selId, edit = isEdit();
-      // While zoomed, a labeled map has widened into its gutters (render), so its markers grow to match.
+      // While zoomed, a labeled map fills the wide zoomed box (zbox) instead of its 1x column, so its markers grow to match.
       const zs = zoomed() ? (m.lab ? Math.min(2, m.W / m.faceW) : 1) / zk : 1;
       const ms = Math.max(0.55, Math.min(1.6, 1 / mscale)) * zs;
       const r = (m.lab ? 4.2 : 4.6) * ms, side = p.x >= 150 ? 1 : -1;
@@ -502,12 +530,10 @@
     }
 
     function render() {
-      const m = metrics();
+      const m = sizeStage();
       lastW = root.clientWidth;
       root.dataset.mode = opts.mode;
       root.classList.toggle('tap', !!opts.onTapMuscle);
-      const wide = m.lab && zoomed(); // labels hide while zoomed, so the view takes the gutters too
-      stage.style.width = (wide ? m.W : m.faceW) + 'px'; stage.style.height = m.H + 'px'; stage.style.marginLeft = (wide ? 0 : m.left) + 'px';
       let out = '';
       if (heat) {
         const hv = {}; Object.keys(heat).forEach((k) => { const id = BT.site(k).id; hv[id] = (hv[id] || 0) + (+heat[k] || 0); });
@@ -521,6 +547,7 @@
       dyn.innerHTML = out;
       paintStates();
       layoutLabels(m);
+      if (m.z) root.style.height = m.z.h + 'px'; // labels hide while zoomed; the zoomed box sets the height
       caption();
     }
 
@@ -610,31 +637,38 @@
 
     /* zoom */
     let zbar = null;
-    // Visible face span at the current zoom. A labeled display map widens while zoomed, so its view is wider than VB.
+    const zbarBelow = opts.mode === 'display';
+    // Visible face span at the current zoom: zk times the 1x scale, across the zoomed box (zbox).
     function span() {
-      const h = VB[3] / zk, m = metrics();
-      return { w: m.lab && zk > 1.001 ? (h * m.W) / m.H : VB[2] / zk, h };
+      if (!zoomed()) return { w: VB[2], h: VB[3] };
+      const m = metrics(), z = zbox(m), u = m.s * zk;
+      return { w: z.w / u, h: z.h / u };
     }
     function applyView() {
       if (!zoomable()) { zk = 1; }
       const { w, h } = span();
       zx = w >= VB[2] ? VB[0] + VB[2] / 2 : Math.max(VB[0] + w / 2, Math.min(VB[0] + VB[2] - w / 2, zx));
-      zy = Math.max(VB[1] + h / 2, Math.min(VB[1] + VB[3] - h / 2, zy));
+      zy = h >= VB[3] ? VB[1] + VB[3] / 2 : Math.max(VB[1] + h / 2, Math.min(VB[1] + VB[3] - h / 2, zy));
       svg.setAttribute('viewBox', zk > 1.001 ? `${r1(zx - w / 2)} ${r1(zy - h / 2)} ${r1(w)} ${r1(h)}` : VB.join(' '));
       root.classList.toggle('fm-zoomed', zk > 1.001);
       root.classList.toggle('fm-zoomable', zoomable());
+      // A display map's bar sits under the drawing at 1x and floats over the zoomed box, so it never reserves a band.
+      if (zbar && zbarBelow) { const fl = zk > 1.001; if (fl && zbar.parentNode !== stage) stage.appendChild(zbar); else if (!fl && zbar.parentNode === stage) root.after(zbar); }
       if (zbar) { zbar.hidden = !zoomable(); zbar.querySelector('[data-z=lvl]').textContent = (Math.round(zk * 10) / 10) + 'x'; zbar.querySelector('[data-z=out]').disabled = zk <= 1.001; zbar.querySelector('[data-z=in]').disabled = zk >= ZMAX - 0.001; }
     }
-    // Zoom to k keeping face point (ax, ay) under the screen fraction (fx, fy) of the map.
-    function zoomAt(k, ax, ay, fx, fy) {
+    // Zoom to k keeping face point (ax, ay) under client point (cx, cy), or the middle of the map when omitted.
+    // The box changes size between 1x and zoomed, so the anchor is measured after sizing it.
+    function zoomAt(k, ax, ay, cx, cy) {
       zk = Math.max(1, Math.min(ZMAX, k));
+      sizeStage();
+      const r = svg.getBoundingClientRect();
+      const fx = cx == null ? 0.5 : (cx - r.left) / (r.width || 1), fy = cy == null ? 0.5 : (cy - r.top) / (r.height || 1);
       const { w, h } = span();
       zx = ax - fx * w + w / 2; zy = ay - fy * h + h / 2;
       applyView(); render();
     }
-    const frac = (cx, cy) => { const r = svg.getBoundingClientRect(); return { fx: (cx - r.left) / (r.width || 1), fy: (cy - r.top) / (r.height || 1) }; };
     const raw = (cx, cy) => { const m = svg.getScreenCTM(); return m ? new DOMPoint(cx, cy).matrixTransform(m.inverse()) : null; };
-    function zoomStep(f) { zoomAt(zk * f, zx, zy, 0.5, 0.5); }
+    function zoomStep(f) { zoomAt(zk * f, zx, zy); }
     if (opts.zoom !== false && !opts.overlay) {
       zbar = document.createElement('div'); zbar.className = 'fm-zbar'; zbar.hidden = true;
       zbar.innerHTML = '<button type="button" data-z="out" aria-label="Zoom out">&minus;</button><button type="button" data-z="lvl" aria-label="Reset zoom">1x</button><button type="button" data-z="in" aria-label="Zoom in">+</button>';
@@ -645,8 +679,8 @@
     const onWheel = (e) => {
       if (!zoomable() || !e.ctrlKey) return; // trackpad pinch arrives as ctrl+wheel
       e.preventDefault();
-      const a = raw(e.clientX, e.clientY), f = frac(e.clientX, e.clientY); if (!a) return;
-      zoomAt(zk * Math.exp(-e.deltaY * 0.01), a.x, a.y, f.fx, f.fy);
+      const a = raw(e.clientX, e.clientY); if (!a) return;
+      zoomAt(zk * Math.exp(-e.deltaY * 0.01), a.x, a.y, e.clientX, e.clientY);
     };
 
     /* pointer handling */
@@ -676,8 +710,8 @@
     const onMove = (e) => {
       if (touches.has(e.pointerId)) touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
       if (pz && touches.size >= 2) {
-        const [a, b] = [...touches.values()], mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2, f = frac(mx, my);
-        zoomAt(pz.k0 * (Math.hypot(a.x - b.x, a.y - b.y) / pz.d0), pz.ax, pz.ay, f.fx, f.fy);
+        const [a, b] = [...touches.values()], mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
+        zoomAt(pz.k0 * (Math.hypot(a.x - b.x, a.y - b.y) / pz.d0), pz.ax, pz.ay, mx, my);
         return;
       }
       if (drag && drag.pid === e.pointerId && !drag.id && zk > 1.001) {
