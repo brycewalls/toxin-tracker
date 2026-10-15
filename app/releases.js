@@ -1,0 +1,95 @@
+/* Release notes and the app version (#12).
+   Every PR that ships something people will notice adds its bullets to the top entry, or starts
+   a new entry when it is a new release. BT.VERSION is always the first entry's version, so the
+   number in Settings and What's New cannot drift from the notes. Write bullets for the person
+   using the app: what they can now do, in plain words. */
+(function () {
+  BT.RELEASES = [
+    {
+      version: '0.4', date: '2026-10-14', title: 'Zoom in to place points',
+      items: [
+        'Pinch the face map in Log Injection, or use the minus and plus buttons, to zoom up to 4x and place points exactly.',
+        'Placing a point keeps you on the map. Fill in units in the list below when you are done.',
+        'The rest of the app no longer zooms by accident when you pinch or double-tap.',
+        'What\'s New: see your version and what each release added. You are reading it.',
+      ],
+    },
+    {
+      version: '0.3', date: '2026-10-14', title: 'Your own web app',
+      items: [
+        'Toxin Tracker now lives at toxin-tracker-bw.web.app. Sign in with Google and your log follows you to any device.',
+        'Add it to your home screen for an app icon and full-screen view.',
+        'Your log is private to your Google account.',
+      ],
+    },
+    {
+      version: '0.2', date: '2026-10-14', title: 'Muscle face map',
+      items: [
+        'The face map shows the real muscles, from the forehead to the neck, with caution zones marked.',
+        'Tap anywhere to drop an injection point; drag to adjust. The app works out which muscle it hit.',
+        'The log groups points by muscle with typical ranges and placement tips.',
+      ],
+    },
+    {
+      version: '0.1', date: '2026-10-14', title: 'First version',
+      items: [
+        'Log treatments with product, vial, sites and units.',
+        'Aftercare timers, including when you can exercise again.',
+        'Vial inventory, reactions, before and after photos, and a dilution calculator.',
+      ],
+    },
+  ];
+  // Planned work, shown under "Coming next". Keep it short and drop items once they ship.
+  BT.UPCOMING = [
+    'A day 7 check-in after each treatment: take your after photo and decide on a touch-up.',
+    'A Save button at the bottom of Log Injection.',
+    'Live camera face mapping that follows your face as you move.',
+    'Work offline and bring over anything logged in the prototype.',
+  ];
+  BT.VERSION = BT.RELEASES[0].version;
+  BT.release = (v) => BT.RELEASES.find((r) => r.version === v) || null;
+
+  const css = `
+  .wn-ver { display: flex; align-items: baseline; gap: 10px; }
+  .wn-rel { display: grid; gap: 10px; }
+  .wn-rel h3 { font-size: 17px; }
+  .wn-rel ul, .wn-up ul { margin: 0; padding-left: 18px; display: grid; gap: 8px; color: var(--fg); }
+  .wn-rel li, .wn-up li { line-height: 1.45; }
+  .wn-up ul { color: var(--muted); }`;
+  function addCss() { if (document.getElementById('wn-css')) return; const s = document.createElement('style'); s.id = 'wn-css'; s.textContent = css; document.head.appendChild(s); }
+  const fmtDate = (iso) => new Date(iso + 'T12:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+
+  BT.screen('whatsnew', {
+    title: "What's New",
+    render(root) {
+      addCss();
+      // Opening this screen counts as seeing the current release.
+      if (BT.data.settings.seenVersion !== BT.VERSION) BT.save('settings', { seenVersion: BT.VERSION });
+      const rel = BT.RELEASES.map((r, i) => `<section class="card wn-rel">
+          <div class="row between gap"><span class="eyebrow">Version ${BT.esc(r.version)}</span>${i === 0 ? '<span class="pill blue">You are here</span>' : `<span class="tiny muted">${fmtDate(r.date)}</span>`}</div>
+          <h3>${BT.esc(r.title)}</h3>
+          ${i === 0 ? `<div class="tiny muted">${fmtDate(r.date)}</div>` : ''}
+          <ul>${r.items.map((t) => `<li>${BT.esc(t)}</li>`).join('')}</ul></section>`).join('');
+      root.innerHTML = `${BT.navHeader("What's New")}
+        <section class="card"><div class="eyebrow">You are on</div><div class="wn-ver"><span class="big-num">${BT.esc(BT.VERSION)}</span><span class="muted">${BT.esc(BT.RELEASES[0].title)}</span></div></section>
+        ${BT.UPCOMING.length ? `<section class="card wn-up stack-s"><div class="card-h" style="margin:0"><h3>Coming next</h3><span class="pill">Planned</span></div><ul>${BT.UPCOMING.map((t) => `<li>${BT.esc(t)}</li>`).join('')}</ul></section>` : ''}
+        ${rel}`;
+    },
+  });
+
+  // One-time card for Today after an update. today.js places it; returns '' when there is nothing new.
+  BT.whatsNewCard = () => {
+    const s = BT.data.settings;
+    if (s.seenVersion === BT.VERSION) return '';
+    const r = BT.RELEASES[0];
+    return `<section class="card stack-s" data-wn>
+      <div class="row between gap"><span class="pill blue">New in ${BT.esc(r.version)}</span><button class="icon-btn" data-wn-x aria-label="Dismiss">${BT.icon('close', 18)}</button></div>
+      <h3>${BT.esc(r.title)}</h3>
+      <p class="muted small" style="margin:0">${BT.esc(r.items[0])}</p>
+      <button class="btn sm" data-go="whatsnew" style="justify-self:start">See what's new</button></section>`;
+  };
+  BT.bindWhatsNewCard = (root) => {
+    const x = root.querySelector('[data-wn-x]');
+    if (x) x.onclick = (e) => { e.stopPropagation(); BT.save('settings', { seenVersion: BT.VERSION }); };
+  };
+})();
