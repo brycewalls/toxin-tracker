@@ -6,6 +6,16 @@
 (function () {
   BT.RELEASES = [
     {
+      version: '0.10', date: '2026-10-15', title: 'Works offline',
+      items: [
+        'Toxin Tracker opens and works with no connection. Log treatments, photos and reactions anywhere.',
+        'Anything you change offline saves on your phone and syncs as soon as you are back online. A small banner tells you when you are offline.',
+        'Changes made on your other phone show up right away, without reloading.',
+        'When a new version is out, tap Update ready to load it.',
+        'Signing out now erases the copy of your data stored on the phone.',
+      ],
+    },
+    {
       version: '0.9', date: '2026-10-15', title: 'Live map melts onto your face',
       items: [
         'The Live map now follows the full shape of your face, curving over your cheeks, nose and jaw, and blends into your skin instead of sitting on top.',
@@ -88,7 +98,7 @@
   ];
   // Planned work, shown under "Coming next". Keep it short and drop items once they ship.
   BT.UPCOMING = [
-    'Use the app with no connection, and full-size photos.',
+    'Full-size photos.',
   ];
   BT.VERSION = BT.RELEASES[0].version;
   BT.release = (v) => BT.RELEASES.find((r) => r.version === v) || null;
