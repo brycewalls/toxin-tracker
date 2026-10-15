@@ -81,9 +81,10 @@
 
   function stats() {
     const yr = new Date().getFullYear();
-    const all = BT.sortedInjections();
+    // Touch-ups (#18) add units but are not separate treatments, so they skip the count and the interval.
+    const every = BT.sortedInjections(), all = every.filter((i) => !i.touchUpOf);
     const thisYear = all.filter((i) => new Date(i.at).getFullYear() === yr);
-    const units = thisYear.reduce((a, i) => a + BT.injectionUnits(i), 0);
+    const units = every.filter((i) => new Date(i.at).getFullYear() === yr).reduce((a, i) => a + BT.injectionUnits(i), 0);
     let avg = null;
     if (all.length > 1) {
       let sum = 0;
@@ -156,7 +157,7 @@
         return `<button type="button" class="li hist-row" data-inj="${E(inj.id)}">
           <span class="check-ring hist-ring" style="background:color-mix(in srgb, ${p.color} 14%, transparent);color:${p.color}">${BT.icon('check', 17)}</span>
           <span class="grow"><span class="li-title">${E(injLabel(inj))}</span><span class="li-sub">${sub}</span></span>
-          <span class="end"><span class="pill ${rc ? 'amber' : 'green'}">${rc ? rc + (rc === 1 ? ' reaction' : ' reactions') : 'No reactions'}</span></span>
+          <span class="end">${inj.touchUpOf ? '<span class="pill blue">Touch-up</span>' : ''}<span class="pill ${rc ? 'amber' : 'green'}">${rc ? rc + (rc === 1 ? ' reaction' : ' reactions') : 'No reactions'}</span></span>
           <span class="chev">${BT.icon('chevron', 18)}</span></button>`;
       }).join('')}</div></div>`).join('');
     body.onclick = (e) => { const r = e.target.closest('[data-inj]'); if (r) BT.go('injection', r.dataset.inj); };
@@ -278,7 +279,9 @@
     const ph = photosSorted();
     const latest = (kind, linked) => ph.find((p) => p.kind === kind && (!linked || p.injectionId === linked));
     let b = (injectionId && latest('before', injectionId)) || latest('before');
-    let a = (injectionId && latest('after', injectionId)) || latest('after');
+    // A treatment's own check-in after photo (#15) wins over any other after photo.
+    const inj = injectionId && BT.checkin && BT.data.injections.find((i) => i.id === injectionId);
+    let a = (inj && BT.checkin.after(inj)) || (injectionId && latest('after', injectionId)) || latest('after');
     if (!b) b = [...ph].reverse().find((p) => !a || p.id !== a.id);
     if (!a) a = ph.find((p) => !b || p.id !== b.id);
     if (b && a && b.id === a.id) a = ph.find((p) => p.id !== b.id) || a;
