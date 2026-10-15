@@ -31,6 +31,15 @@ This README is the guide to how work on this project is tracked. Design notes an
 5. **A tag makes a release** when a version is worth marking: `git tag v0.1 && git push origin main --tags`. CI attaches a zip of the site.
 6. **Deploy** from an up-to-date `main` with `bash tools/deploy.sh` (hosting plus Firestore rules, needs the Firebase CLI logged in on this Mac), and republish the artifact if the prototype should match. Then clear the `deploy pending` label. If it broke, open a bug that links the release.
 
+## Versions and What's New
+
+The app shows its version and release notes in Settings, What's New (`app/releases.js`). `BT.VERSION` is the first entry in `BT.RELEASES`, so there is one place to change.
+
+- Every PR that changes something a user will notice adds a plain-language bullet to the top entry in `app/releases.js`, or starts a new entry (`0.5`, `0.6`, ...) when it ships as a new release.
+- Drop items from `BT.UPCOMING` when they ship.
+- Tag the release in git with the same number (`v0.4`) after it is deployed.
+- After an update, Today shows a one-time "New in x.y" card until it is dismissed or What's New is opened.
+
 ## Labels
 
 `bug` / `change` / `roadmap` / `testing` for type, `area: <part>` for where, `priority: now` / `next` / `later`, `deploy pending` for merged-but-not-live, `blocked` for waiting on something.
