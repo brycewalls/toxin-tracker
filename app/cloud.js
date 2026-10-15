@@ -15,6 +15,10 @@
     appId: '1:752573115739:web:6eda4d7ed2fa9911373e7e',
   };
 
+  // Only these Google accounts may use the app (#22). Firestore rules enforce the same list;
+  // this check only gives everyone else a clear message instead of an empty, failing app.
+  const ALLOWED = ['owner@example.invalid', 'second-user@example.invalid'];
+
   let resolveReady;
   const cloud = (window.BT_CLOUD = { ready: new Promise((r) => (resolveReady = r)), user: null });
 
@@ -62,7 +66,7 @@
         <p>Log every treatment on a muscle map, keep your vials and reactions in one place, and know when you can work out again.</p></div>
         <div class="gate-foot"><div class="gate-err" hidden></div>
         <button class="gate-btn" type="button">${G}<span>Continue with Google</span></button>
-        <div class="gate-small">Your log is private to your Google account.</div></div>`;
+        <div class="gate-small">Private app. Approved Google accounts only.</div></div>`;
       gate.querySelector('.gate-btn').onclick = signIn;
       document.body.appendChild(gate);
     }
@@ -88,9 +92,16 @@
 
   auth.getRedirectResult().catch((e) => showGate(MESSAGES[e.code] || 'Sign-in did not finish. Try again.'));
 
-  let started = false;
+  let started = false, denied = false;
   auth.onAuthStateChanged((user) => {
-    if (!user) { if (!started) showGate(''); else location.reload(); return; }
+    if (!user) { if (!started && !denied) showGate(''); else if (started) location.reload(); return; }
+    if (!ALLOWED.includes((user.email || '').toLowerCase()) || !user.emailVerified) {
+      denied = true;
+      showGate(`This app is private. ${user.email || 'That account'} does not have access. Sign in with an approved Google account.`);
+      auth.signOut().catch(() => {});
+      return;
+    }
+    denied = false;
     if (started) return;
     started = true;
     cloud.user = { uid: user.uid, name: user.displayName || '', email: user.email || '', photo: user.photoURL || '' };
