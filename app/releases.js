@@ -6,6 +6,15 @@
 (function () {
   BT.RELEASES = [
     {
+      version: '0.6', date: '2026-10-15', title: 'Live face map on your camera',
+      items: [
+        'Face Map, Live: tap Start live camera and the muscle map follows your face as you move.',
+        'Tap your face on the camera to drop a point. It stays pinned to that spot as you turn your head.',
+        'Freeze holds the picture still while you place points. Save as injection attaches that frame as your Before photo.',
+        'No camera, or you said no to it? Take a selfie or choose a photo and line it up by hand, same as before.',
+      ],
+    },
+    {
       version: '0.5', date: '2026-10-14', title: 'Korean toxins and your own products',
       items: [
         'Add Botulax, Nabota, Meditoxin, Innotox, Coretox, Liztox (Hutox) and Wondertox to your stock.',
@@ -51,7 +60,6 @@
   BT.UPCOMING = [
     'A day 7 check-in after each treatment: take your after photo and decide on a touch-up.',
     'A Save button at the bottom of Log Injection.',
-    'Live camera face mapping that follows your face as you move.',
     'Work offline and bring over anything logged in the prototype.',
   ];
   BT.VERSION = BT.RELEASES[0].version;
