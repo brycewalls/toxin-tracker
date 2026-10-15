@@ -854,6 +854,7 @@
         </div>
         <div class="row gap-s" style="margin-top:10px"><span class="pill">reference only</span><span class="pill">${BT.esc(s.group || '')}</span></div>
         ${s.caution ? `<div class="callout" style="margin-top:12px;background:var(--amber-soft);border-color:transparent;color:var(--amber)">${BT.esc(s.caution)}</div>` : ''}
+        ${BT.academyLearn ? BT.academyLearn(id) : ''}
       </div>` : `<div class="card"><div class="muted small">Points placed outside the mapped muscles.</div></div>`;
     sh.body.innerHTML = ref + `
       <div class="card">

@@ -3,8 +3,8 @@
    precached by the service worker). app/preview.html reads the research file directly.
    Progress lives in settings so it syncs like every other setting:
      settings.academy = { lessons: {id: {done, at, firstTryPerfect, tries}}, achievements: {id: at},
-                          certificate: {at, name} | null, liveAt }
-   Screens: academy (tab), acad-course (id), acad-lesson (id), acad-badges, acad-cert, acad-resources.
+                          certificate: {at, name} | null, liveAt, resources: {url: openedAt} }
+   Screens (all pushed, none is a tab): academy, acad-course (id), acad-lesson (id), acad-badges, acad-cert, acad-resources.
    Education only: lessons explain how qualified injectors plan and treat, and point to accredited training. */
 (function () {
   /* ---------- styles ---------- */
@@ -88,6 +88,11 @@
 .ac-search { position:relative; }
 .ac-search .ic { position:absolute; left:14px; top:50%; transform:translateY(-50%); color:var(--faint); pointer-events:none; }
 .ac-search .input { padding-left:40px; }
+.ac-res.viewed { opacity:.68; }
+.ac-res.viewed .t { color:var(--muted); }
+.ac-seen { display:inline-flex; align-items:center; gap:4px; font-size:12px; color:var(--green); }
+.ac-seen .ic { flex:none; }
+.ac-learn { display:inline-flex; align-items:center; gap:6px; margin-top:6px; padding:6px 0; min-height:32px; font-size:13px; font-weight:500; color:var(--accent); }
 .ac-note { font-size:12px; color:var(--muted); line-height:1.45; }
 `;
     document.head.appendChild(st);
@@ -111,7 +116,7 @@
   /* ---------- progress ---------- */
   const state = () => {
     const a = (BT.data.settings && BT.data.settings.academy) || {};
-    return { lessons: { ...(a.lessons || {}) }, achievements: { ...(a.achievements || {}) }, certificate: a.certificate || null, liveAt: a.liveAt || null };
+    return { lessons: { ...(a.lessons || {}) }, achievements: { ...(a.achievements || {}) }, certificate: a.certificate || null, liveAt: a.liveAt || null, resources: { ...(a.resources || {}) } };
   };
   const put = (a) => BT.save('settings', { academy: a });
   const isDone = (a, id) => !!(a.lessons[id] && a.lessons[id].done);
@@ -144,6 +149,7 @@
       case 'treatments': return treatmentsCount() >= n;
       case 'checkins': return checkinsCount() >= n;
       case 'live_used': return !!a.liveAt;
+      case 'resources_opened': return Object.keys(a.resources).length >= n;
       case 'records_365d': return recordsSpan365();
       default: return false;
     }
@@ -196,9 +202,19 @@
   };
   const bar = (n, d) => `<div class="ac-bar ${n >= d ? 'done' : ''}" role="progressbar" aria-valuenow="${n}" aria-valuemin="0" aria-valuemax="${d}"><i style="width:${d ? (n / d) * 100 : 0}%"></i></div>`;
   const link = (r, inner, cls = '') => `<a class="${cls}" href="${esc(r.url)}" target="_blank" rel="noopener noreferrer">${inner}</a>`;
-  const resRow = (r, from) => link(r, `<span class="ic-w">${BT.icon(typeOf(r.type)[2], 18)}</span><span class="grow"><span class="row gap-s wrap" style="margin-bottom:3px"><span class="pill blue">${esc(typeOf(r.type)[1])}</span></span><span class="t" style="display:block">${esc(r.title)} ${BT.icon('external', 13, 'ac-ext')}</span><span class="s" style="display:block">${esc(r.source)}</span>${r.why ? `<span class="w" style="display:block">${esc(r.why)}</span>` : ''}${from ? `<span class="s" style="display:block">From: ${esc(from)}</span>` : ''}</span>`, 'ac-res');
+  const viewedAt = (a, r) => (a.resources || {})[r.url] || 0;
+  const resRow = (r, from, a = state()) => { const seen = viewedAt(a, r); return link(r, `<span class="ic-w">${BT.icon(typeOf(r.type)[2], 18)}</span><span class="grow"><span class="row gap-s wrap" style="margin-bottom:3px"><span class="pill blue">${esc(typeOf(r.type)[1])}</span>${seen ? `<span class="ac-seen">${BT.icon('check', 13)} Viewed ${esc(BT.fmt.date(seen))}</span>` : ''}</span><span class="t" style="display:block">${esc(r.title)} ${BT.icon('external', 13, 'ac-ext')}</span><span class="s" style="display:block">${esc(r.source)}</span>${r.why ? `<span class="w" style="display:block">${esc(r.why)}</span>` : ''}${from ? `<span class="s" style="display:block">From: ${esc(from)}</span>` : ''}</span>`, 'ac-res' + (seen ? ' viewed' : '')).replace('<a class=', `<a data-rurl="${esc(r.url)}" class=`); };
+  // Opening a resource (lesson or library) records it by URL, so the same link counts as viewed everywhere (#75).
+  function markOpened(url) {
+    const a = state(); if (a.resources[url]) return;
+    const y = window.scrollY; a.resources[url] = Date.now(); put(a); check(a);
+    [60, 200].forEach((ms) => setTimeout(() => window.scrollTo(0, y), ms)); // the re-render must not jump the page
+  }
+  const onOpen = (e) => { const el = e.target.closest && e.target.closest('a[data-rurl]'); if (el) markOpened(el.dataset.rurl); };
+  document.addEventListener('click', onOpen); document.addEventListener('auxclick', onOpen);
+
   const loadingView = (root, title) => {
-    root.innerHTML = `${title ? BT.navHeader(title) : '<header class="page-h"><h1 class="title-xl">Academy</h1><span></span></header>'}
+    root.innerHTML = `${BT.navHeader(title || 'Academy')}
       <div class="empty">${loadErr ? 'The Academy could not load. Check your connection and open it again.' : 'Loading the Academy'}</div>`;
   };
   const safety = '<p class="disclaimer">Education only, not medical advice. Injecting is a licensed medical procedure; technique training goes through accredited professional courses.</p>';
@@ -213,7 +229,7 @@
   };
   BT.bindAcademyCard = (root) => {
     const b = root.querySelector('[data-acad-today]'); if (!b) return;
-    b.onclick = () => { const nx = nextLesson(); nx ? BT.go('acad-lesson', nx.id) : BT.go('acad-cert'); };
+    b.onclick = () => BT.go('academy');
   };
 
   /* ---------- HOME ---------- */
@@ -227,7 +243,7 @@
         const lo = i * 25, fill = Math.max(0, Math.min(1, (s.pct - lo) / 25));
         return `<div class="ac-mile ${s.pct >= m ? 'on' : ''}"><i><b style="width:${fill * 100}%"></b></i><span>${m}%</span></div>`;
       }).join('');
-      let h = `<header class="page-h"><h1 class="title-xl">Academy</h1><span></span></header>
+      let h = `${BT.navHeader('Academy')}
         <section class="card"><div class="ac-top">${ring(s.pct)}<div class="stack-s">
           <div class="eyebrow">Botox Academy</div>
           <div class="li-title" style="font-size:17px">${s.done} of ${s.total} lessons</div>
@@ -348,7 +364,7 @@
           <div class="note">Reference from published labeling or consensus, not a plan. Your injector decides placement and dose.</div>
           <dl>${p.points != null ? `<div><dt>Injection points</dt><dd class="num">${esc(p.points)}</dd></div>` : ''}${p.unitsTotal ? `<div><dt>Units</dt><dd>${esc(p.unitsTotal)}</dd></div>` : ''}${p.notes ? `<div><dt>Notes</dt><dd>${esc(p.notes)}</dd></div>` : ''}</dl></section>`;
       }
-      if (l.resources && l.resources.length) h += `<section class="card"><div class="card-h"><h3>Watch and read</h3><span class="tiny muted">Opens in a new tab</span></div><div class="list">${l.resources.map((r) => resRow(r)).join('')}</div></section>`;
+      if (l.resources && l.resources.length) h += `<section class="card"><div class="card-h"><h3>Watch and read</h3><span class="tiny muted" data-rcount>Resources: ${l.resources.filter((r) => viewedAt(a, r)).length} of ${l.resources.length} viewed</span></div><div class="tiny muted" style="margin:-6px 0 4px">Opens in a new tab</div><div class="list">${l.resources.map((r) => resRow(r, '', a)).join('')}</div></section>`;
       h += `<section class="card"><div class="card-h"><h3>Quiz</h3><span class="tiny muted">${l.quiz.length} questions</span></div><div class="stack" data-quiz>${quizHtml(l, a)}</div></section>`;
       h += `<div class="row gap" data-nav>${done ? (nx ? `<button class="btn primary grow" data-next="${esc(nx.id)}">Next: ${esc(nx.title)}</button>` : `<button class="btn primary grow" data-go="acad-cert">${BT.icon('award', 18)} View certificate</button>`) : ''}</div>${safety}`;
       root.innerHTML = h;
@@ -472,6 +488,28 @@
     markLive: () => { const a = state(); if (a.liveAt) return; a.liveAt = Date.now(); put(a); check(a); },
   };
 
+  /* ---------- 'Learn about this' links (#74) ----------
+     BT.academyLearn(muscleId) -> html for a small link, or '' when no lesson covers that muscle.
+     Face Map sheets go straight to the lesson; the Log Injection form opens a preview sheet first so a half-filled log is never closed. */
+  const lessonFor = (id) => {
+    if (!C || !id) return null;
+    const cs = C.courses.filter((c) => (c.muscleIds || []).includes(id)), c = cs.find((x) => x.group === 'Treatments') || cs[0];
+    return c ? c.lessons[0] : null;
+  };
+  BT.academyLearn = (id, mode = 'go') => { const l = lessonFor(id); return l ? `<button type="button" class="ac-learn" data-learn="${esc(l.id)}" data-mode="${mode}">${BT.icon('cap', 15)} Learn about this</button>` : ''; };
+  document.addEventListener('click', (e) => {
+    const b = e.target.closest && e.target.closest('[data-learn]'); if (!b) return;
+    e.preventDefault(); e.stopPropagation();
+    const l = LESSON.get(b.dataset.learn); if (!l) return;
+    const wrap = b.closest('.sheet-wrap'), closeAll = () => document.querySelectorAll('.sheet-wrap:not([data-closing]) [data-x]').forEach((x) => x.click());
+    if (b.dataset.mode === 'peek') {
+      const sh = BT.sheet({ title: l.course.title });
+      const intro = l.body.filter((x) => typeof x === 'string' || !x.type || x.type === 'text').slice(0, 2).map(block).join('');
+      sh.body.innerHTML = `<div class="stack"><div class="ac-prose">${intro}</div><button class="btn primary" data-open>Open the full lesson</button><div class="tiny muted">Opening the lesson closes this form. Close this sheet to stay.</div></div>`;
+      sh.body.querySelector('[data-open]').onclick = () => { closeAll(); BT.go('acad-lesson', l.id); };
+    } else { closeAll(); BT.go('acad-lesson', l.id); }
+  }, true);
+
   let certUrl = null;
   BT.screen('acad-cert', {
     title: 'Certificate',
@@ -503,28 +541,31 @@
   });
 
   /* ---------- RESOURCES ---------- */
-  const lib = { type: 'all', q: '' };
+  const lib = { type: 'all', q: '', seen: 'all' };
   BT.screen('acad-resources', {
     title: 'Resources',
     render(root) {
       if (!C) return loadingView(root, 'Resources');
       const seen = new Map();
       ALL.forEach((l) => (l.resources || []).forEach((r) => { if (!seen.has(r.url)) seen.set(r.url, { ...r, from: l.title }); }));
-      const items = [...seen.values()];
+      const items = [...seen.values()], av = state();
+      const nViewed = items.filter((r) => viewedAt(av, r)).length;
       const counts = {}; items.forEach((r) => (counts[r.type] = (counts[r.type] || 0) + 1));
       root.innerHTML = `${BT.navHeader('Resources')}
         <div class="ac-search">${BT.icon('search', 18)}<input class="input" type="search" placeholder="Search titles and sources" aria-label="Search resources" value="${esc(lib.q)}" data-q></div>
         <div class="ac-filters" role="tablist">${[['all', 'All', items.length], ...TYPES.filter((t) => counts[t[0]]).map((t) => [t[0], t[1], counts[t[0]]])].map(([v, lbl, n]) => `<button class="chip ${lib.type === v ? 'on' : ''}" data-t="${v}" role="tab" aria-selected="${lib.type === v}">${esc(lbl)} <span class="faint">${n}</span></button>`).join('')}</div>
+        <div class="ac-filters" role="tablist" aria-label="Viewed">${[['all', 'Any status', items.length], ['viewed', 'Viewed', nViewed], ['new', 'Not viewed', items.length - nViewed]].map(([v, lbl, n]) => `<button class="chip ${lib.seen === v ? 'on' : ''}" data-s="${v}" role="tab" aria-selected="${lib.seen === v}">${esc(lbl)} <span class="faint">${n}</span></button>`).join('')}</div>
         <section class="card" style="padding-top:4px;padding-bottom:4px"><div class="list" data-list></div></section>
         <p class="disclaimer">Links open the original source in a new tab. Checked ${esc(C.checked || '')}.</p>`;
       const list = root.querySelector('[data-list]');
       const draw = () => {
         const q = lib.q.toLowerCase();
-        const show = items.filter((r) => (lib.type === 'all' || r.type === lib.type) && (!q || (r.title + ' ' + r.source + ' ' + (r.why || '') + ' ' + r.from).toLowerCase().includes(q)));
-        list.innerHTML = show.length ? show.map((r) => resRow(r, r.from)).join('') : '<div class="empty" style="padding:20px">No resources match.</div>';
+        const show = items.filter((r) => (lib.type === 'all' || r.type === lib.type) && (lib.seen === 'all' || (lib.seen === 'viewed') === !!viewedAt(av, r)) && (!q || (r.title + ' ' + r.source + ' ' + (r.why || '') + ' ' + r.from).toLowerCase().includes(q)));
+        list.innerHTML = show.length ? show.map((r) => resRow(r, r.from, av)).join('') : '<div class="empty" style="padding:20px">No resources match.</div>';
         list.dataset.count = show.length;
       };
       draw();
+      root.querySelectorAll('[data-s]').forEach((b) => (b.onclick = () => { lib.seen = b.dataset.s; root.querySelectorAll('[data-s]').forEach((x) => { x.classList.toggle('on', x === b); x.setAttribute('aria-selected', String(x === b)); }); draw(); }));
       root.querySelectorAll('[data-t]').forEach((b) => (b.onclick = () => { lib.type = b.dataset.t; root.querySelectorAll('[data-t]').forEach((x) => { x.classList.toggle('on', x === b); x.setAttribute('aria-selected', String(x === b)); }); draw(); }));
       root.querySelector('[data-q]').oninput = (e) => { lib.q = e.target.value; draw(); };
     },
