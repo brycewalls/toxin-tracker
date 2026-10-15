@@ -458,8 +458,10 @@
     try { root.innerHTML = ''; s.render(root, BT.route.param); }
     catch (e) { console.error(e); root.innerHTML = `<div class="empty">Something went wrong on this screen.<br><small>${BT.esc(e.message)}</small></div>`; }
   };
-  // Standard pushed-screen header: BT.navHeader('Title', rightHtml)
-  BT.navHeader = (title, right = '') => `<header class="nav-h"><button class="icon-btn" onclick="BT.back()" aria-label="Back">${BT.icon('back', 22)}</button><h1>${BT.esc(title)}</h1><div class="nav-r">${right}</div></header>`;
+  // Standard pushed-screen header: BT.navHeader('Title', rightHtml). The back button has no inline onclick (#56: the
+  // hosted CSP blocks inline handlers); one delegated listener handles every [data-nav-back].
+  document.addEventListener('click', (e) => { if (e.target.closest && e.target.closest('[data-nav-back]')) BT.back(); });
+  BT.navHeader = (title, right = '') => `<header class="nav-h"><button class="icon-btn" data-nav-back aria-label="Back">${BT.icon('back', 22)}</button><h1>${BT.esc(title)}</h1><div class="nav-r">${right}</div></header>`;
 
   /* ---------- sample data (clearly marked) ---------- */
   BT.loadSample = () => {

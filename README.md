@@ -2,8 +2,7 @@
 
 A Botox injection tracker modeled on PepPedia's UI.
 
-- **Web app (live):** https://toxin-tracker-bw.web.app, Firebase project `toxin-tracker-bw` (Spark plan), Google sign-in.
-- **Prototype:** the claude.ai artifact at https://claude.ai/artifact/XdzP7PhNk37YPSANBAehnZ, published from the same `app/` files.
+- **Web app:** https://toxin-tracker-bw.web.app (also served at https://toxin-tracker-bw.firebaseapp.com), Firebase project `toxin-tracker-bw` (Spark plan), Google sign-in. This is the only deploy target. The claude.ai artifact prototype is retired (#62) and is not republished.
 
 This README is the guide to how work on this project is tracked. Design notes and decisions stay in the project folder in Cowork.
 
@@ -14,16 +13,76 @@ This README is the guide to how work on this project is tracked. Design notes an
 
 ## What is in here
 
-- `app/index.html` is the artifact page body. `app/core.js` is the shared contract (data, storage, the `window.claude` runtime calls); `facemap.js`, `today.js`, `log.js`, `history.js` and `stock.js` are one tab each.
-- `app/preview.html` loads `index.html` and runs its scripts in order, so the app opens outside claude.ai. This is the page CI tests; `index.html` itself is in `tools/smoke.ignore` because it is a fragment.
-- `app/cloud.js` is the Firebase backend, loaded only by the hosted build: the Google sign-in screen, then Firestore `users/{uid}/records/{kind__id}` (one document per record, `{kind, rec}`). `core.js` uses it when `window.BT_CLOUD` exists and the `window.claude` db otherwise. Photos are stored as compressed JPEGs inside their records, because Firebase Storage needs the Blaze plan.
+- `app/index.html` is the page body: the stylesheet, the app shell and the tab bar, then one `<script src>` per file. `app/core.js` is the shared contract (data, storage, router); `facemap.js`, `today.js`, `log.js`, `history.js`, `stock.js` and `academy.js` are one tab each, and `app/boot.js` runs last (tab icons, tab bar, first render, countdowns). There is no inline script or inline event handler anywhere (see Security headers).
+- `app/preview.html` loads `index.html` and runs its scripts in order, with local sample data and no sign-in. This is the page CI tests; `index.html` itself is in `tools/smoke.ignore` because it is a fragment. `core.js` still falls back to localStorage (and the old `window.claude` db, if present) when `window.BT_CLOUD` is missing; only the preview uses that path.
+- `app/cloud.js` is the Firebase backend, loaded only by the hosted build: the Google sign-in screen, then Firestore `users/{uid}/records/{kind__id}` (one document per record, `{kind, rec}`). `core.js` uses it whenever `window.BT_CLOUD` exists. Photos are stored as compressed JPEGs inside their records, because Firebase Storage needs the Blaze plan.
 - `tools/build.mjs` wraps `app/index.html` in a full document, adds the Firebase SDK, `cloud.js` and `offline.js`, copies the scripts, `web/` (icons, manifest) and the vendored third-party files (see Vendored code) into `dist/` (git-ignored), and generates `dist/sw.js` from `tools/sw.template.js`.
 - **Offline (#52):** `dist/sw.js` precaches the app shell (page, scripts, icons, manifest, the vendored Firebase SDK) under a cache named for a hash of the build, so the app opens with no connection. It never caches Firestore, Auth or `/__/` traffic. `app/offline.js` (hosted build only) registers it, shows 'Update ready' when a deploy lands, and shows the offline banner and 'Synced' toast. Firestore's offline cache holds the log and queues changes; `core.js` listens to the records collection live. Sign-out runs `BT_CLOUD.wipeLocal()`, which clears Firestore's local cache and the runtime caches. Firestore's offline cache opens only after sign-in.
 - **Privacy (#53, #54):** no account address ships to Hosting. Who may use the app lives only in `firebase/firestore.rules` (deployed to Firestore, never served); after sign-in `cloud.js` reads one of the person's own records from the server, and `permission-denied` turns the account away with 'This app is private'. An approved account with no records passes, and offline the check is skipped (the rules still guard the server). Sign-out, the idle timeout and a denied account all run one `endSession()`: Auth sign-out, then `BT_CLOUD.wipeLocal()` (terminate Firestore, `clearPersistence()`, delete every cache but the `tt-shell-*` app shell, clear the in-memory log), then reload. The idle timeout defaults to 30 minutes with a 60-second 'Still there?' warning; Settings sets 15, 30 or 60 minutes or 'Never on this device', stored in this device's localStorage. It compares a stored last-active time on return, since iOS freezes timers in the background. Export CSV needs a Google sign-in from the last 10 minutes (`BT_CLOUD.requireRecentAuth()`); 'Delete all my data' (#59) should use the same helper.
-- **Botox Academy (#69):** `app/academy.js` is the Learn tab: courses, lessons, quizzes, a resources library, achievements and a certificate. The content is `research/2026-10-15_botox-academy-content.json` (sources in `research/2026-10-15_botox-academy-research.md`); `tools/build.mjs` writes it to `dist/academy.json`, which the service worker precaches with the shell. `app/preview.html` reads the research file directly; a claude.ai artifact publish needs the same file published as `academy.json`. Progress is `settings.academy` (`lessons`, `achievements`, `certificate`, `liveAt`), so it syncs like any setting. Edit lessons in the JSON, not in the script, and keep the safety framing: education about how qualified injectors treat, no self-injection, sourcing or reconstitution instructions.
+- **Botox Academy (#69):** `app/academy.js` is the Learn tab: courses, lessons, quizzes, a resources library, achievements and a certificate. The content is `research/2026-10-15_botox-academy-content.json` (sources in `research/2026-10-15_botox-academy-research.md`); `tools/build.mjs` writes it to `dist/academy.json`, which the service worker precaches with the shell. `app/preview.html` reads the research file directly. Progress is `settings.academy` (`lessons`, `achievements`, `certificate`, `liveAt`), so it syncs like any setting. Edit lessons in the JSON, not in the script, and keep the safety framing: education about how qualified injectors treat, no self-injection, sourcing or reconstitution instructions.
 - `firebase/firestore.rules` lets each approved, signed-in person read and write only their own records. Keep addresses out of its comments.
 - **Sign-in setup outside the repo:** the Google provider is on in Firebase Authentication, and the auto-created OAuth web client in Google Cloud Console lists `https://toxin-tracker-bw.web.app` as a JavaScript origin and `https://toxin-tracker-bw.web.app/__/auth/handler` as a redirect URI. Without the redirect URI, sign-in fails with `redirect_uri_mismatch` (#9). A custom domain needs both added the same way.
 - `replica/` holds the PepPedia recon (screens, feature list) the UI was copied from.
+
+## Privacy
+
+The app holds health records for two people, so the setup keeps them on as few machines and services as possible.
+
+- **Two accounts, enforced by the server.** `firebase/firestore.rules` lets in only two approved, verified Google accounts, and each one reads and writes only `users/{their uid}/records`. The list lives only in the rules, which deploy to Firestore and are never served; no address ships in the hosted files (#53). Any other account signs in to Google but gets 'This app is private' and nothing from the database.
+- **No analytics, no third-party trackers.** There is no Google Analytics, no measurement ID, no error reporting service and no font or script CDN. The only outside hosts the page talks to are Google sign-in and Firestore (see the CSP below). Nothing logs record contents to the console.
+- **Wipe on sign-out and idle.** Sign-out, the idle timeout (default 30 minutes, set in Settings) and a denied account all run `endSession()`: Auth sign-out, then `BT_CLOUD.wipeLocal()` clears Firestore's offline cache, every runtime cache except the app shell, and the in-memory log, then the page reloads (#54). The service worker never stores records, photos or account data.
+- **Vendored code with hashes.** Every third-party file the app runs is served from our own host and checked against its SHA-256 in `tools/vendor.lock.json` at build time, and the Firebase scripts carry SRI (see Vendored code, #55). The one exception is Google's sign-in loader (`apis.google.com/js/api.js`), which the Firebase Auth SDK fetches itself for the popup and redirect flows; it cannot be vendored.
+- **Backups: none on Spark.** The Spark plan has no scheduled Firestore exports or point-in-time recovery, and this project does not run any. Export CSV in Settings is the backup: export after a batch of changes and keep the file somewhere private. Export asks for a Google sign-in from the last 10 minutes.
+
+## Security headers
+
+`firebase.json` sends these on every page and file of both hosting domains (#56). Firebase's own `/__/` paths (the Auth handler and iframe) are left out, so `frame-ancestors` and `X-Frame-Options` never block the sign-in iframe.
+
+| Header | Value |
+|---|---|
+| Content-Security-Policy | see below |
+| X-Frame-Options | `DENY` |
+| Permissions-Policy | `camera=(self), microphone=(), geolocation=(), payment=()` |
+| Strict-Transport-Security | `max-age=31536000; includeSubDomains` |
+| Referrer-Policy | `strict-origin-when-cross-origin` |
+| X-Content-Type-Options | `nosniff` |
+
+The Content-Security-Policy, one directive per line:
+
+```
+default-src 'self'
+script-src 'self' 'wasm-unsafe-eval' https://apis.google.com
+style-src 'self' 'unsafe-inline'
+img-src 'self' data: blob:
+connect-src 'self' blob: https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://www.googleapis.com
+frame-src https://toxin-tracker-bw.firebaseapp.com https://toxin-tracker-bw.web.app https://accounts.google.com
+worker-src 'self' blob:
+media-src 'self' blob:
+object-src 'none'
+frame-ancestors 'none'
+base-uri 'self'
+form-action 'self'
+```
+
+Why each exception is there:
+
+- `script-src 'wasm-unsafe-eval'`: MediaPipe compiles its WebAssembly face tracker for the Live view. It allows wasm compilation only, not `eval`.
+- `script-src https://apis.google.com`: Firebase Auth loads Google's gapi loader for the sign-in iframe, eagerly on Safari and iOS and on the first sign-in elsewhere. Without it, sign-in fails on iPhone.
+- `style-src 'unsafe-inline'`: the stylesheet is the `<style>` block in `index.html`, `cloud.js` and `offline.js` add their own `<style>` elements, and the screens use `style=""` attributes for computed values (bar widths, colors, positions). Inline styles cannot run code, and scripts stay strict, so this is the usual trade.
+- `connect-src blob:`: `app/livecam.js` checks the wasm binary's SHA-256, then hands it to MediaPipe as a `blob:` URL, which MediaPipe fetches.
+- `connect-src` Google hosts: Firestore (WebChannel and long-polling both use `firestore.googleapis.com`), Auth (`identitytoolkit`, `securetoken`), and `www.googleapis.com` for Auth's project config lookup.
+- `frame-src`: the Auth iframe runs on the auth domain, which is whichever hosting domain the app was opened on (`cloud.js`), and `accounts.google.com` covers Google's own frames.
+- `img-src data: blob:` and `media-src blob:`: icons, photo previews, the certificate image and the camera stream.
+
+No inline `<script>` and no inline event handler (`onclick=` and the like) exist in `app/`; keep it that way, or the CSP blocks them. Use `addEventListener` or a delegated listener, as `BT.navHeader`'s `[data-nav-back]` does.
+
+**How it was tested:** a local static server applied the `firebase.json` headers to `dist/` and Playwright checked Chromium and WebKit for zero CSP violations on the sign-in gate (including the Auth iframe, and the Google sign-in popup in Chromium), every tab and pushed screen with the cloud stubbed, the Live view with a fake camera through to tracking, and service worker registration plus an offline reload.
+
+**After every deploy that touches headers:**
+
+1. `curl -sI https://toxin-tracker-bw.web.app/ | grep -iE 'content-security|frame|permissions|strict|referrer|nosniff'` and the same for `https://toxin-tracker-bw.firebaseapp.com/`. All six headers should show on both.
+2. `curl -sI https://toxin-tracker-bw.web.app/__/auth/iframe` should show no `X-Frame-Options` and no `frame-ancestors`.
+3. A real Google sign-in on the iPhone (Safari and the home-screen app) and on a desktop browser, with the console open on desktop: no 'Refused to' or Content Security Policy messages. Then open Live, and go offline once.
 
 ## Vendored code
 
@@ -43,7 +102,7 @@ Nothing the app runs loads from a CDN (#55). The Firebase compat SDK 10.14.1, Me
 3. **A pull request brings it back to `main`** with `Closes #12` in the body. CI opens the app at desktop and phone widths on the PR.
 4. **Merging to `main` is the build.** CI runs again and keeps screenshots.
 5. **A tag makes a release** when a version is worth marking: `git tag v0.1 && git push origin main --tags`. CI attaches a zip of the site.
-6. **Deploy** from an up-to-date `main` with `bash tools/deploy.sh` (hosting plus Firestore rules, needs the Firebase CLI logged in on this Mac), and republish the artifact if the prototype should match. Then clear the `deploy pending` label. If it broke, open a bug that links the release.
+6. **Deploy** from an up-to-date `main` with `bash tools/deploy.sh` (hosting plus Firestore rules, needs the Firebase CLI logged in on this Mac). Then run the post-deploy checks under Security headers and clear the `deploy pending` label. If it broke, open a bug that links the release.
 
 ## Versions and What's New
 
