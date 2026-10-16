@@ -51,7 +51,8 @@
     background: radial-gradient(120% 70% at 85% 0%, var(--hero-2) 0%, transparent 60%), linear-gradient(170deg, var(--hero-1), color-mix(in srgb, var(--hero-1) 55%, #000));
     padding: calc(env(safe-area-inset-top, 0px) + 48px) 24px calc(env(safe-area-inset-bottom, 0px) + 32px); }
   .gate-in { max-width: 420px; width: 100%; margin: 0 auto; display: grid; align-content: center; gap: 14px; }
-  .gate-mark { width: 64px; height: 64px; border-radius: 20px; display: grid; place-items: center; background: color-mix(in srgb, var(--hero-fg) 14%, transparent); border: 1px solid color-mix(in srgb, var(--hero-fg) 25%, transparent); }
+  .gate-mark { width: 76px; height: 76px; border-radius: 17px; overflow: hidden; box-shadow: 0 0 0 1px color-mix(in srgb, var(--hero-fg) 30%, transparent), 0 10px 28px rgba(0, 0, 0, .28); }
+  .gate-mark img { display: block; width: 100%; height: 100%; }
   .gate h1 { font-size: 34px; font-weight: 500; letter-spacing: -.02em; margin-top: 10px; }
   .gate p { margin: 0; color: color-mix(in srgb, var(--hero-fg) 75%, transparent); font-size: 16px; line-height: 1.5; }
   .gate-foot { max-width: 420px; width: 100%; margin: 0 auto; display: grid; gap: 14px; }
@@ -68,7 +69,7 @@
       gate = document.createElement('section');
       gate.className = 'gate';
       gate.setAttribute('aria-label', 'Sign in');
-      gate.innerHTML = `<div class="gate-in"><div class="gate-mark">${window.BT ? BT.icon('syringe', 30) : ''}</div>
+      gate.innerHTML = `<div class="gate-in"><div class="gate-mark"><img src="icon.svg" alt="" width="76" height="76"></div>
         <h1>Toxin Tracker</h1>
         <p>Log every treatment on a muscle map, keep your vials and reactions in one place, and know when you can work out again.</p></div>
         <div class="gate-foot"><div class="gate-err" role="status" hidden></div>
