@@ -302,7 +302,14 @@
   });
 
   /* ---------- LESSON ---------- */
-  const quiz = {}; // lessonId -> {picks: [], practice} in memory, so re-renders keep the answers
+  // lessonId -> {picks, order, practice} in memory, so re-renders keep the answers (#89).
+  // picks[questionIndex] is the ORIGINAL choice index, so grading is by choice identity, never by screen position.
+  // order is the shuffled display: [{qi: original question index, ci: [original choice indexes in display order]}].
+  const quiz = {};
+  const shuffled = (n) => { const r = Array.from({ length: n }, (_, i) => i); for (let i = n - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [r[i], r[j]] = [r[j], r[i]]; } return r; };
+  const newQuiz = (l, practice) => ({ picks: [], practice: !!practice, order: shuffled(l.quiz.length).map((qi) => ({ qi, ci: shuffled(l.quiz[qi].choices.length) })) });
+  const shownRoute = {}; // lessonId -> the BT.route object the quiz was last shuffled for
+  const quizOf = (l) => (quiz[l.id] ||= newQuiz(l));
   let fm = null;
   const block = (b) => {
     if (typeof b === 'string') return `<p>${esc(b)}</p>`;
@@ -312,20 +319,21 @@
   };
 
   function quizHtml(l, a) {
-    const q = (quiz[l.id] ||= { picks: [] }), rec = a.lessons[l.id] || {}, done = !!rec.done;
+    const q = quizOf(l), rec = a.lessons[l.id] || {}, done = !!rec.done;
     if (done && !q.practice) {
       return `<div class="ac-result pass"><div class="row gap"><span class="check-ring">${BT.icon('check', 16)}</span><div><div class="li-title">Quiz passed</div><div class="li-sub">${rec.firstTryPerfect ? 'Perfect on the first try.' : 'All answers right.'} Completed ${esc(BT.fmt.date(rec.at))}.</div></div></div>
         <button class="btn sm" data-practice>Practice again</button></div>`;
     }
     const answered = q.picks.filter((p) => p != null).length, total = l.quiz.length;
-    const items = l.quiz.map((qq, i) => {
-      const pick = q.picks[i];
-      const choices = qq.choices.map((c, j) => {
+    const items = q.order.map((o, pos) => {
+      const i = o.qi, qq = l.quiz[i], pick = q.picks[i];
+      const choices = o.ci.map((j, k) => {
+        const c = qq.choices[j];
         const cls = pick == null ? '' : j === qq.answer ? 'right' : j === pick ? 'wrong' : '';
-        return `<button class="ac-ch ${cls}" data-q="${i}" data-c="${j}" ${pick != null ? 'disabled' : ''} aria-pressed="${pick === j}"><span class="k">${pick != null && j === qq.answer ? BT.icon('check', 13) : 'ABCDEF'[j]}</span><span>${esc(c)}</span></button>`;
+        return `<button class="ac-ch ${cls}" data-q="${i}" data-c="${j}" ${pick != null ? 'disabled' : ''} aria-pressed="${pick === j}"><span class="k">${pick != null && j === qq.answer ? BT.icon('check', 13) : 'ABCDEF'[k]}</span><span>${esc(c)}</span></button>`;
       }).join('');
       const ex = pick == null ? '' : `<div class="ac-ex ${pick === qq.answer ? 'ok' : 'no'}" role="status"><b>${pick === qq.answer ? 'Correct.' : 'Not quite.'}</b> ${esc(qq.explain)}</div>`;
-      return `<div class="ac-q"><div class="qn">Question ${i + 1} of ${total}</div><div class="qq">${esc(qq.q)}</div>${choices}${ex}</div>`;
+      return `<div class="ac-q"><div class="qn">Question ${pos + 1} of ${total}</div><div class="qq">${esc(qq.q)}</div>${choices}${ex}</div>`;
     }).join('');
     let foot = '';
     if (answered === total) {
@@ -337,7 +345,20 @@
     return items + foot;
   }
 
-  function nextAfter(l) { const i = ALL.indexOf(LESSON.get(l.id)); return ALL[i + 1] || null; }
+  // End-of-lesson action depends on overall progress, not on this lesson's position (#90).
+  function nextIncomplete(l, a) {
+    const i = ALL.indexOf(LESSON.get(l.id));
+    return ALL.slice(i + 1).find((x) => !isDone(a, x.id)) || ALL.find((x) => x.id !== l.id && !isDone(a, x.id)) || null;
+  }
+  function lessonEnd(l, a, done) {
+    if (!done) return '<div class="row gap" data-nav></div>';
+    const s = stats(a), nx = nextIncomplete(l, a);
+    if (!nx || s.done === s.total) return `<div class="row gap" data-nav><button class="btn primary grow" data-go="acad-cert">${BT.icon('award', 18)} See your certificate</button></div>`;
+    const left = s.total - s.done;
+    return `<div class="stack" data-nav><button class="btn primary" style="width:100%" data-next="${esc(nx.id)}">Next lesson: ${esc(nx.title)}</button>
+      <button class="btn" style="width:100%" data-course="${esc(l.course.id)}">Back to course</button>
+      <div class="li-sub" style="text-align:center">${left} ${left === 1 ? 'lesson' : 'lessons'} left for your certificate</div></div>`;
+  }
 
   BT.screen('acad-lesson', {
     title: 'Lesson',
@@ -345,7 +366,9 @@
       if (fm) { try { fm.destroy(); } catch (e) {} fm = null; }
       if (!C) return loadingView(root, 'Lesson');
       const l = LESSON.get(id); if (!l) { root.innerHTML = BT.navHeader('Lesson') + '<div class="empty">That lesson is not in this version of the Academy.</div>'; return; }
-      const c = l.course, a = state(), done = isDone(a, l.id), nx = nextAfter(l);
+      const c = l.course, a = state(), done = isDone(a, l.id);
+      // Every opening of the lesson (a new route) reshuffles; a re-render of the same opening keeps order and answers.
+      if (shownRoute[l.id] !== BT.route) { shownRoute[l.id] = BT.route; quiz[l.id] = newQuiz(l, quiz[l.id] && quiz[l.id].practice); }
       const mapIds = (c.muscleIds || []).filter((m) => BT.muscles.some((x) => x.id === m));
       const avoid = (c.muscleIds || []).map((m) => BT.cautionZones.find((z) => z.id === m)).filter(Boolean);
       const names = [...new Set(mapIds.map((m) => BT.site(m).muscle))];
@@ -366,7 +389,7 @@
       }
       if (l.resources && l.resources.length) h += `<section class="card"><div class="card-h"><h3>Watch and read</h3><span class="tiny muted" data-rcount>Resources: ${l.resources.filter((r) => viewedAt(a, r)).length} of ${l.resources.length} viewed</span></div><div class="tiny muted" style="margin:-6px 0 4px">Opens in a new tab</div><div class="list">${l.resources.map((r) => resRow(r, '', a)).join('')}</div></section>`;
       h += `<section class="card"><div class="card-h"><h3>Quiz</h3><span class="tiny muted">${l.quiz.length} questions</span></div><div class="stack" data-quiz>${quizHtml(l, a)}</div></section>`;
-      h += `<div class="row gap" data-nav>${done ? (nx ? `<button class="btn primary grow" data-next="${esc(nx.id)}">Next: ${esc(nx.title)}</button>` : `<button class="btn primary grow" data-go="acad-cert">${BT.icon('award', 18)} View certificate</button>`) : ''}</div>${safety}`;
+      h += lessonEnd(l, a, done) + safety;
       root.innerHTML = h;
 
       const mapEl = root.querySelector('[data-map]');
@@ -375,6 +398,7 @@
         try { fm = BT.faceMap.mount(mapEl, { mode: 'display', heat, maxWidth: 240, zoom: false, caption: false, toggle: false }); } catch (e) { console.warn('face map', e); }
       }
       root.querySelectorAll('[data-go]').forEach((b) => (b.onclick = () => BT.go(b.dataset.go)));
+      root.querySelectorAll('[data-course]').forEach((b) => (b.onclick = () => BT.go('acad-course', b.dataset.course)));
       root.querySelectorAll('[data-next]').forEach((b) => (b.onclick = () => BT.go('acad-lesson', b.dataset.next, { replace: true })));
       bindQuiz(root, l);
     },
@@ -384,7 +408,7 @@
     const box = root.querySelector('[data-quiz]');
     const redraw = () => { box.innerHTML = quizHtml(l, state()); bindQuiz(root, l); };
     box.querySelectorAll('[data-c]').forEach((b) => (b.onclick = () => {
-      const q = (quiz[l.id] ||= { picks: [] }), i = +b.dataset.q;
+      const q = quizOf(l), i = +b.dataset.q;
       if (q.picks[i] != null) return;
       q.picks[i] = +b.dataset.c;
       const total = l.quiz.length, answered = q.picks.filter((p) => p != null).length;
@@ -395,8 +419,8 @@
       if (allRight) { redraw(); completeLesson(l.id, !(rec.tries > 0)); }
       else { a.lessons[l.id] = { ...rec, done: false, tries: (rec.tries || 0) + 1 }; redraw(); put(a); }
     }));
-    const rt = box.querySelector('[data-retry]'); if (rt) rt.onclick = () => { quiz[l.id] = { picks: [], practice: quiz[l.id] && quiz[l.id].practice }; redraw(); box.scrollIntoView({ block: 'start', behavior: 'smooth' }); };
-    const pr = box.querySelector('[data-practice]'); if (pr) pr.onclick = () => { quiz[l.id] = { picks: [], practice: true }; redraw(); };
+    const rt = box.querySelector('[data-retry]'); if (rt) rt.onclick = () => { quiz[l.id] = newQuiz(l, quiz[l.id] && quiz[l.id].practice); redraw(); box.scrollIntoView({ block: 'start', behavior: 'smooth' }); };
+    const pr = box.querySelector('[data-practice]'); if (pr) pr.onclick = () => { quiz[l.id] = newQuiz(l, true); redraw(); };
   }
 
   /* ---------- ACHIEVEMENTS ---------- */
