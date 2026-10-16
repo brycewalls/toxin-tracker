@@ -6,6 +6,17 @@
 (function () {
   BT.RELEASES = [
     {
+      version: '0.14', date: '2026-10-15', title: 'Polish and fixes',
+      items: [
+        'The Effect level chart now starts at your latest treatment, with today marked, instead of a long flat line.',
+        'Change or delete a photo right from Before & After.',
+        'Quiz questions and answers shuffle every time you take a quiz.',
+        'Finishing a lesson out of order now points you to the next lesson instead of a certificate you have not unlocked yet.',
+        'The sign-in page shows the new app icon.',
+        'The top of Today no longer looks cut off under the status bar.',
+      ],
+    },
+    {
       version: '0.13', date: '2026-10-15', title: 'Your progress stays put',
       items: [
         'Fixed Academy progress, and other settings, being lost after signing out and back in.',
