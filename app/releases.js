@@ -150,7 +150,7 @@
   ];
   // Planned work, shown under "Coming next". Keep it short and drop items once they ship.
   BT.UPCOMING = [
-    'Full-size photos.',
+    'Encrypt your log on your phone with a passphrase only you know, plus a full export of everything.',
   ];
   BT.VERSION = BT.RELEASES[0].version;
   BT.release = (v) => BT.RELEASES.find((r) => r.version === v) || null;
@@ -187,6 +187,7 @@
   BT.whatsNewCard = () => {
     const s = BT.data.settings;
     if (s.seenVersion === BT.VERSION) return '';
+    if (window.BT_CLOUD && !BT.isLoaded()) return ''; // settings are defaults until the first full load (#101)
     const r = BT.RELEASES[0];
     return `<section class="card stack-s" data-wn>
       <div class="row between gap"><span class="pill blue">New in ${BT.esc(r.version)}</span><button class="icon-btn" data-wn-x aria-label="Dismiss">${BT.icon('close', 18)}</button></div>
