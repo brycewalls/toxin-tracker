@@ -9,3 +9,7 @@ firebase-debug.log
 
 # Vendored third-party files, fetched once and checked against tools/vendor.lock.json (#55)
 .vendor-cache/
+
+# Approved accounts and the rules built from them (public repo: never commit these)
+firebase/allowlist.local
+firebase/.firestore.rules.deploy
