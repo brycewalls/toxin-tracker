@@ -83,6 +83,33 @@
   const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
   const intervalWeeks = () => BT.data.settings.intervalWeeks || 12;
   const effectMax = (t) => BT.data.injections.reduce((m, i) => Math.max(m, BT.effectAt(i, t)), 0);
+  // "Now forward" window for the Effect level chart (#87): starts a few days before the latest treatment's rise
+  // (or a few days before today when nothing is active), runs through the expected wear-off, and never puts
+  // today past the first third, so there is no long zero lead-in. Null with no treatments.
+  function effectWindow(now) {
+    const inj = BT.sortedInjections();
+    if (!inj.length) return null;
+    const wearEnd = Math.max(...inj.map((i) => i.at + BT.product(i.productId).wearWeeks * WEEK));
+    const end = Math.max(wearEnd + 7 * BT.DAY, now + 14 * BT.DAY), ahead = end - now;
+    let start = wearEnd > now ? inj[0].at - 3 * BT.DAY : now - 3 * BT.DAY;
+    start = Math.min(Math.max(start, now - ahead / 3), now - 3 * BT.DAY);
+    return { start, end };
+  }
+  // Small Today-card chart: curve over the window, a dashed line and a prominent dot for today with its percent.
+  function nowChart(win, now) {
+    const W = 200, H = 84, L = 8, R = 8, T = 22, B = 6, pw = W - L - R, ph = H - T - B, N = 90;
+    const sx = (t) => L + ((t - win.start) / (win.end - win.start)) * pw, sy = (v) => T + (1 - v) * ph;
+    const pts = []; for (let k = 0; k <= N; k++) { const t = win.start + ((win.end - win.start) * k) / N; pts.push([sx(t), sy(effectMax(t))]); }
+    const line = pts.map((q, i) => `${i ? 'L' : 'M'}${q[0].toFixed(1)},${q[1].toFixed(1)}`).join(' ');
+    const id = 'g' + BT.uid(), tx = sx(now), cur = effectMax(now), ty = sy(cur);
+    return `<svg viewBox="0 0 ${W} ${H}" width="100%" class="area" role="img" aria-label="Effect level from now through the expected wear-off" data-now-chart>
+      <defs><linearGradient id="${id}" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="var(--accent)" stop-opacity=".28"/><stop offset="1" stop-color="var(--accent)" stop-opacity="0"/></linearGradient></defs>
+      <path d="${line} L${pts[N][0].toFixed(1)},${T + ph} L${pts[0][0].toFixed(1)},${T + ph} Z" fill="url(#${id})"/>
+      <line x1="${tx}" x2="${tx}" y1="${T - 4}" y2="${T + ph}" stroke="var(--faint)" stroke-width="1" stroke-dasharray="2 3"/>
+      <path d="${line}" fill="none" stroke="var(--accent)" stroke-width="1.8" stroke-linejoin="round"/>
+      <circle cx="${tx}" cy="${ty}" r="5" fill="var(--accent)" stroke="var(--card)" stroke-width="2.5" data-today-dot/>
+      <text x="${tx}" y="${Math.max(12, ty - 10)}" text-anchor="${tx < 30 ? 'start' : 'middle'}" font-size="11" font-weight="600" fill="var(--fg)">${Math.round(cur * 100)}%</text></svg>`;
+  }
   const moodLabels = ['Rough', 'Low', 'Okay', 'Good', 'Great'];
 
   function intervalStepper(onChange) {
@@ -285,13 +312,16 @@
       h += `<section class="card"><div class="card-h"><h3>How are you?</h3><span class="tiny muted">Tap a day</span></div><div class="t-days">${days}</div></section>`;
 
       // Effect
-      if (last) {
-        const cur = Math.round(BT.effectAt(last, now) * 100), p = BT.product(last.productId);
-        const pts = []; for (let k = 120; k >= 0; k--) pts.push({ x: 120 - k, y: effectMax(now - k * BT.DAY) });
+      const ewin = effectWindow(now);
+      if (ewin) {
+        const cur = Math.round(effectMax(now) * 100), p = BT.product(last.productId);
         h += `<button class="card t-card-tap" data-go="effect"><div class="card-h"><span class="eyebrow">Effect level</span>${BT.icon('chevron', 18)}</div>
           <div class="row between" style="align-items:flex-end;gap:12px"><div><div class="big-num">${cur}<small>%</small></div><div class="small muted" style="margin-top:6px">${BT.esc(p.name)}, estimated</div></div>
-          <div style="width:58%">${BT.areaChart(pts, { w: 200, h: 70, yMax: 1 })}</div></div>
-          <div class="tiny faint" style="margin-top:8px">Last 120 days</div></button>`;
+          <div style="width:58%">${nowChart(ewin, now)}</div></div>
+          <div class="tiny faint" style="margin-top:8px">${BT.esc(BT.fmt.date(ewin.start))} to ${BT.esc(BT.fmt.date(ewin.end))}, through the expected wear-off</div></button>`;
+      } else {
+        h += `<section class="card"><div class="card-h"><span class="eyebrow">Effect level</span></div>
+          <div class="small muted" data-effect-empty>Log a treatment to see your estimated effect and when it wears off.</div></section>`;
       }
 
       // Next treatment
@@ -355,18 +385,25 @@
   }
 
   /* ---------- EFFECT TIMELINE ---------- */
-  let effRange = '90';
+  let effRange = 'now';
   BT.screen('effect', {
     title: 'Effect Timeline',
     render(root) {
-      const ranges = [['30', '30d'], ['90', '90d'], ['182', '6m'], ['365', '1y']];
+      const ranges = [['now', 'Now'], ['30', '30d'], ['90', '90d'], ['182', '6m'], ['365', '1y']];
       root.innerHTML = `${BT.navHeader('Effect Timeline')}
         <div class="chips" data-r>${ranges.map(([v, l]) => `<button class="chip ${v === effRange ? 'on' : ''}" data-v="${v}">${l}</button>`).join('')}</div>
         <section class="card"><div data-chart></div><p class="tiny muted" style="margin:10px 0 0">Curve is an illustrative estimate based on typical onset, peak and duration.</p></section>
         <section class="card"><div class="card-h"><h3>Treatments</h3></div><div class="list" data-leg></div></section>
         <p class="disclaimer">For personal tracking only. Not medical advice.</p>`;
       const draw = () => {
-        const days = +effRange, now = Date.now(), start = now - days * BT.DAY, end = now + days * 0.2 * BT.DAY;
+        const now = Date.now(), win = effRange === 'now' ? effectWindow(now) : null;
+        if (effRange === 'now' && !win) {
+          root.querySelector('[data-chart]').innerHTML = '<div class="empty" style="padding:24px 12px" data-effect-empty>No treatments yet. Log one and your estimated effect shows up here.</div>';
+          root.querySelector('[data-leg]').innerHTML = '<div class="empty" style="padding:16px">No treatments logged.</div>';
+          return;
+        }
+        const days = effRange === 'now' ? (win.end - win.start) / BT.DAY : +effRange;
+        const start = win ? win.start : now - days * BT.DAY, end = win ? win.end : now + days * 0.2 * BT.DAY;
         const W = 340, H = 230, L = 36, R = 10, T = 14, B = 28, pw = W - L - R, ph = H - T - B;
         const sx = (t) => L + ((t - start) / (end - start)) * pw, sy = (v) => T + (1 - v) * ph;
         const N = 160, pts = [];
@@ -381,7 +418,9 @@
           svg += `<line x1="${x}" x2="${x}" y1="${T}" y2="${T + ph}" stroke="${p.color}" stroke-width="1.2" stroke-dasharray="3 3"/><circle cx="${x}" cy="${T + ph}" r="3.5" fill="${p.color}" stroke="var(--card)" stroke-width="1.5"/>`;
         });
         const tx = sx(now);
-        svg += `<line x1="${tx}" x2="${tx}" y1="${T}" y2="${T + ph}" stroke="var(--fg)" stroke-width="1.2"/><text x="${tx}" y="${T - 3}" text-anchor="middle" font-size="10" font-weight="600" fill="var(--fg)">Today</text>`;
+        const cur = effectMax(now), cy = sy(cur), tl = tx - L < 44 ? 'start' : W - R - tx < 44 ? 'end' : 'middle';
+        svg += `<line x1="${tx}" x2="${tx}" y1="${T}" y2="${T + ph}" stroke="var(--fg)" stroke-width="1.2"/><text x="${tx}" y="${T - 3}" text-anchor="${tl}" font-size="10" font-weight="600" fill="var(--fg)">Today, ${Math.round(cur * 100)}%</text>`
+          + `<circle cx="${tx}" cy="${cy}" r="5.5" fill="var(--accent)" stroke="var(--card)" stroke-width="2.5" data-today-dot/>`;
         const ticks = 4;
         for (let k = 0; k <= ticks; k++) {
           const t = start + ((end - start) * k) / ticks, anchor = k === 0 ? 'start' : k === ticks ? 'end' : 'middle';
