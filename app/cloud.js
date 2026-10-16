@@ -48,7 +48,8 @@
   const SYNC_WAIT_MS = 5000;
   const NOTICE = 'tt-notice'; // sessionStorage, a reason code only ('idle' or 'denied'), shown on the sign-in screen after the reload
   const IDLE_KEY = 'tt-idle-minutes', ACTIVE_KEY = 'tt-last-active'; // localStorage: this device's choice, and a timestamp
-  const IDLE_DEFAULT = 30, WARN_MS = 60 * 1000, RECENT_MS = 10 * 60 * 1000;
+  const IDLE_DEFAULT = 0; // 0 = never: no automatic sign-out until this device picks a time in Settings (#105)
+  const WARN_MS = 60 * 1000, RECENT_MS = 10 * 60 * 1000;
   const DENIED = 'This app is private. This Google account does not have access.';
   const OFFLINE_GATE = 'You need a connection once to sign in. After that, the app opens without one.';
 
