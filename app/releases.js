@@ -6,6 +6,16 @@
 (function () {
   BT.RELEASES = [
     {
+      version: '0.15', date: '2026-10-16', title: 'Your data, your copy',
+      items: [
+        'Export everything in Settings downloads your whole log as a file, photos included. Keep it somewhere private: it is your backup.',
+        'Export treatments now downloads a spreadsheet file instead of showing text to copy.',
+        'Delete all my data in Settings removes everything from the server and this phone, and removes your account from the app.',
+        'If the server ever refuses a change, you now see it: a Not saved bar with Retry and Discard, and the change stays on screen.',
+        'Every change is noted in a private change history (what changed and when, never the details).',
+      ],
+    },
+    {
       version: '0.14', date: '2026-10-15', title: 'Polish and fixes',
       items: [
         'The Effect level chart now starts at your latest treatment, with today marked, instead of a long flat line.',

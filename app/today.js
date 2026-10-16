@@ -56,7 +56,7 @@
 .t-out { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
 .t-out .cell { background:var(--card-2); border-radius:14px; padding:12px 14px; }
 .t-out .cell .big-num { font-size:28px; margin-top:4px; }
-.t-csv { width:100%; min-height:200px; font-family:var(--mono); font-size:16px; border:1px solid var(--line); border-radius:14px; padding:12px; background:var(--card); resize:vertical; }
+.t-rkey { white-space:pre-line; font-family:var(--mono, ui-monospace, monospace); font-size:19px; letter-spacing:.05em; line-height:1.6; text-align:center; border:1px solid var(--line); border-radius:14px; padding:12px; background:var(--card); user-select:all; -webkit-user-select:all; overflow-wrap:anywhere; }
 .t-set-row { display:flex; align-items:center; justify-content:space-between; gap:12px; min-height:48px; }
 .t-ci { display:grid; gap:12px; }
 .t-ci .card-h { margin-bottom:0; }
@@ -505,7 +505,8 @@
   });
 
   /* ---------- SETTINGS ---------- */
-  const csvCell = (v) => { v = String(v ?? '').replace(/\r?\n/g, ' '); return /[",]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; };
+  // A cell a spreadsheet would run as a formula (= + - @, or a leading tab or return) gets an apostrophe first (#59).
+  const csvCell = (v) => { v = String(v ?? '').replace(/\r?\n/g, ' '); if (/^[=+\-@\t\r]/.test(v)) v = "'" + v; return /[",']/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; };
   const buildCsv = () => {
     const rows = [['date', 'product', 'site', 'units', 'provider', 'notes']];
     BT.sortedInjections().forEach((i) => {
@@ -515,12 +516,89 @@
     });
     return rows.map((r) => r.map(csvCell).join(',')).join('\n');
   };
+  // Everything, decrypted, photos included (#59). The export is the backup: the Spark plan has none.
+  const buildJson = () => {
+    const d = BT.data;
+    return JSON.stringify({ app: 'Toxin Tracker', format: 1, version: BT.VERSION || '', exportedAt: new Date().toISOString(),
+      data: { injections: d.injections, vials: d.vials, reactions: d.reactions, photos: d.photos, moods: d.moods, settings: d.settings } }, null, 1);
+  };
+  // A file download, never the clipboard (Universal Clipboard can copy it to other devices).
+  const download = (name, type, text) => {
+    const url = URL.createObjectURL(new Blob([text], { type }));
+    const a = document.createElement('a');
+    a.href = url; a.download = name; a.rel = 'noopener'; a.hidden = true;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+  };
+  const stamp = () => BT.toLocalInput(Date.now()).slice(0, 10);
+  const recent = (what, ms) => !window.BT_CLOUD || !BT_CLOUD.requireRecentAuth || BT_CLOUD.requireRecentAuth(ms, what);
+  const keyMsg = (e) => ({ 'tt-wrong': 'That passphrase or recovery key is not right.', 'tt-short': 'Use at least 10 characters for the new passphrase.',
+    'permission-denied': 'Sign in with Google again, then try once more.', unavailable: 'No connection. Try again when you are online.' }[e && e.code] || 'Could not change it. Try again.');
+  const showRecovery = (key) => {
+    const sh = BT.sheet({ title: 'New recovery key' });
+    sh.body.innerHTML = `<p class="small muted" style="margin:0">Your old recovery key no longer works. This one is shown only once. Write it down or keep it in your password manager.</p>
+      <div class="t-rkey" data-k></div><button class="btn" data-copy>Copy recovery key</button>
+      <label class="row gap small"><input type="checkbox" data-ok> I saved my new recovery key somewhere safe.</label><button class="btn primary" data-done disabled>Done</button>`;
+    sh.body.querySelector('[data-k]').textContent = key.replace(/^((?:.{4}-){2}.{4})-/, '$1\n');
+    sh.body.querySelector('[data-copy]').onclick = () => { try { navigator.clipboard.writeText(key).then(() => BT.toast('Copied'), () => BT.toast('Copy it from the box above.')); } catch (e) { BT.toast('Copy it from the box above.'); } };
+    sh.body.querySelector('[data-ok]').onchange = (e) => (sh.body.querySelector('[data-done]').disabled = !e.target.checked);
+    sh.body.querySelector('[data-done]').onclick = () => sh.close();
+  };
+  // Encryption settings (#66): both need the current passphrase (or the recovery key) on this phone.
+  const keySheet = (mode) => {
+    const pass = mode === 'pass';
+    const sh = BT.sheet({ title: pass ? 'Change passphrase' : 'New recovery key' });
+    sh.body.innerHTML = `<p class="small muted" style="margin:0">${pass ? 'Your log stays encrypted with the same key. Other devices that are already unlocked stay unlocked; new devices will need the new passphrase.' : 'Makes a new recovery key and turns off the old one.'}</p>
+      <div class="field"><label for="k-cur">Current passphrase or recovery key</label><input id="k-cur" class="input" type="password" autocomplete="current-password"></div>
+      ${pass ? `<div class="field"><label for="k-new">New passphrase (at least 10 characters)</label><input id="k-new" class="input" type="password" autocomplete="new-password"></div>
+      <div class="field"><label for="k-new2">Type it again</label><input id="k-new2" class="input" type="password" autocomplete="new-password"></div>` : ''}
+      <p class="small" data-err hidden style="margin:0;color:var(--red)"></p><button class="btn primary" data-go>${pass ? 'Change passphrase' : 'Make new recovery key'}</button>`;
+    const err = (m) => { const e = sh.body.querySelector('[data-err]'); e.hidden = !m; e.textContent = m || ''; };
+    const go = sh.body.querySelector('[data-go]');
+    go.onclick = async () => {
+      const wait = BT_CLOUD.keys.waitMs();
+      if (wait) return err(`Too many tries. Wait ${Math.ceil(wait / 1000)} seconds.`);
+      const cur = sh.body.querySelector('#k-cur').value;
+      if (!cur) return err('Enter your current passphrase or recovery key.');
+      if (pass) {
+        const a = sh.body.querySelector('#k-new').value, b = sh.body.querySelector('#k-new2').value;
+        if (a.length < 10) return err('Use at least 10 characters for the new passphrase.');
+        if (a !== b) return err('The two new passphrases do not match.');
+      }
+      err(''); go.disabled = true; go.textContent = 'Working…';
+      try {
+        if (pass) { await BT_CLOUD.keys.changePassphrase(cur, sh.body.querySelector('#k-new').value); sh.close(); BT.toast('Passphrase changed'); }
+        else { const key = await BT_CLOUD.keys.newRecoveryKey(cur); sh.close(); showRecovery(key); }
+      } catch (e) { go.disabled = false; go.textContent = pass ? 'Change passphrase' : 'Make new recovery key'; err(keyMsg(e)); }
+    };
+  };
+  // Delete all my data (#59): typed confirmation, a fresh Google sign-in, then every record, photo, audit entry and
+  // key on the server, this phone's copy, and the Google sign-in account for this app.
+  const deleteAllSheet = () => {
+    const hosted = !!(window.BT_CLOUD && BT_CLOUD.deleteEverything);
+    const sh = BT.sheet({ title: 'Delete all my data' });
+    sh.body.innerHTML = `<p class="muted" style="margin:0">${hosted ? 'This deletes every treatment, vial, reaction, photo and check-in from the server and from this phone, and removes your account from this app. It cannot be undone. Export first if you want a copy.' : 'This deletes everything saved in this browser. It cannot be undone.'}</p>
+      <div class="field"><label for="d-type">Type DELETE to confirm</label><input id="d-type" class="input" type="text" autocomplete="off" autocapitalize="characters" spellcheck="false"></div>
+      <p class="small muted" data-step style="margin:0" hidden></p><button class="btn danger" data-go disabled>Delete everything</button>`;
+    const inp = sh.body.querySelector('#d-type'), go = sh.body.querySelector('[data-go]'), step = sh.body.querySelector('[data-step]');
+    inp.oninput = () => (go.disabled = inp.value.trim() !== 'DELETE');
+    go.onclick = async () => {
+      if (!hosted) { try { localStorage.removeItem('bt-v1'); } catch (e) {} location.reload(); return; }
+      if (!navigator.onLine) return BT.toast('Connect to the internet to delete your data.');
+      // Firebase deletes an account only within 5 minutes of a sign-in, so this asks for a fresher one than export.
+      if (!(await recent('deleting your data', 4 * 60e3))) return;
+      go.disabled = true; inp.disabled = true; step.hidden = false;
+      try { await BT_CLOUD.deleteEverything((t) => (step.textContent = t + '…')); }
+      catch (e) { console.warn('delete all stopped:', (e && e.code) || 'unknown'); step.textContent = 'Stopped before finishing. Nothing was removed from this phone. Check your connection and try again.'; go.disabled = false; inp.disabled = false; }
+    };
+  };
 
   BT.screen('settings', {
     title: 'Settings',
     render(root) {
       const s = BT.data.settings, theme = getTheme(), cloud = BT.storage !== 'device', sample = BT.hasSample(), acct = BT.account;
       const idle = acct && window.BT_CLOUD && BT_CLOUD.idle; // hosted app only: a per-device choice, kept out of Firestore
+      const keys = acct && window.BT_CLOUD && BT_CLOUD.keys;
       const where = BT.storage === 'firebase' ? 'Synced to your Google account' : cloud ? 'Synced to your Claude account' : 'Saved on this device';
       root.innerHTML = `${BT.navHeader('Settings')}
         <section class="card stack">
@@ -536,7 +614,16 @@
           ${acct ? `<div class="row gap"><span class="t-ac-ic">${BT.icon('person', 18)}</span><div class="grow"><div class="li-title">${BT.esc(acct.name || 'Signed in')}</div><div class="li-sub">${BT.esc(acct.email)}</div></div><button class="btn sm" data-signout>Sign out</button></div>` : ''}
           ${idle ? `<div class="field"><label for="s-idle">Sign out automatically</label><select id="s-idle" class="input">${idle.options.map(([v, l]) => `<option value="${v}" ${v === idle.get() ? 'selected' : ''}>${BT.esc(l)}</option>`).join('')}</select>
             <div class="tiny muted">After this long without use. Signing out clears this phone's copy of your log. Choose Never only on your own phone.</div></div>` : ''}
-          <div class="row gap wrap">${sample ? '<button class="btn grow" data-clear>Clear sample data</button>' : '<button class="btn grow" data-load>Load sample data</button>'}<button class="btn grow" data-export>${BT.icon('edit', 16)} Export CSV</button></div>
+          <div class="row gap wrap">${sample ? '<button class="btn grow" data-clear>Clear sample data</button>' : '<button class="btn grow" data-load>Load sample data</button>'}</div>
+        </section>
+        ${keys ? `<section class="card stack">
+          <div class="row gap"><span class="t-ac-ic">${BT.icon('lock', 18)}</span><div class="grow"><div class="li-title">End-to-end encrypted</div><div class="li-sub">Records and photos are encrypted on this phone. Only your passphrase or recovery key can unlock them, on any device.</div></div></div>
+          <div class="stack-s"><button class="btn" data-pass>Change passphrase</button><button class="btn" data-rkey>New recovery key</button></div>
+        </section>` : ''}
+        <section class="card stack">
+          <div><div class="li-title">Your data</div><div class="li-sub">Downloads a file to this device. The full export is your backup${BT.storage === 'firebase' ? ': the server keeps no backups' : ''}.</div></div>
+          <div class="stack-s"><button class="btn" data-json>${BT.icon('download', 16)} Export everything (JSON)</button><button class="btn" data-export>${BT.icon('download', 16)} Export treatments (CSV)</button></div>
+          <button class="btn danger" data-delall>${BT.icon('trash', 16)} Delete all my data</button>
         </section>
         <p class="disclaimer">For personal tracking only. Not medical advice.</p>`;
       root.querySelectorAll('[data-go]').forEach((b) => (b.onclick = () => BT.go(b.dataset.go)));
@@ -551,17 +638,20 @@
       }));
       const ld = root.querySelector('[data-load]'); if (ld) ld.onclick = () => { BT.loadSample(); BT.toast('Sample data loaded'); };
       const cl = root.querySelector('[data-clear]'); if (cl) cl.onclick = () => { BT.clearSample(); BT.toast('Sample data cleared'); };
+      // Hosted app: an export takes the whole log off the app, so it asks for a sign-in from the last 10 minutes (#54).
       root.querySelector('[data-export]').onclick = async () => {
-        // Hosted app: an export takes the whole log off the app, so it asks for a sign-in from the last 10 minutes (#54).
-        if (window.BT_CLOUD && BT_CLOUD.requireRecentAuth && !(await BT_CLOUD.requireRecentAuth())) return;
-        const csv = buildCsv(), sh = BT.sheet({ title: 'Export CSV' });
-        sh.body.innerHTML = `<p class="small muted" style="margin:0">${BT.data.injections.length} treatment${BT.data.injections.length === 1 ? '' : 's'}. Copy this into a spreadsheet or a note.</p><textarea class="t-csv" readonly></textarea><button class="btn primary" data-copy>Copy</button>`;
-        const ta = sh.body.querySelector('textarea'); ta.value = csv;
-        sh.body.querySelector('[data-copy]').onclick = () => {
-          const fallback = () => { ta.focus(); ta.select(); try { document.execCommand('copy'); } catch (e) {} BT.toast('Text selected. Press copy if needed.'); };
-          try { navigator.clipboard.writeText(csv).then(() => BT.toast('Copied'), fallback); } catch (e) { fallback(); }
-        };
+        if (!(await recent('exporting'))) return;
+        download(`toxin-tracker-treatments-${stamp()}.csv`, 'text/csv;charset=utf-8', buildCsv());
+        BT.toast(`${BT.data.injections.length} treatment${BT.data.injections.length === 1 ? '' : 's'} exported`);
       };
+      root.querySelector('[data-json]').onclick = async () => {
+        if (!(await recent('exporting'))) return;
+        download(`toxin-tracker-export-${stamp()}.json`, 'application/json', buildJson());
+        BT.toast('Export downloaded. It is not encrypted, so keep it somewhere private.');
+      };
+      root.querySelector('[data-delall]').onclick = () => deleteAllSheet();
+      const kp = root.querySelector('[data-pass]'); if (kp) kp.onclick = async () => { if (await recent('changing your passphrase')) keySheet('pass'); };
+      const kr = root.querySelector('[data-rkey]'); if (kr) kr.onclick = async () => { if (await recent('making a new recovery key')) keySheet('rkey'); };
     },
   });
 })();

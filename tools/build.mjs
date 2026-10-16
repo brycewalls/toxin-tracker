@@ -6,14 +6,19 @@
 // (#55: nothing loads from a CDN), and generates dist/sw.js: the offline app shell with a content-hash
 // version stamp (#52).
 // Run: node tools/build.mjs   (firebase deploy runs it as the hosting predeploy step)
+// Test builds only (never deployed): --out <dir> builds elsewhere, --encryption on|off overrides ENCRYPTION in
+// app/cloud.js, and --emulators points the app at the local Auth and Firestore emulators (tools/emulator_test.sh).
 import { readFileSync, writeFileSync, mkdirSync, copyFileSync, readdirSync, rmSync, statSync } from 'node:fs';
 import { createHash } from 'node:crypto';
-import { dirname, join } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { copyVendor, sri384 } from './vendor.mjs';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
-const app = join(root, 'app'), dist = join(root, 'dist');
+const flag = (k) => { const i = process.argv.indexOf(k); return i > 0 ? process.argv[i + 1] : null; };
+const app = join(root, 'app'), dist = flag('--out') ? resolve(flag('--out')) : join(root, 'dist');
+const ENC = flag('--encryption'), EMU = process.argv.includes('--emulators');
+if (ENC && !['on', 'off'].includes(ENC)) { console.error('--encryption takes on or off'); process.exit(1); }
 const SDK = '10.14.1'; // Firebase compat SDK, matches the version used by the other Firebase projects here
 
 rmSync(dist, { recursive: true, force: true });
@@ -85,6 +90,14 @@ img { max-width: 100%; }
 writeFileSync(join(dist, 'index.html'), head + body + '\n</body>\n</html>\n');
 
 for (const f of readdirSync(app)) if (f.endsWith('.js')) copyFileSync(join(app, f), join(dist, f));
+if (ENC || EMU) {
+  let c = readFileSync(join(dist, 'cloud.js'), 'utf8');
+  const sub = (from, to) => { if (!c.includes(from)) throw new Error(`app/cloud.js no longer has "${from}"; update tools/build.mjs`); c = c.replace(from, to); };
+  if (ENC) sub("const ENCRYPTION = 'off';", `const ENCRYPTION = '${ENC}';`);
+  if (EMU) sub('const EMULATORS = null;', "const EMULATORS = { projectId: 'demo-toxin-tracker', auth: 'http://127.0.0.1:9099', firestore: ['127.0.0.1', 8080] };");
+  writeFileSync(join(dist, 'cloud.js'), c);
+  console.log(`Test build: encryption ${ENC || 'as in app/cloud.js'}${EMU ? ', emulators' : ''}`);
+}
 for (const f of readdirSync(join(root, 'web'))) copyFileSync(join(root, 'web', f), join(dist, f));
 // Botox Academy content (#69): served same-origin as academy.json and precached with the shell below, so the
 // Academy works offline. Minified; the source of truth stays in research/.

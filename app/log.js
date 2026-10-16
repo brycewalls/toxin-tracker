@@ -459,8 +459,8 @@
           if (!st.files[k]) continue;
           try {
             const src = await BT.photo.store(st.files[k]);
-            if (st.existing[k]) BT.remove('photos', st.existing[k].id);
-            BT.save('photos', { kind: k, at, src, injectionId: rec.id });
+            // New photo and old photo's delete go in one commit (#57): the old one is never gone without the new one.
+            BT.save('photos', { kind: k, at, src, injectionId: rec.id }, st.existing[k] ? { replaces: st.existing[k].id } : undefined);
           } catch (err) { console.error('photo store failed', err); photoFail = true; }
         }
         close();

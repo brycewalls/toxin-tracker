@@ -13,13 +13,19 @@
      FieldValue.delete() removes a field, merging {} replaces a map with an empty one (as Firestore does).
    - 'Offline' is navigator.onLine false (Playwright context.setOffline), or a server that does not answer while
      the browser reports a connection: window.__fakeDown = true, or localStorage '__fake_down' = '1' (survives a reload).
+   - WriteBatch (PR #79): one queued entry applied atomically by the server, like the SDK's single commit request.
+     FieldValue.serverTimestamp() is null locally and the server's clock once written. doc().get({source}) reads
+     one document (cache, server, or server when online). collection().doc() with no id makes a random id.
    - Auth: one fake Google account (window.__FAKE_FB.uid, default 'u1'), kept in localStorage like a session.
    The server is shared by every page and browser context in a run: the test exposes window.__fakeServer(op),
    backed by createServer() below (Node). */
 (function (root) {
-  const DEL = { __fv: 'delete' };
+  const DEL = { __fv: 'delete' }, TS = { __fv: 'ts' };
   const isDel = (v) => !!v && typeof v === 'object' && v.__fv === 'delete';
-  const plain = (x) => !!x && typeof x === 'object' && !Array.isArray(x) && !isDel(x);
+  const isTs = (v) => !!v && typeof v === 'object' && v.__fv === 'ts';
+  const plain = (x) => !!x && typeof x === 'object' && !Array.isArray(x) && !isDel(x) && !isTs(x);
+  // serverTimestamp(): the server's clock, or null in the local (pending) view.
+  const stamp = (v, now) => (isTs(v) ? now : plain(v) ? Object.fromEntries(Object.entries(v).map(([k, x]) => [k, stamp(x, now)])) : v);
   const clone = (x) => (x === undefined ? undefined : JSON.parse(JSON.stringify(x)));
   function deepMerge(target, src) {
     for (const [k, v] of Object.entries(src)) {
@@ -31,8 +37,9 @@
   }
   function noDeletes(v) { if (isDel(v)) throw Object.assign(new Error('FieldValue.delete() needs merge'), { code: 'invalid-argument' }); if (plain(v)) Object.values(v).forEach(noDeletes); }
   // One write against a document's data (null when missing). Same code on the client cache and the server.
-  function applyWrite(data, w) {
+  function applyWrite(data, w, now = null) {
     if (w.type === 'delete') return null;
+    if (w.data) w = { ...w, data: stamp(w.data, now) };
     if (w.type === 'set' && !w.merge) { noDeletes(w.data); return clone(w.data); }
     if (w.type === 'set') return deepMerge(data ? clone(data) : {}, w.data);
     if (w.type === 'update') {
@@ -69,12 +76,24 @@
         }
         if (op.type === 'write') {
           try {
-            const next = applyWrite(docs.get(op.path) || null, op.w);
+            const next = applyWrite(docs.get(op.path) || null, op.w, Date.now());
             if (next === null) docs.delete(op.path); else docs.set(op.path, next);
             log.push({ at: Date.now(), path: op.path, w: op.w, client: op.client });
             return { data: clone(next) };
           } catch (e) { return { error: e.code || 'internal' }; }
         }
+        if (op.type === 'batch') {
+          // All or nothing, in order, as one commit.
+          if (!op.writes.every((x) => ok(op.uid, x.path))) return { error: 'permission-denied' };
+          const now = Date.now(), next = new Map();
+          try {
+            for (const x of op.writes) next.set(x.path, applyWrite(next.has(x.path) ? next.get(x.path) : docs.get(x.path) || null, x.w, now));
+          } catch (e) { return { error: e.code || 'internal' }; }
+          for (const [p, d] of next) d === null ? docs.delete(p) : docs.set(p, d);
+          op.writes.forEach((x) => log.push({ at: now, path: x.path, w: x.w, client: op.client }));
+          return { results: op.writes.map((x) => clone(next.get(x.path))) };
+        }
+        if (op.type === 'getdoc') return { data: docs.has(op.path) ? clone(docs.get(op.path)) : null };
         return { error: 'invalid-argument' };
       },
     };
@@ -96,7 +115,7 @@
   const authListeners = [];
   const mkUser = (uid) => uid && {
     uid, displayName: 'Test Person', email: '', photoURL: '',
-    getIdTokenResult: async () => ({ authTime: new Date().toUTCString() }),
+    getIdTokenResult: async () => ({ authTime: new Date().toUTCString() }), getIdToken: async () => 'fake-token',
     reauthenticateWithPopup: async () => ({}), reauthenticateWithRedirect: async () => {},
   };
   const auth = {
@@ -110,7 +129,7 @@
   class GoogleAuthProvider { setCustomParameters() {} }
 
   // ---------- firestore ----------
-  // cache = {docs: {path: data}, synced: {queryPath: true}, queue: [{bid, path, w}], nextBid}
+  // cache = {docs: {path: data}, synced: {queryPath: true}, queue: [{bid, writes: [{path, w}]}], nextBid}
   const load = () => lsGet(LS_CACHE) || { docs: {}, synced: {}, queue: [], nextBid: 1 };
   let cache = load();
   const save = () => lsSet(LS_CACHE, cache);
@@ -130,13 +149,13 @@
   // The local view of a document: cached server data with pending writes applied in order.
   function localDoc(path) {
     let d = path in cache.docs ? cache.docs[path] : null, pending = false;
-    for (const m of cache.queue) if (m.path === path) { d = applyWrite(d, m.w); pending = true; }
+    for (const m of cache.queue) for (const x of m.writes) if (x.path === path) { d = applyWrite(d, x.w); pending = true; }
     return { data: d, pending };
   }
   function pathsUnder(col) {
     const pre = col + '/', set = new Set();
     for (const p of Object.keys(cache.docs)) if (p.startsWith(pre) && !p.slice(pre.length).includes('/')) set.add(p);
-    for (const m of cache.queue) if (m.path.startsWith(pre) && !m.path.slice(pre.length).includes('/')) set.add(m.path);
+    for (const m of cache.queue) for (const x of m.writes) if (x.path.startsWith(pre) && !x.path.slice(pre.length).includes('/')) set.add(x.path);
     return [...set].sort();
   }
   const mkDocSnap = (path, data, pending, fromCache) => ({
@@ -151,7 +170,7 @@
         while (cache.queue.length && net() && !terminated) {
           const m = cache.queue[0];
           let r;
-          try { r = await server({ type: 'write', path: m.path, w: m.w }); }
+          try { r = await server({ type: 'batch', writes: m.writes, path: m.writes[0].path }); }
           catch (e) {
             if (e.code === 'unavailable') break;
             cache.queue = cache.queue.filter((x) => x.bid !== m.bid); save(); // rejected by the server
@@ -159,7 +178,7 @@
             emitAll(); continue;
           }
           if (terminated) break;
-          if (r.data == null) delete cache.docs[m.path]; else cache.docs[m.path] = r.data;
+          m.writes.forEach((x, i) => { const d = r.results[i]; if (d == null) delete cache.docs[x.path]; else cache.docs[x.path] = d; });
           cache.queue = cache.queue.filter((x) => x.bid !== m.bid); save();
           const a = acks.get(m.bid); if (a) { acks.delete(m.bid); a.res(); }
           emitAll();
@@ -170,17 +189,18 @@
       }
     })();
   }
-  function write(path, w) {
+  const write = (path, w) => writeMany([{ path, w }]);
+  function writeMany(writes) {
     if (terminated) return Promise.reject(err('failed-precondition'));
-    try { applyWrite(localDoc(path).data, w); } catch (e) { return Promise.reject(e); }
+    try { const v = new Map(); for (const x of writes) v.set(x.path, applyWrite(v.has(x.path) ? v.get(x.path) : localDoc(x.path).data, x.w)); } catch (e) { return Promise.reject(e); }
     const bid = cache.nextBid++;
-    cache.queue.push({ bid, path, w: clone(w) }); save();
+    cache.queue.push({ bid, writes: clone(writes) }); save();
     const p = new Promise((res, rej) => acks.set(bid, { res, rej }));
     setTimeout(() => { emitAll(); pump(); }, 0);
     return p;
   }
   // FieldValue.delete() must survive JSON (the cache and the server binding), so it is a marker object.
-  const wireData = (v) => (isDel(v) ? DEL : plain(v) ? Object.fromEntries(Object.entries(v).map(([k, x]) => [k, wireData(x)])) : v === undefined ? null : v);
+  const wireData = (v) => (isDel(v) ? DEL : isTs(v) ? TS : plain(v) ? Object.fromEntries(Object.entries(v).map(([k, x]) => [k, wireData(x)])) : v === undefined ? null : v);
 
   class Listener {
     constructor(col, opts, next, error) {
@@ -255,10 +275,23 @@
     set: (data, opts) => write(path, { type: 'set', data: wireData(data), merge: !!(opts && opts.merge) }),
     update: (data) => write(path, { type: 'update', data: wireData(data) }),
     delete: () => write(path, { type: 'delete' }),
+    async get(o) {
+      const src = (o && o.source) || (net() ? 'server' : 'cache');
+      if (src === 'server') {
+        if (!net()) throw err('unavailable');
+        const r = await server({ type: 'getdoc', path });
+        if (r.data == null) delete cache.docs[path]; else cache.docs[path] = r.data; // the SDK keeps what it read
+        save();
+        return mkDocSnap(path, r.data, false, false);
+      }
+      const l = localDoc(path);
+      return mkDocSnap(path, l.data, l.pending, true);
+    },
   });
+  const autoId = () => Array.from(crypto.getRandomValues(new Uint8Array(20)), (b) => 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'[b % 62]).join('');
   const colRef = (path, limit) => ({
     path,
-    doc: (id) => docRef(path + '/' + id),
+    doc: (id) => docRef(path + '/' + (id || autoId())),
     limit: (n) => colRef(path, n),
     onSnapshot(opts, next, error) {
       if (typeof opts === 'function') { error = next; next = opts; opts = {}; }
@@ -281,6 +314,16 @@
   const db = {
     enablePersistence: async () => { cache = load(); setTimeout(pump, 0); },
     collection: (name) => colRef(name),
+    batch() {
+      const ops = [];
+      const b = {
+        set(ref, data, opts) { ops.push([ref.path, { type: 'set', data: wireData(data), merge: !!(opts && opts.merge) }]); return b; },
+        update(ref, data) { ops.push([ref.path, { type: 'update', data: wireData(data) }]); return b; },
+        delete(ref) { ops.push([ref.path, { type: 'delete' }]); return b; },
+        commit: () => (ops.length ? writeMany(ops.map(([path, w]) => ({ path, w }))) : Promise.resolve()),
+      };
+      return b;
+    },
     waitForPendingWrites() {
       if (terminated) return Promise.reject(err('failed-precondition'));
       if (!cache.queue.length) return Promise.resolve();
@@ -291,7 +334,7 @@
     async clearPersistence() { if (!terminated && listeners.size) throw err('failed-precondition'); lsSet(LS_CACHE, null); cache = { docs: {}, synced: {}, queue: [], nextBid: 1 }; },
   };
   const firestore = () => db;
-  firestore.FieldValue = { delete: () => DEL };
+  firestore.FieldValue = { delete: () => DEL, serverTimestamp: () => TS };
   const authFn = () => auth;
   authFn.GoogleAuthProvider = GoogleAuthProvider;
   root.firebase = { initializeApp: () => ({}), auth: authFn, firestore };
