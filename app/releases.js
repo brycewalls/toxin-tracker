@@ -140,7 +140,7 @@
   ];
   // Planned work, shown under "Coming next". Keep it short and drop items once they ship.
   BT.UPCOMING = [
-    'Full-size photos.',
+    'Encrypt your log on your phone with a passphrase only you know, plus a full export of everything.',
   ];
   BT.VERSION = BT.RELEASES[0].version;
   BT.release = (v) => BT.RELEASES.find((r) => r.version === v) || null;
