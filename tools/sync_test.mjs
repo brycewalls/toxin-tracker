@@ -186,6 +186,22 @@ const scenarios = {
     return errors;
   },
 
+  // The default is no automatic sign-out (#105): a long gap with no choice made in Settings keeps the session.
+  async idleDefaultNever() {
+    console.log('\nidle-default: no timeout chosen, long gap');
+    const server = createServer(), errors = []; seed(server);
+    const { ctx, page } = await device(server, errors, 'phone');
+    await open(page); await signIn(page); await loadedText(page);
+    await page.evaluate(() => { localStorage.removeItem('tt-idle-minutes'); localStorage.setItem('tt-last-active', String(Date.now() - 24 * 60 * 60000)); dispatchEvent(new Event('focus')); });
+    await sleep(2500);
+    check('still signed in after a day without use', !(await gateVisible(page)) && (await page.evaluate(() => !!localStorage.getItem('__fake_auth'))));
+    check('Settings shows Never on this device', await page.evaluate(() => BT_CLOUD.idle.get() === 'never'));
+    await page.reload(); await loadedText(page);
+    check('a relaunch after the gap stays signed in', !(await gateVisible(page)));
+    await ctx.close();
+    return errors;
+  },
+
   // The idle timeout while offline: the wipe waits until the queued change reaches the server.
   async idleOffline() {
     console.log('\nidle-offline: idle timeout with an unsynced lesson, offline');
@@ -194,7 +210,7 @@ const scenarios = {
     await open(page); await signIn(page); await loadedText(page);
     await ctx.setOffline(true);
     await completeLesson(page, 'gl-pattern');
-    await page.evaluate(() => { localStorage.setItem('tt-last-active', String(Date.now() - 31 * 60000)); dispatchEvent(new Event('focus')); });
+    await page.evaluate(() => { localStorage.setItem('tt-idle-minutes', '30'); localStorage.setItem('tt-last-active', String(Date.now() - 31 * 60000)); dispatchEvent(new Event('focus')); });
     await page.waitForSelector('.gate', { timeout: 10000 });
     const held = await page.evaluate(() => ({ hold: localStorage.getItem('tt-wipe-after-sync'), queue: (JSON.parse(localStorage.getItem('__fake_fs_cache') || '{}').queue || []).length, view: document.getElementById('view').textContent.trim().length, mem: BT.data.injections.length, msg: document.querySelector('.gate-err').textContent }));
     check('app locked behind the sign-in screen', held.view === 0 && held.mem === 0 && /not synced yet/.test(held.msg));
@@ -217,7 +233,7 @@ const scenarios = {
     await open(page); await signIn(page); await loadedText(page);
     await page.evaluate(() => localStorage.setItem('__fake_down', '1'));
     await completeLesson(page, 'cf-pattern');
-    await page.evaluate(() => { localStorage.setItem('tt-last-active', String(Date.now() - 31 * 60000)); dispatchEvent(new Event('focus')); });
+    await page.evaluate(() => { localStorage.setItem('tt-idle-minutes', '30'); localStorage.setItem('tt-last-active', String(Date.now() - 31 * 60000)); dispatchEvent(new Event('focus')); });
     await page.waitForSelector('.gate', { timeout: 15000 });
     check('held after the 5 second wait', await page.evaluate(() => localStorage.getItem('tt-wipe-after-sync') === '1'));
     await page.reload();
