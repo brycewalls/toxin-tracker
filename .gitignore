@@ -13,3 +13,4 @@ firebase-debug.log
 # Approved accounts and the rules built from them (public repo: never commit these)
 firebase/allowlist.local
 firebase/.firestore.rules.deploy
+.sync-dist/

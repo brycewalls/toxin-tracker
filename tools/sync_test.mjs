@@ -1,17 +1,21 @@
 // Sync and sign-out tests for the hosted build (#83), against tools/fake-firebase.js (a fake Firestore with
 // server latency, an offline cache and a write queue) instead of the live Firebase project.
-//   node tools/build.mjs && node tools/sync_test.mjs            # every scenario, against dist/
+//   node tools/sync_test.mjs                                    # every scenario, against its own build
 //   node tools/sync_test.mjs --dist some/other/dist --only repro,merge
+// Without --dist it builds the app into .sync-dist/ with encryption off: the fake has no passphrase setup, and
+// the encrypted path is covered by tools/emulator_test.sh against the real emulators.
 // Exits 1 if any check fails. Needs Playwright (Chromium), like tools/smoke_test.mjs.
 import { chromium } from 'playwright';
 import { createServer as http } from 'node:http';
 import { readFileSync, existsSync, statSync } from 'node:fs';
 import { join, extname, resolve } from 'node:path';
 import { createRequire } from 'node:module';
+import { execFileSync } from 'node:child_process';
 
 const root = resolve(process.argv[1], '..', '..');
 const arg = (k) => { const i = process.argv.indexOf(k); return i > 0 ? process.argv[i + 1] : null; };
-const dist = resolve(root, arg('--dist') || 'dist');
+const dist = resolve(root, arg('--dist') || '.sync-dist');
+if (!arg('--dist')) execFileSync(process.execPath, [join(root, 'tools', 'build.mjs'), '--out', dist, '--encryption', 'off'], { stdio: 'ignore' });
 const only = arg('--only') ? arg('--only').split(',') : null;
 const LATENCY = +(arg('--latency') || 1500);
 const { createServer } = createRequire(import.meta.url)('./fake-firebase.js');
