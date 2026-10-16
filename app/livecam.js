@@ -1,6 +1,6 @@
-/* Live camera face mapping: the front camera plus MediaPipe Face Landmarker, with the muscle map from
-   facemap.js warped onto the face every frame. Loaded by the hosted build (tools/build.mjs) and
-   app/preview.html, never by the claude.ai artifact, which has no camera. facemap.js falls back to the
+/* Live camera face mapping: the front camera plus MediaPipe Face Landmarker, with the muscles placed from the
+   person's own face landmarks and shaded onto the face every frame. Loaded by the hosted build (tools/build.mjs)
+   and app/preview.html, never by the claude.ai artifact, which has no camera. facemap.js falls back to the
    photo flow when BT.liveCam is missing, the camera is denied, or the tracker fails to load.
 
    BT.liveCam.supported() -> bool
@@ -20,23 +20,39 @@
    the phone. The tracker runs on the CPU (see delegates()), with the GPU as the fallback. Every step is
    timed into BT.liveCam.stats.log and console.info; ?lcdebug shows live frame costs in the pill.
 
-   How the map follows the face (#45): the full Face Landmarker mesh drives the warp. MediaPipe's canonical
-   face model (468 vertices in landmark order, 898 tessellation triangles) is fitted to the 300x400 drawing
-   once: a thin-plate spline through ANCHORS (landmark index -> the same feature in the drawing) places every
-   canonical vertex in drawing space. Three rings of extra vertices outside the face outline cover the
-   forehead, ears and neck; each frame they follow a least-squares 3D affine fit of the canonical model to
-   the live landmarks. Every muscle outline vertex and injection point keeps its triangle and barycentric
-   weights, so a frame only moves the triangle corners, and a tap runs the same map backwards. The muscle
-   fills are a texture drawn through the mesh with WebGL on a canvas blended with multiply, so skin shading
-   shows through; the outlines, caution lines and points are drawn on the 2D canvas above. Triangles facing
-   away (their normal from the landmark x, y and z) are culled, the ones turning away fade, and the rings
-   fade out toward the hairline, ears and neck. Landmarks pass through a One Euro filter.
+   The face mesh (#45, #50): MediaPipe's canonical face model (468 vertices in landmark order, 898 tessellation
+   triangles, in centimetres) plus three rings of extra vertices outside the face outline for the forehead, temples,
+   jaw angle and neck. Each frame the landmarks (One Euro filtered) move the 468 vertices and the rings follow a
+   least-squares 3D affine fit of the canonical model to them. Per-triangle facing and per-vertex normals come
+   from the live mesh. A thin-plate spline fitted once maps the canonical model onto the 300x400 drawing, so a
+   tapped point is saved in the same face coordinates as the 2D map, and saved points come back onto the face.
+
+   Muscles in landmark space (#64): no part of the 2D illustration is drawn here. Each muscle region (MUSCLES) is a
+   polygon whose corners are landmarks plus centimetre offsets on the canonical face, following the placement
+   rules in research/2026-10-14_botox-injection-anatomy.md (frontalis from 1.5 cm above the brow to the hairline,
+   crow's feet 1 to 2.5 cm lateral to the eye corner, DAO from the mouth corner to the jawline, masseter over the
+   jaw angle, platysma below the jaw). Corners outside the mesh (hairline, temples, jaw angle, neck) land on the
+   rings, so they are extrapolated from the person's face shape and scale (the canonical model is metric, with a
+   6.3 cm interpupillary distance, and the per-frame fit scales it to their landmarks). Each region is filled with
+   a fine grid, every grid vertex bound to a mesh triangle, so it moves with expressions. WebGL draws the grid:
+   translucent fill, fiber-direction stripes, lighting from the mesh normals so it reads as molded to the brow,
+   cheek and jaw, feathered edges, and fading to nothing where the surface turns away. There is no outline, eye,
+   nose or lip line art. The 2D canvas above it carries only points, a muscle label for the selected point,
+   caution zones (ZONES) as faint hatching that shows when a point is near one, and reference pattern markers.
+
+   Reference patterns (#65): the picker under the camera view shows one area of BT.patterns (app/patterns.js) as
+   ghost markers placed from the same landmark space, with their reference unit ranges and the area's safety zones.
+   'Use these points' opens the log with them as unconfirmed points (confirmed: false).
 
    Frozen zoom (#27): once frozen, pinch, ctrl+wheel and the - / 1x / + bar zoom 1x to 4x, and one finger
    pans while zoomed. The video sits in a wrapper that gets one CSS transform (translate, then scale from
-   the top left). The overlay canvas is not scaled by CSS: draw() and the tap mapping run every point
-   through the same zoom, so lines stay sharp, dots and labels keep their screen size, and a tap maps
-   back through the zoom to the face point under the finger. Unfreezing or destroy resets to 1x. */
+   the top left). The overlay canvases are not scaled by CSS: draw() and the tap mapping run every point
+   through the same zoom, so the fills stay sharp, dots and labels keep their screen size, and a tap maps
+   back through the zoom to the face point under the finger. Unfreezing or destroy resets to 1x.
+
+   Content Security Policy: no inline script, eval or Function; styles go in through constructable stylesheets
+   (a <style> element only where those are missing), and the wasm falls back to its same-origin URL when the
+   policy blocks fetching a blob: URL. */
 (function () {
   const BT = window.BT;
   if (!BT) return;
@@ -167,8 +183,6 @@
   // Rings outside the face outline: [distance from the face centre as a multiple of the outline's, fill alpha].
   // They push back in depth as they go out (RING_Z cm per unit), so the far side culls when the head turns.
   const RINGS = [[1.22, 0.7], [1.6, 0.3], [2.3, 0]], RING_Z = 5;
-  const TEX = { w: 600, h: 800, sx: 2, sy: 2 }; // fill texture: the 300x400 drawing at 2x
-
   /* ---------- small linear algebra ---------- */
   // Solve A x = b for several right-hand sides (Gaussian elimination, partial pivoting). A is n*n, row-major.
   function solve(A, n, rhs) {
@@ -327,31 +341,238 @@
     };
   }
 
-  /* ---------- shapes bound to the mesh (once) ----------
-     Outlines are resampled every 3 drawing units so they bend with the mesh instead of cutting across it. */
-  let SHAPES = null;
-  function shapes() {
-    if (SHAPES) return SHAPES;
-    const fm = BT.faceMap;
-    const bind = (poly) => {
-      const pts = [];
-      poly.forEach(([x, y], k) => {
-        const [nx, ny] = poly[(k + 1) % poly.length], steps = Math.max(1, Math.ceil(Math.hypot(nx - x, ny - y) / 3));
-        for (let s = 0; s < steps; s++) pts.push([x + ((nx - x) * s) / steps, y + ((ny - y) * s) / steps]);
-      });
-      const n = pts.length, t = new Uint16Array(n), w = new Float32Array(n * 3);
-      pts.forEach(([x, y], k) => { const b = locate(x, y, false); t[k] = b.t; w.set(b.w, 3 * k); });
-      return { n, t, w };
-    };
-    SHAPES = {
-      muscles: fm.polys.muscles.map((m) => ({ id: m.id, poly: m.poly, ...bind(m.poly) })),
-      caution: fm.polys.caution.map((z) => ({ id: z.id, poly: z.poly, ...bind(z.poly) })),
-      features: fm.polys.features.map((p) => bind(p)),
-    };
-    SHAPES.max = Math.max(...[...SHAPES.muscles, ...SHAPES.caution, ...SHAPES.features].map((s) => s.n));
-    return SHAPES;
+  /* ---------- muscles and caution zones in landmark space (#64) ----------
+     A corner is [landmark, dx, dy] or [[landmarkA, landmarkB, t], dx, dy] (t of the way from A to B), with dx, dy
+     in centimetres on the canonical face: x toward the patient's left (image right in the unmirrored frame), y down.
+     side 'b' shapes are written for the patient's left (landmark x > 0) and mirrored for the right; side 'c'
+     shapes give the half from the top of the midline round the patient's left to the bottom of it (half), and
+     the other half is mirrored. Placement follows research/2026-10-14_botox-injection-anatomy.md.
+     fib: lin (parallel fibers at angle a, degrees, y down), fan (rays from corner c), arc (rings round c, k
+     squashes y). h and f override the grid step and the edge feather (cm) for thin muscles; hole (a half, like
+     side 'c') leaves an opening. */
+  const MUSCLES = [
+    // Frontalis: from about 1.5 cm above the brow (the treated zone stays above that) to the hairline, which is
+    // extrapolated about 5.5 cm above the brow through the forehead ring; a narrow midline gap between the halves.
+    { id: 'frontalis', side: 'b', fib: { t: 'lin', a: 90 }, poly: [[336, -0.99, -1.5], [296, 0, -1.6], [334, 0, -1.6], [293, 0.2, -1.4], [284, -0.4, -0.8], [332, -0.1, -1.5], [297, 0, -2.4], [338, -1.49, -2.4]] },
+    // Procerus: midline, nasal root up to between the brow heads.
+    { id: 'procerus', side: 'c', fib: { t: 'lin', a: 90 }, half: [[9, 0, -0.5], [9, 0.55, -0.4], [168, 0.6, 0], [6, 0.5, 0.1], [6, 0, 0.1]] },
+    // Corrugator: medial orbital rim, oblique up and out into the mid-brow skin, ending inside the midpupil line.
+    { id: 'corrugator', side: 'b', fib: { t: 'lin', a: -17 }, poly: [[285, -0.5, 0.2], [295, 0, 0.1], [282, -0.3, 0], [334, -0.6, -0.3], [296, 0, -0.35], [336, -0.6, -0.1]] },
+    // Brow tail: the superolateral orbicularis under the tail of the brow.
+    { id: 'browtail', side: 'b', fib: { t: 'arc', c: [[263, 362, 0.5], 0, 0] }, poly: [[283, 0, 0.15], [276, 0.2, 0.25], [300, 0.55, 0.15], [300, 0.3, -0.4], [293, 0, -0.4], [334, 0.5, -0.15]] },
+    // Lateral orbicularis oculi (crow's feet): a crescent from about 0.6 to 2.6 cm outside the eye corner.
+    { id: 'oculi', side: 'b', fib: { t: 'arc', c: [[263, 362, 0.5], 0, 0] }, poly: [[263, 0.6, -1.4], [263, 1.6, -1.55], [263, 2.4, -0.8], [263, 2.6, 0.3], [263, 2.2, 1.4], [263, 1.4, 1.9], [263, 0.7, 1.3], [263, 1.0, 0]] },
+    // Pretarsal orbicularis: a thin strip just under the lower lash line.
+    { id: 'pretarsal', side: 'b', h: 0.08, f: 0.1, fib: { t: 'arc', c: [[263, 362, 0.5], 0, 0] }, poly: [[[362, 374, 0.4], 0, 0.15], [374, 0, 0.18], [[374, 263, 0.55], 0, 0.12], [[374, 263, 0.55], 0, 0.4], [374, 0, 0.48], [[362, 374, 0.4], 0, 0.4]] },
+    // Temporalis: the temple behind the lateral orbital rim and above the arch, mostly on the rings.
+    { id: 'temporalis', side: 'b', fib: { t: 'fan', c: [361, -0.5, -2.5] }, poly: [[368, 0.15, 0.3], [389, -0.1, 0.4], [389, -0.2, -0.6], [251, 0.1, -1.1], [284, 0.3, -1.2], [284, -0.2, -0.4], [301, 0.2, 0]] },
+    // Nasalis (transverse part): across the nasal dorsum and upper sidewalls.
+    { id: 'nasalis', side: 'c', fib: { t: 'arc', c: [2, 0, 0] }, half: [[6, 0, 0.5], [6, 0.75, 0.45], [456, 0.25, 0.15], [281, 0.3, 0.25], [5, 0, 0.1]] },
+    // Depressor septi nasi: columella base into the upper lip.
+    { id: 'dsn', side: 'c', h: 0.08, f: 0.1, fib: { t: 'lin', a: 90 }, half: [[2, 0, -0.25], [2, 0.3, -0.2], [0, 0.3, -0.35], [0, 0, -0.3]] },
+    // LLSAN: beside the nose from the frontal process of the maxilla down to the ala and upper lip.
+    { id: 'llsan', side: 'b', h: 0.12, f: 0.14, fib: { t: 'fan', c: [362, -0.1, -0.3] }, poly: [[362, -0.35, 0.7], [362, 0.15, 0.6], [358, 0.45, 0.1], [327, 0.9, 0.6], [327, 0.5, 0.9], [358, 0, -0.15], [362, -0.6, 1.3]] },
+    // Orbicularis oris: round the mouth, the lips included, open at the mouth slit.
+    { id: 'oris', side: 'c', fib: { t: 'arc', c: [13, 0, 0.3], k: 0.55 }, hole: [[13, 0, -0.05], [311, 0, -0.05], [308, -0.1, 0], [402, 0, 0.05], [14, 0, 0.05]], half: [[0, 0, -0.75], [269, 0.1, -0.6], [409, 0.5, -0.35], [291, 0.65, 0.05], [[291, 17, 0.4], 0.35, 0.45], [17, 0, 0.55]] },
+    // DAO: a triangle from just outside the mouth corner down to the jawline.
+    { id: 'dao', side: 'b', fib: { t: 'fan', c: [291, 0.3, 0.1] }, poly: [[291, 0.4, 0.4], [379, 0.35, -0.45], [378, 0.2, -0.3], [400, 0.2, -0.45], [291, 0.15, 0.75]] },
+    // Mentalis: the chin, below the mental crease.
+    { id: 'mentalis', side: 'c', fib: { t: 'fan', c: [200, 0, -0.3] }, half: [[200, 0, -0.05], [200, 0.85, 0.1], [400, -0.55, -0.45], [377, -0.35, -0.3], [152, 0, -0.35]] },
+    // Masseter: zygomatic arch down to the jaw angle (extrapolated past the outline), behind its front edge.
+    { id: 'masseter', side: 'b', fib: { t: 'lin', a: 81 }, poly: [[352, -0.6, 0.3], [352, 0.6, 0.1], [361, -0.1, 0], [288, 0, 0.1], [397, 0.15, 0.2], [397, -0.35, 0.3], [364, 0.1, 0.2], [416, 0.1, 0], [376, -0.5, 0]] },
+    // Platysma: over the jawline and down the neck (extrapolated through the lower rings).
+    { id: 'platysma', side: 'b', fib: { t: 'lin', a: 66 }, poly: [[400, 0.2, -0.5], [379, 0.4, -0.6], [365, 0.4, 0.4], [365, 0.5, 3.2], [378, 0.6, 4.6], [377, 0, 4.4], [377, -0.3, 1.0]] },
+  ];
+  // Caution zones. core: true are the BT.cautionZones a tapped point is tagged with; the rest are safety zones that
+  // reference patterns (app/patterns.js) show, with their own label and note here.
+  const ring = (lm, r, n) => Array.from({ length: n }, (_, k) => [lm, r * Math.cos((2 * Math.PI * k) / n), r * Math.sin((2 * Math.PI * k) / n)]);
+  const ZONES = [
+    { id: 'zygomaticus', core: true, side: 'b', poly: [[347, -0.2, 0.6], [352, -0.2, 0.1], [291, 0.9, 0.15], [291, 0.25, -0.5]] },
+    { id: 'risorius', core: true, side: 'b', poly: [[291, 0.55, -0.2], [416, -0.25, -0.35], [416, -0.25, 0.35], [291, 0.55, 0.3]] },
+    { id: 'levator-palpebrae', core: true, side: 'b', poly: [[362, 0, -0.22], [386, 0, -0.28], [263, -0.2, -0.2], [276, -0.15, 0.45], [282, 0, 0.42], [295, -0.6, 0.35]] },
+    { id: 'lower-lid', side: 'b', label: 'Lower eyelid', note: 'Lid laxity, swelling and cheek heaviness. Only micro-doses here.', poly: [[374, -0.6, 0.75], [374, 1.2, 0.6], [374, 1.4, 1.4], [374, -0.5, 1.6]] },
+    { id: 'brow-lateral', side: 'b', label: 'Outer forehead', note: 'Treating the outer frontalis less keeps the outer brow from lifting into a peak.', poly: [[293, 0.15, -1.0], [284, -0.35, -0.2], [332, 0, -1.2], [293, -0.4, -2.2]] },
+    { id: 'commissure', side: 'b', label: 'Mouth corner', note: 'DAO points stay at least 1.5 cm from the corner.', poly: ring(291, 0.7, 12) },
+    { id: 'lower-lip', side: 'b', label: 'Lower lip depressors', note: 'Lip control. DAO and chin points stay low and to the side.', poly: [[17, 0.45, 0.15], [291, -0.4, 0.75], [291, -0.1, 1.6], [200, 0.55, 0.3]] },
+    { id: 'lip-lifters', side: 'b', label: 'Upper lip lifters', note: 'Points too low or too far out weaken the upper lip lift.', poly: [[358, 0.15, -0.35], [358, 0.9, -0.2], [327, 1.2, 0.9], [327, 0.6, 1.1]] },
+    { id: 'mandible-border', side: 'b', label: 'Jaw border', note: 'Masseter points stay at least 1 cm above the border.', poly: [[379, 0, 0.05], [365, 0, 0.05], [397, 0.15, 0.05], [288, 0.2, 0], [288, -0.7, -0.2], [397, -0.6, -0.65], [365, -0.5, -0.8], [379, -0.3, -0.8]] },
+    { id: 'neck-midline', side: 'c', label: 'Front of the neck', note: 'Swallowing and voice muscles lie deeper. Superficial and band-guided only.', half: [[152, 0, 0.5], [152, 0.8, 0.5], [152, 0.8, 4.8], [152, 0, 4.8]] },
+  ];
+  const zoneText = (id) => {
+    const z = ZONES.find((q) => q.id === id) || {}, core = (BT.cautionZones || []).find((q) => q.id === id);
+    return core ? { label: core.label, note: core.note } : { label: z.label || id, note: z.note || '' };
+  };
+
+  // Mirror partner of every landmark: the canonical vertex nearest (-x, y, z).
+  let PAIR = null;
+  function pairs() {
+    if (PAIR) return PAIR;
+    const { C } = faceMesh();
+    PAIR = new Uint16Array(N);
+    for (let i = 0; i < N; i++) {
+      let best = i, bd = Infinity;
+      for (let j = 0; j < N; j++) { const d = (C[3 * j] + C[3 * i]) ** 2 + (C[3 * j + 1] - C[3 * i + 1]) ** 2 + (C[3 * j + 2] - C[3 * i + 2]) ** 2; if (d < bd) { bd = d; best = j; } }
+      PAIR[i] = best;
+    }
+    return PAIR;
+  }
+  // A corner spec -> canonical [x, y] (cm), mirrored for the patient's right when mir.
+  function cpt(s, mir) {
+    const { C } = faceMesh(), pr = pairs(), [a, dx, dy] = s, L = (i) => (mir ? pr[i] : i);
+    let x, y;
+    if (Array.isArray(a)) { const i = L(a[0]), j = L(a[1]), t = a[2]; x = C[3 * i] + (C[3 * j] - C[3 * i]) * t; y = C[3 * i + 1] + (C[3 * j + 1] - C[3 * i + 1]) * t; }
+    else { const i = L(a); x = C[3 * i]; y = C[3 * i + 1]; }
+    return [x + (mir ? -(dx || 0) : dx || 0), y + (dy || 0)];
+  }
+  // The shapes of a definition: [{id, poly (canonical cm), mir}], two for side 'b', one for side 'c'.
+  function expand(def) {
+    if (def.side === 'c') {
+      const h = def.half.map((s) => cpt(s, false)), back = def.half.slice(1, -1).reverse().map((s) => cpt(s, true));
+      return [{ id: def.id, poly: [...h, ...back], mir: false }];
+    }
+    return [false, true].map((mir) => ({ id: def.id + (mir ? '-r' : '-l'), poly: def.poly.map((s) => cpt(s, mir)), mir }));
+  }
+  // Signed distance from (x, y) to a polygon's edge: positive inside.
+  function sdist(poly, x, y) {
+    let d = Infinity, inside = false;
+    for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+      const [xi, yi] = poly[i], [xj, yj] = poly[j];
+      if ((yi > y) !== (yj > y) && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) inside = !inside;
+      const ex = xi - xj, ey = yi - yj, l2 = ex * ex + ey * ey || 1e-9, t = Math.max(0, Math.min(1, ((x - xj) * ex + (y - yj) * ey) / l2));
+      d = Math.min(d, Math.hypot(x - xj - t * ex, y - yj - t * ey));
+    }
+    return inside ? d : -d;
+  }
+  const polyArea = (p) => { let a = 0; for (let i = 0, j = p.length - 1; i < p.length; j = i++) a += p[j][0] * p[i][1] - p[i][0] * p[j][1]; return Math.abs(a) / 2; };
+
+  // The front-facing canonical triangle (extended mesh) holding canonical (x, y), nearest the camera where the
+  // front view overlaps itself; the nearest triangle when none holds it.
+  let CBOX = null;
+  function locateC(x, y) {
+    const { C, T, NT, FRONT } = faceMesh(), w = [0, 0, 0];
+    if (!CBOX) {
+      CBOX = new Float32Array(NT * 5);
+      for (let t = 0; t < NT; t++) {
+        const i = 3 * T[3 * t], j = 3 * T[3 * t + 1], k = 3 * T[3 * t + 2];
+        CBOX[5 * t] = Math.min(C[i], C[j], C[k]); CBOX[5 * t + 1] = Math.max(C[i], C[j], C[k]);
+        CBOX[5 * t + 2] = Math.min(C[i + 1], C[j + 1], C[k + 1]); CBOX[5 * t + 3] = Math.max(C[i + 1], C[j + 1], C[k + 1]);
+        CBOX[5 * t + 4] = ((C[j] - C[i]) * (C[k + 1] - C[i + 1]) - (C[j + 1] - C[i + 1]) * (C[k] - C[i])) * FRONT > 0 ? 1 : 0;
+      }
+    }
+    const tri = (t) => { const i = 3 * T[3 * t], j = 3 * T[3 * t + 1], k = 3 * T[3 * t + 2]; return bary(x, y, C[i], C[i + 1], C[j], C[j + 1], C[k], C[k + 1], w); };
+    let best = null, bz = Infinity;
+    for (let t = 0; t < NT; t++) {
+      if (!CBOX[5 * t + 4] || x < CBOX[5 * t] - 1e-6 || x > CBOX[5 * t + 1] + 1e-6 || y < CBOX[5 * t + 2] - 1e-6 || y > CBOX[5 * t + 3] + 1e-6) continue;
+      if (!tri(t) || Math.min(w[0], w[1], w[2]) < -1e-6) continue;
+      const z = w[0] * C[3 * T[3 * t] + 2] + w[1] * C[3 * T[3 * t + 1] + 2] + w[2] * C[3 * T[3 * t + 2] + 2];
+      if (z < bz) { bz = z; best = { t, w: w.slice() }; }
+    }
+    if (best) return best;
+    let bm = -Infinity;
+    for (let t = 0; t < NT; t++) { if (!CBOX[5 * t + 4] || !tri(t)) continue; const m = Math.min(w[0], w[1], w[2]); if (m > bm) { bm = m; best = { t, w: w.slice() }; } }
+    return best;
+  }
+  // canonical (x, y) of a bound point
+  const atC = (b) => { const { C, T } = faceMesh(), i = 3 * T[3 * b.t], j = 3 * T[3 * b.t + 1], k = 3 * T[3 * b.t + 2], w = b.w; return [w[0] * C[i] + w[1] * C[j] + w[2] * C[k], w[0] * C[i + 1] + w[1] * C[j + 1] + w[2] * C[k + 1]]; };
+
+  // A polygon resampled every 0.25 cm, each sample bound to the mesh.
+  function outline(poly) {
+    const out = [];
+    poly.forEach(([x, y], k) => {
+      const [nx, ny] = poly[(k + 1) % poly.length], n = Math.max(1, Math.ceil(Math.hypot(nx - x, ny - y) / 0.25));
+      for (let s = 0; s < n; s++) out.push(locateC(x + ((nx - x) * s) / n, y + ((ny - y) * s) / n));
+    });
+    return out;
+  }
+  /* Built once: every muscle as a grid of bound vertices (GPU buffers), every zone as a bound outline. */
+  let GEO = null;
+  function geometry() {
+    if (GEO) return GEO;
+    const t0 = performance.now(), { C, T, FRONT } = faceMesh();
+    const regions = [], vt = [], vw = [], st = [], idx = [];
+    MUSCLES.forEach((def) => expand(def).forEach((sh) => {
+      const m = regions.length, H = def.h || 0.2, Fe = def.f || 0.22, SP = 0.17;
+      const poly = sh.poly, xs = poly.map((p) => p[0]), ys = poly.map((p) => p[1]);
+      const hole = def.hole ? expand({ side: 'c', half: def.hole })[0].poly : null;
+      const x0 = Math.min(...xs) - Fe, x1 = Math.max(...xs) + Fe, y0 = Math.min(...ys) - Fe, y1 = Math.max(...ys) + Fe;
+      const nx = Math.ceil((x1 - x0) / H) + 1, ny = Math.ceil((y1 - y0) / H) + 1;
+      // fiber coordinate: stripes run along the fibers, so this counts across them
+      const f = def.fib, fc = f.c ? cpt(f.c, sh.mir) : null, ang = f.t === 'lin' ? ((sh.mir ? 180 - f.a : f.a) * Math.PI) / 180 : 0;
+      const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2, rm = fc ? Math.max(1, Math.hypot(cx - fc[0], cy - fc[1])) : 1;
+      const fiber = (x, y) => {
+        if (f.t === 'lin') return (-(x - cx) * Math.sin(ang) + (y - cy) * Math.cos(ang)) / SP;
+        if (f.t === 'fan') return (Math.atan2(y - fc[1], x - fc[0]) * rm) / SP;
+        return Math.hypot(x - fc[0], (y - fc[1]) / (f.k || 1)) / SP;
+      };
+      const node = new Int32Array(nx * ny).fill(-1), e = new Float32Array(nx * ny);
+      for (let r = 0; r < ny; r++) for (let c = 0; c < nx; c++) {
+        const x = x0 + c * H, y = y0 + r * H;
+        let k = (sdist(poly, x, y) + Fe) / (2 * Fe);
+        if (hole) k = Math.min(k, (0.12 - sdist(hole, x, y)) / 0.24);
+        e[r * nx + c] = Math.max(0, Math.min(1, k));
+      }
+      const vid = (r, c) => {
+        const q = r * nx + c;
+        if (node[q] >= 0) return node[q];
+        const x = x0 + c * H, y = y0 + r * H, b = locateC(x, y);
+        node[q] = vt.length;
+        vt.push(b.t); vw.push(b.w[0], b.w[1], b.w[2]); st.push(e[q], fiber(x, y), m, x, y);
+        return node[q];
+      };
+      let sx = 0, sy = 0, sn = 0;
+      for (let r = 0; r + 1 < ny; r++) for (let c = 0; c + 1 < nx; c++) {
+        const q = r * nx + c;
+        if (e[q] + e[q + 1] + e[q + nx] + e[q + nx + 1] <= 0) continue;
+        const a = vid(r, c), b = vid(r, c + 1), d = vid(r + 1, c), g = vid(r + 1, c + 1);
+        // grid cells are counter-clockwise in canonical x right, y down when listed a, d, g; flip to FRONT
+        const cw = FRONT > 0;
+        if (cw) idx.push(a, g, d, a, b, g); else idx.push(a, d, g, a, g, b);
+        if (e[q] > 0.5) { sx += x0 + c * H; sy += y0 + r * H; sn++; }
+      }
+      const pc = sn ? [sx / sn, sy / sn] : poly[0];
+      regions.push({ id: sh.id, poly, area: polyArea(poly), c: pc, cb: locateC(pc[0], pc[1]), ob: outline(poly) });
+    }));
+    // winding check: make every muscle triangle's canonical cross product agree with the tessellation's FRONT
+    const NVm = vt.length, CX = new Float32Array(NVm), CY = new Float32Array(NVm);
+    for (let v = 0; v < NVm; v++) { CX[v] = st[5 * v + 3]; CY[v] = st[5 * v + 4]; }
+    for (let k = 0; k < idx.length; k += 3) {
+      const a = idx[k], b = idx[k + 1], c = idx[k + 2];
+      if (((CX[b] - CX[a]) * (CY[c] - CY[a]) - (CY[b] - CY[a]) * (CX[c] - CX[a])) * FRONT < 0) { idx[k + 1] = c; idx[k + 2] = b; }
+    }
+    // zones: bound outlines
+    const zones = [];
+    ZONES.forEach((def) => expand(def).forEach((sh) => {
+      const b = outline(sh.poly);
+      zones.push({ id: def.id, key: sh.id, core: !!def.core, poly: sh.poly, n: b.length, b, area: polyArea(sh.poly) });
+    }));
+    const VST = new Float32Array(NVm * 3);
+    for (let v = 0; v < NVm; v++) { VST[3 * v] = st[5 * v]; VST[3 * v + 1] = st[5 * v + 1]; VST[3 * v + 2] = st[5 * v + 2]; }
+    GEO = { regions, zones, NVm, VT: Uint16Array.from(vt), VW: Float32Array.from(vw), VST, IDX: Uint16Array.from(idx) };
+    stats.geometry = { muscles: regions.length, vertices: NVm, triangles: idx.length / 3, zones: zones.length, ms: Math.round(performance.now() - t0) };
+    if (NVm > 65535) console.warn('[live] muscle grid has more vertices than 16-bit indices hold');
+    return GEO;
+  }
+  // The muscle region (smallest holding it) and core caution zone at canonical (x, y).
+  function regionAt(x, y) {
+    const G = geometry();
+    let m = null, z = null;
+    G.regions.forEach((r) => { if (sdist(r.poly, x, y) > 0 && (!m || r.area < m.area)) m = r; });
+    G.zones.forEach((q) => { if (q.core && sdist(q.poly, x, y) > 0 && (!z || q.area < z.area)) z = q; });
+    return { muscle: m ? m.id : '', caution: z ? z.id : null };
   }
 
+  // A reference pattern (BT.patterns area) as ghost points: canonical position, binding, drawing position.
+  function ghostsOf(area) {
+    if (!area) return [];
+    const out = [];
+    area.points.forEach((p, k) => {
+      (p.side === 'b' ? [false, true] : [false]).forEach((mir) => {
+        const [x, y] = cpt(p.at, mir), b = locateC(x, y), [dx, dy] = atD(b);
+        out.push({ key: area.id + ':' + k + (mir ? 'r' : 'l'), siteId: mir ? p.siteId.replace(/-l$/, '-r') : p.siteId, units: p.units, why: p.why, cx: x, cy: y, b, x: Math.round(dx * 10) / 10, y: Math.round(dy * 10) / 10 });
+      });
+    });
+    return out;
+  }
   /* ---------- tracker (loaded once per page) ---------- */
   const stats = { log: [], delegate: '', drawMs: 0, detectMs: 0, fps: 0 };
   let T0 = 0;
@@ -411,6 +632,11 @@
     return ['CPU', 'GPU'];
   }
 
+  async function blobFetchable() {
+    const u = URL.createObjectURL(new Blob(['1']));
+    try { await (await fetch(u)).text(); return true; } catch (e) { return false; } finally { URL.revokeObjectURL(u); }
+  }
+
   let loading = null;
   function landmarker() {
     if (!loading) {
@@ -436,8 +662,11 @@
         const [wasm, model] = await Promise.all([wasmP, modelP]);
         prog.phase = 'start'; emit();
         // The wasm loader fetches the binary through locateFile, so hand it the bytes already in memory.
-        const url = URL.createObjectURL(new Blob([wasm.bytes], { type: 'application/wasm' }));
-        const fileset = { wasmLoaderPath: files.wasmLoaderPath, wasmBinaryPath: url };
+        // A strict Content-Security-Policy without blob: in connect-src blocks that fetch; then the loader gets the
+        // same-origin URL (the service worker answers it from the bt-live cache this file just filled).
+        let url = URL.createObjectURL(new Blob([wasm.bytes], { type: 'application/wasm' }));
+        if (!(await blobFetchable())) { URL.revokeObjectURL(url); url = ''; mark('blob: fetch blocked, wasm loads from its URL', t); }
+        const fileset = { wasmLoaderPath: files.wasmLoaderPath, wasmBinaryPath: url || files.wasmBinaryPath };
         let lm = null, last = null;
         try {
           for (const delegate of delegates()) {
@@ -453,7 +682,7 @@
               console.warn(`Face tracking on the ${delegate} is unavailable`, e);
             }
           }
-        } finally { URL.revokeObjectURL(url); }
+        } finally { if (url) URL.revokeObjectURL(url); }
         if (!lm) throw last || new Error('Face tracking could not start');
         // The first inference compiles kernels (and GPU shaders); do it now on a blank frame, not on the camera's first.
         t = performance.now();
@@ -468,12 +697,23 @@
     return loading;
   }
 
-  // Zoom bar, same look as facemap.js .fm-zbar, kept here because the camera view can mount without a face map.
-  function injectCSS() {
-    if (document.getElementById('lc-css')) return;
+  // Styles through a constructable stylesheet, so a strict style-src (no 'unsafe-inline') still applies them;
+  // a <style> element only where constructable stylesheets are missing.
+  function addCSS(id, text) {
+    if (addCSS[id]) return;
+    addCSS[id] = true;
+    try {
+      const sh = new CSSStyleSheet();
+      sh.replaceSync(text);
+      document.adoptedStyleSheets = [...document.adoptedStyleSheets, sh];
+      return;
+    } catch (e) {}
     const st = document.createElement('style');
-    st.id = 'lc-css';
-    st.textContent = `
+    st.id = id; st.textContent = text;
+    document.head.appendChild(st);
+  }
+  // Zoom bar, same look as facemap.js .fm-zbar, kept here because the camera view can mount without a face map.
+  const CSS_ZOOM = `
 .lc-zw{position:absolute;inset:0;transform-origin:0 0;will-change:transform}
 .lc-zbar{position:absolute;right:8px;bottom:8px;top:auto;display:flex;align-items:center;background:var(--card);border:1px solid var(--line);border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,.08);overflow:hidden;z-index:2}
 .lc-zbar[hidden]{display:none}
@@ -483,118 +723,185 @@
 .fm-cam.lc-frozen canvas{touch-action:none}
 .fm-cam.lc-zoomed canvas{cursor:grab}
 `;
-    document.head.appendChild(st);
-  }
-
-  // The fill canvas and the progress pill; kept apart from injectCSS so the two style blocks change independently.
-  function injectLiveCSS() {
-    if (document.getElementById('lc-css-live')) return;
-    const st = document.createElement('style');
-    st.id = 'lc-css-live';
-    st.textContent = `
-.fm-cam canvas.lc-gl{pointer-events:none;mix-blend-mode:multiply}
-.lc-prog{position:absolute;left:50%;bottom:12px;transform:translateX(-50%);z-index:1;display:flex;align-items:center;gap:8px;max-width:calc(100% - 24px);background:rgba(0,0,0,.55);color:#fff;font-size:12px;line-height:1.3;padding:6px 12px;border-radius:999px;white-space:nowrap;pointer-events:none;font-variant-numeric:tabular-nums}
+  // The muscle canvas, the progress pill, the reference pattern banner and picker.
+  const CSS_LIVE = `
+.fm-cam canvas.lc-gl{pointer-events:none}
+.lc-prog{position:absolute;left:50%;bottom:76px;transform:translateX(-50%);z-index:1;display:flex;align-items:center;gap:8px;max-width:calc(100% - 24px);background:rgba(0,0,0,.55);color:#fff;font-size:12px;line-height:1.3;padding:6px 12px;border-radius:999px;white-space:nowrap;pointer-events:none;font-variant-numeric:tabular-nums}
 .lc-prog[hidden]{display:none}
 .lc-prog i{display:block;flex:none;width:56px;height:4px;border-radius:2px;background:rgba(255,255,255,.3);overflow:hidden}
 .lc-prog i[hidden]{display:none}
 .lc-prog b{display:block;height:100%;width:0;background:#fff;transition:width .2s}
+.lc-ref{position:absolute;left:8px;right:8px;top:8px;z-index:1;text-align:left;pointer-events:none}
+.fm-cam.lc-hasref .fm-camst{top:auto;bottom:112px}
+.lc-ref[hidden]{display:none}
+.lc-ref span{display:inline-block;max-width:100%;background:rgba(0,0,0,.55);color:#fff;font-size:11.5px;line-height:1.35;padding:5px 10px;border-radius:10px}
+.lc-pat{min-width:0;margin-top:12px;display:flex;flex-direction:column;gap:10px}
+.lc-pat-h{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.lc-pat-h span{font-weight:600}
+.lc-pat-h select{min-width:0;min-height:38px;max-width:62%;padding:0 10px;border-radius:10px;border:1px solid var(--line);background:var(--card-2);color:var(--fg);font:inherit;font-size:13px}
+.lc-pat-sum{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;min-height:44px;padding:8px 12px;border-radius:12px;background:var(--card-2);border:1px solid var(--line);text-align:left;font-size:13px;line-height:1.35}
+.lc-pat-sum[hidden]{display:none}
+.lc-pat-sum i{flex:none;font-style:normal;color:var(--accent);font-size:12px}
+.lc-pat-b{display:flex;flex-direction:column;gap:8px;padding:12px;border-radius:14px;background:var(--card-2);border:1px solid var(--line)}
+.lc-pat-b[hidden]{display:none}
+.lc-pat-tags{display:flex;flex-wrap:wrap;gap:6px}
+.lc-pat-note{font-weight:600;font-size:13px;line-height:1.4}
+.lc-pat-sub{color:var(--muted);font-size:12.5px;line-height:1.4}
+.lc-pat-pts{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:2px;font-size:12.5px;color:var(--muted)}
+.lc-pat-pts b{color:var(--fg);font-weight:500}
+.lc-pat details{font-size:12px;color:var(--muted);line-height:1.4}
+.lc-pat summary{cursor:pointer;color:var(--accent)}
 `;
-    document.head.appendChild(st);
-  }
 
   const supported = () => !!(window.isSecureContext && navigator.mediaDevices && navigator.mediaDevices.getUserMedia && window.WebAssembly);
 
-  const VS = 'attribute vec3 a_p;attribute vec2 a_uv;uniform vec4 u_xf;varying vec2 v_uv;varying float v_a;' +
-    'void main(){v_uv=a_uv;v_a=a_p.z;gl_Position=vec4(u_xf.x*a_p.x+u_xf.y,u_xf.z*a_p.y+u_xf.w,0.,1.);}';
-  const FS = 'precision mediump float;uniform sampler2D u_t;varying vec2 v_uv;varying float v_a;void main(){gl_FragColor=texture2D(u_t,v_uv)*v_a;}';
+  /* Muscle shader. a_p: camera pixels, a_n: normal (x right, y down, z toward the viewer), a_s: edge weight (0 at the
+     feathered rim, 1 inside), fiber coordinate, muscle index. u_k holds each muscle's strength (selected, used,
+     in the shown pattern). The fragment shader lights the fill from the normal, adds fiber stripes (faded out when
+     they would be finer than a pixel), and fades it to nothing as the surface turns away from the camera. */
+  const VS = 'attribute vec2 a_p;attribute vec3 a_n;attribute vec3 a_s;uniform vec4 u_xf;uniform float u_k[32];varying vec3 v_n;varying vec3 v_s;' +
+    'void main(){int i=int(a_s.z+0.5);v_n=a_n;v_s=vec3(a_s.x,a_s.y,u_k[i]);gl_Position=vec4(u_xf.x*a_p.x+u_xf.y,u_xf.z*a_p.y+u_xf.w,0.,1.);}';
+  const FS = (deriv) => (deriv ? '#extension GL_OES_standard_derivatives : enable\n' : '') +
+    'precision mediump float;uniform vec3 u_c;uniform vec3 u_l;varying vec3 v_n;varying vec3 v_s;' +
+    'void main(){vec3 n=normalize(v_n);float face=smoothstep(0.12,0.5,n.z);float e=smoothstep(0.,1.,v_s.x);float a=e*face*v_s.z;' +
+    'if(a<0.004)discard;float s=abs(fract(v_s.y)-0.5)*2.;float fib=smoothstep(0.55,1.,s);' +
+    (deriv ? 'fib*=1.-smoothstep(0.3,0.65,fwidth(v_s.y));' : '') +
+    'float dif=max(dot(n,u_l),0.);vec3 col=u_c*(0.28+0.88*dif)*(1.-0.2*fib)*(0.82+0.18*e);' +
+    'float sp=pow(max(dot(reflect(-u_l,n),vec3(0.,0.,1.)),0.),16.)*0.22;col+=vec3(sp*e);gl_FragColor=vec4(col*a,a);}';
+  const LIGHT = (() => { const l = [0.35, -0.6, 0.72], n = Math.hypot(...l); return l.map((x) => x / n); })(); // upper left on the mirrored screen
+  const MUSCLE_RGB = [0.82, 0.3, 0.27];
   const O0 = [0, 0], O1 = [1, 1];
 
   function mount(el, opts) {
     opts = Object.assign({ points: [], selectedId: null, opacity: 0.85 }, opts || {});
-    const S = shapes();
+    const G = geometry();
     const video = document.createElement('video');
     video.setAttribute('playsinline', ''); video.muted = true; video.autoplay = true;
     const canvas = document.createElement('canvas');
-    injectCSS();
+    addCSS('lc-css', CSS_ZOOM);
+    addCSS('lc-css-live', CSS_LIVE);
     const zw = document.createElement('div'); zw.className = 'lc-zw'; zw.appendChild(video);
     const zbar = document.createElement('div'); zbar.className = 'fm-zbar lc-zbar'; zbar.hidden = true;
     zbar.innerHTML = '<button type="button" data-z="out" aria-label="Zoom out">&minus;</button><button type="button" data-z="lvl" aria-label="Reset zoom">1x</button><button type="button" data-z="in" aria-label="Zoom in">+</button>';
     el.append(zw, canvas, zbar);
     const ctx = canvas.getContext('2d');
     canvas.style.opacity = opts.opacity;
-    injectLiveCSS();
-    // Muscle fills: a WebGL canvas under the 2D one, multiplied onto the video so skin shading shows through.
+    // Muscle fills: a WebGL canvas under the 2D one.
     const glc = document.createElement('canvas'); glc.className = 'lc-gl'; glc.style.opacity = opts.opacity;
     el.insertBefore(glc, canvas);
     const pill = document.createElement('div'); pill.className = 'lc-prog'; pill.hidden = true; pill.innerHTML = '<span></span><i><b></b></i>';
-    el.appendChild(pill);
-    const { NV, NT, T, C, D, VA0, Ginv, FRONT } = faceMesh();
+    const ref = document.createElement('div'); ref.className = 'lc-ref'; ref.hidden = true;
+    el.append(pill, ref);
+    const { NV, NT, T, FRONT } = faceMesh();
 
     let pts = [], sel = opts.selectedId, stream = null, raf = 0, dead = false, frozen = false, failed = false;
     let tracker = null, lastT = -1, mesh = null, seen = 0, status = '';
     let firstRes = false, firstFace = false, frames = 0, fpsT = 0;
+    let pat = null, ghosts = [];
     const t0 = performance.now();
     // live state, allocated once: P holds every vertex in camera pixels (x, y, z), TF each triangle's facing
-    // (cosine toward the camera, <= 0 when turned away), VA each vertex's alpha (ring fade times facing)
-    const P = new Float32Array(NV * 3), raw = new Float32Array(N * 3), TF = new Float32Array(NT), VF = new Float32Array(NV), VA = new Float32Array(NV);
-    const VC = new Float32Array(NV), A3 = new Float64Array(12), S3 = new Float64Array(12);
-    for (let k = 0; k < T.length; k++) VC[T[k]]++;
+    // (cosine toward the camera, <= 0 when turned away), NN each vertex's unit normal (x right, y down, z toward the viewer)
+    const P = new Float32Array(NV * 3), raw = new Float32Array(N * 3), TF = new Float32Array(NT), NN = new Float32Array(NV * 3);
+    const A3 = new Float64Array(12), S3 = new Float64Array(12);
+    const { C } = faceMesh();
     const filt = euroBank(N * 3);
-    const SX = new Float32Array(S.max), SY = new Float32Array(S.max), SA = new Float32Array(S.max);
+    const zmax = Math.max(...G.zones.map((z) => z.n), ...G.regions.map((r) => r.ob.length));
+    const ZX = new Float32Array(zmax), ZY = new Float32Array(zmax);
     const css = getComputedStyle(el);
     const accent = css.getPropertyValue('--accent').trim() || '#1E3FCB';
-    const muscleRGB = '209,125,107', cautionRGB = '246,194,91', fillRGB = '205,92,78';
+    const cautionRGB = '246,194,91';
 
     const setStatus = (s) => { if (s !== status) { status = s; opts.onStatus && opts.onStatus(s); } };
-    const bindPts = (list) => list.map((p) => ({ ...p, b: locate(+p.x, +p.y, false) }));
+    // Saved points are bound through the drawing (their x, y are 2D map coordinates); c is the canonical position.
+    const bindPts = (list) => list.map((p) => { const b = locate(+p.x, +p.y, false); return { ...p, b, c: atC(b) }; });
     pts = bindPts(opts.points || []);
 
-    /* WebGL fills: positions and alpha change every frame, texture coordinates (drawing position) never do */
-    let gl = null, glBuf = null, glData = null, uXf = null, tex = null, texKey = '', glShown = false;
-    const texC = document.createElement('canvas'); texC.width = TEX.w; texC.height = TEX.h;
-    const tctx = texC.getContext('2d');
+    /* WebGL muscles: positions and normals change every frame; edge weight, fiber coordinate and muscle never do */
+    let gl = null, dynBuf = null, dyn = null, uXf = null, uK = null, glShown = false;
+    const K = new Float32Array(32);
     function initGL() {
-      try { gl = glc.getContext('webgl', { alpha: true, premultipliedAlpha: true, antialias: true }); } catch (e) { gl = null; }
+      try { gl = glc.getContext('webgl', { alpha: true, premultipliedAlpha: true, antialias: true, preserveDrawingBuffer: DEBUG }); } catch (e) { gl = null; }
       if (!gl) { glc.remove(); return; }
       try {
+        const deriv = !!gl.getExtension('OES_standard_derivatives');
         const sh = (type, src) => { const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s); if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s)); return s; };
         const pr = gl.createProgram();
-        gl.attachShader(pr, sh(gl.VERTEX_SHADER, VS)); gl.attachShader(pr, sh(gl.FRAGMENT_SHADER, FS)); gl.linkProgram(pr);
+        gl.attachShader(pr, sh(gl.VERTEX_SHADER, VS)); gl.attachShader(pr, sh(gl.FRAGMENT_SHADER, FS(deriv))); gl.linkProgram(pr);
         if (!gl.getProgramParameter(pr, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(pr));
         gl.useProgram(pr);
-        const uv = new Float32Array(NV * 2);
-        for (let v = 0; v < NV; v++) { uv[2 * v] = (D[2 * v] * TEX.sx) / TEX.w; uv[2 * v + 1] = (D[2 * v + 1] * TEX.sy) / TEX.h; }
-        const attr = (name, data, size, usage) => {
-          const b = gl.createBuffer(), at = gl.getAttribLocation(pr, name);
-          gl.bindBuffer(gl.ARRAY_BUFFER, b); gl.bufferData(gl.ARRAY_BUFFER, data, usage);
-          gl.enableVertexAttribArray(at); gl.vertexAttribPointer(at, size, gl.FLOAT, false, 0, 0);
-          return b;
-        };
-        attr('a_uv', uv, 2, gl.STATIC_DRAW);
-        glData = new Float32Array(NV * 3);
-        glBuf = attr('a_p', glData, 3, gl.DYNAMIC_DRAW);
-        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, gl.createBuffer()); gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, T, gl.STATIC_DRAW);
-        uXf = gl.getUniformLocation(pr, 'u_xf');
-        tex = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, tex);
-        [[gl.TEXTURE_MIN_FILTER, gl.LINEAR], [gl.TEXTURE_MAG_FILTER, gl.LINEAR], [gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE], [gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE]].forEach(([k, v]) => gl.texParameteri(gl.TEXTURE_2D, k, v));
-        gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true);
+        const sb = gl.createBuffer(), as = gl.getAttribLocation(pr, 'a_s');
+        gl.bindBuffer(gl.ARRAY_BUFFER, sb); gl.bufferData(gl.ARRAY_BUFFER, G.VST, gl.STATIC_DRAW);
+        gl.enableVertexAttribArray(as); gl.vertexAttribPointer(as, 3, gl.FLOAT, false, 0, 0);
+        dyn = new Float32Array(G.NVm * 5);
+        dynBuf = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, dynBuf); gl.bufferData(gl.ARRAY_BUFFER, dyn, gl.DYNAMIC_DRAW);
+        const ap = gl.getAttribLocation(pr, 'a_p'), an = gl.getAttribLocation(pr, 'a_n');
+        gl.enableVertexAttribArray(ap); gl.vertexAttribPointer(ap, 2, gl.FLOAT, false, 20, 0);
+        gl.enableVertexAttribArray(an); gl.vertexAttribPointer(an, 3, gl.FLOAT, false, 20, 8);
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, gl.createBuffer()); gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, G.IDX, gl.STATIC_DRAW);
+        uXf = gl.getUniformLocation(pr, 'u_xf'); uK = gl.getUniformLocation(pr, 'u_k');
+        gl.uniform3f(gl.getUniformLocation(pr, 'u_c'), ...MUSCLE_RGB);
+        gl.uniform3f(gl.getUniformLocation(pr, 'u_l'), ...LIGHT);
         gl.enable(gl.CULL_FACE); gl.cullFace(gl.BACK);
         gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
-      } catch (e) { console.warn('WebGL face map unavailable, drawing flat fills', e); gl = null; glc.remove(); }
+      } catch (e) { console.warn('WebGL muscle view unavailable, drawing flat fills', e); gl = null; glc.remove(); }
     }
     glc.addEventListener('webglcontextlost', (e) => { e.preventDefault(); gl = null; glc.remove(); });
     initGL();
-    // The fill texture: the drawing's muscles and caution zones, redrawn only when the used or selected muscles change.
-    function paintTex(used, selM) {
-      const key = Object.keys(used).sort().join() + '|' + selM;
-      if (key === texKey) return;
-      texKey = key;
-      tctx.setTransform(1, 0, 0, 1, 0, 0); tctx.clearRect(0, 0, TEX.w, TEX.h); tctx.setTransform(TEX.sx, 0, 0, TEX.sy, 0, 0);
-      const fill = (poly, style) => { tctx.beginPath(); poly.forEach(([x, y], k) => (k ? tctx.lineTo(x, y) : tctx.moveTo(x, y))); tctx.closePath(); tctx.fillStyle = style; tctx.fill(); };
-      S.muscles.forEach((m) => fill(m.poly, `rgba(${fillRGB},${m.id === selM ? 0.8 : used[m.id] ? 0.6 : 0.42})`));
-      S.caution.forEach((z) => fill(z.poly, `rgba(${cautionRGB},.3)`));
-      gl.bindTexture(gl.TEXTURE_2D, tex);
-      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, texC);
+
+    /* reference patterns (#65): picker and details under the camera view, banner inside it */
+    let panel = null;
+    const PT = BT.patterns;
+    if (PT && PT.areas && PT.areas.length) {
+      panel = document.createElement('div'); panel.className = 'lc-pat';
+      panel.innerHTML = `<label class="lc-pat-h"><span>Reference pattern</span><select aria-label="Reference pattern"><option value="">None</option>${PT.areas.map((a) => `<option value="${BT.esc(a.id)}">${BT.esc(a.label)}</option>`).join('')}</select></label>
+        <button type="button" class="lc-pat-sum" aria-expanded="false" hidden><span data-sum></span><i data-chev>Details</i></button>
+        <div class="lc-pat-b" hidden>
+          <div class="lc-pat-tags"><span class="pill blue" data-ev></span><span class="pill amber">${BT.esc(PT.REVIEW)}</span></div>
+          <div class="lc-pat-note">${BT.esc(PT.NOTE)}</div>
+          <div class="lc-pat-sub" data-total></div>
+          <ul class="lc-pat-pts" data-pts></ul>
+          <div class="lc-pat-sub" data-notes></div>
+          <details><summary>Source</summary><p data-src></p></details>
+          <button type="button" class="btn" data-use>Use these points</button>
+        </div>`;
+      const slot = (el.parentNode && el.parentNode.querySelector('[data-patslot]')) || null;
+      if (slot) slot.append(panel); else el.after(panel);
+      ref.innerHTML = `<span>${BT.esc(PT.NOTE)}</span>`;
+      const selEl = panel.querySelector('select'), box = panel.querySelector('.lc-pat-b'), sum = panel.querySelector('.lc-pat-sum');
+      selEl.onchange = () => setPattern(selEl.value);
+      // Collapsed to a one-line summary so the camera controls stay on screen (#82); a tap opens the details.
+      const expand = (open) => { box.hidden = !open; sum.setAttribute('aria-expanded', String(open)); sum.querySelector('[data-chev]').textContent = open ? 'Hide' : 'Details'; };
+      sum.onclick = () => expand(box.hidden);
+      panel.querySelector('[data-use]').onclick = () => {
+        if (!pat || !ghosts.length) return;
+        // Unconfirmed: the log treats these units as suggestions to confirm (#61). Reference low end, never adjusted.
+        const points = ghosts.map((g) => ({ id: BT.uid(), siteId: g.siteId, x: g.x, y: g.y, units: g.units[0], refUnits: g.units.slice(), confirmed: false, suggested: true, pattern: pat.id }));
+        if (BT.openLog) BT.openLog({ points });
+        else BT.toast('Logging is not available yet');
+      };
+      panel.fill = () => {
+        expand(false);
+        sum.hidden = !pat;
+        if (!pat) return;
+        const n = pat.points.reduce((a, p) => a + (p.side === 'b' ? 2 : 1), 0);
+        const lo = pat.points.reduce((a, p) => a + p.units[0] * (p.side === 'b' ? 2 : 1), 0), hi = pat.points.reduce((a, p) => a + p.units[1] * (p.side === 'b' ? 2 : 1), 0);
+        panel.querySelector('[data-sum]').textContent = `${pat.label}: ${n} ${n === 1 ? 'point' : 'points'}, ${PT.fmtUnits([lo, hi])} reference`;
+        panel.querySelector('[data-ev]').textContent = pat.evidence;
+        panel.querySelector('[data-total]').textContent = pat.total;
+        panel.querySelector('[data-notes]').textContent = pat.notes;
+        panel.querySelector('[data-src]').textContent = pat.source;
+        panel.querySelector('[data-pts]').innerHTML = pat.points.map((p) => {
+          return `<li><b>${BT.esc(PT.fmtUnits(p.units))}</b> ${p.side === 'b' ? 'each side' : 'midline'} · ${BT.esc(p.why)}</li>`;
+        }).join('');
+      };
+    }
+    function setPattern(id) {
+      pat = PT && id ? PT.find(id) : null;
+      ghosts = ghostsOf(pat);
+      ref.hidden = !pat;
+      el.classList.toggle('lc-hasref', !!pat);
+      if (panel) { panel.querySelector('select').value = pat ? pat.id : ''; panel.fill(); }
     }
 
     /* progress pill: tracker download and start-up while the camera already shows; with ?lcdebug, live costs */
@@ -673,13 +980,14 @@
       draw();
     }
 
-    // Landmarks -> P (filtered), the rings through a 3D affine fit, then facing and alpha per triangle and vertex.
+    // Landmarks -> P (filtered), the rings through a 3D affine fit, then facing per triangle and normals per vertex.
     function pose(lm, now) {
       const vw = video.videoWidth, vh = video.videoHeight;
       for (let i = 0; i < N; i++) { const p = lm[i]; raw[3 * i] = p.x * vw; raw[3 * i + 1] = p.y * vh; raw[3 * i + 2] = p.z * vw; }
       filt.run(raw, now);
       P.set(raw);
       // least-squares affine canonical -> live: A = (sum p h^T) Ginv, h = [canonical, 1]
+      const { Ginv } = faceMesh();
       S3.fill(0);
       for (let i = 0; i < N; i++) {
         const hx = C[3 * i], hy = C[3 * i + 1], hz = C[3 * i + 2];
@@ -690,17 +998,18 @@
         const hx = C[3 * v], hy = C[3 * v + 1], hz = C[3 * v + 2];
         for (let r = 0; r < 3; r++) P[3 * v + r] = A3[4 * r] * hx + A3[4 * r + 1] * hy + A3[4 * r + 2] * hz + A3[4 * r + 3];
       }
-      // facing: the z of each triangle's unit normal, signed so front faces are positive
-      VF.fill(0);
+      // facing: the z of each triangle's unit normal, signed so front faces are positive. The outward normal is
+      // -FRONT * (u x w) in camera axes (z away); flipping z gives the viewer-facing normal the shader lights.
+      NN.fill(0);
       for (let t = 0; t < NT; t++) {
         const i = 3 * T[3 * t], j = 3 * T[3 * t + 1], k = 3 * T[3 * t + 2];
         const ux = P[j] - P[i], uy = P[j + 1] - P[i + 1], uz = P[j + 2] - P[i + 2], wx = P[k] - P[i], wy = P[k + 1] - P[i + 1], wz = P[k + 2] - P[i + 2];
         const nx = uy * wz - uz * wy, ny = uz * wx - ux * wz, nz = ux * wy - uy * wx, len = Math.sqrt(nx * nx + ny * ny + nz * nz);
-        const fz = len ? (FRONT * nz) / len : 0;
-        TF[t] = fz; VF[i / 3] += fz; VF[j / 3] += fz; VF[k / 3] += fz;
+        TF[t] = len ? (FRONT * nz) / len : 0;
+        const ax = -FRONT * nx, ay = -FRONT * ny, az = FRONT * nz;
+        NN[i] += ax; NN[i + 1] += ay; NN[i + 2] += az; NN[j] += ax; NN[j + 1] += ay; NN[j + 2] += az; NN[k] += ax; NN[k + 1] += ay; NN[k + 2] += az;
       }
-      // fade from fully shown at a facing of 0.45 to hidden at 0.1, times the ring fade
-      for (let v = 0; v < NV; v++) { const f = VF[v] / (VC[v] || 1), a = (f - 0.1) / 0.35; VA[v] = VA0[v] * (a < 0 ? 0 : a > 1 ? 1 : a); }
+      for (let v = 0; v < NV; v++) { const x = NN[3 * v], y = NN[3 * v + 1], z = NN[3 * v + 2], l = Math.sqrt(x * x + y * y + z * z) || 1; NN[3 * v] = x / l; NN[3 * v + 1] = y / l; NN[3 * v + 2] = z / l; }
     }
     // A bound point in camera pixels, or null when its triangle faces away.
     const placeCam = (b) => {
@@ -758,41 +1067,64 @@
       if (z === 'in') zoomStep(1.6); else if (z === 'out') zoomStep(1 / 1.6); else resetZoom();
     };
 
-    // Project a bound outline into SX/SY (screen pixels) and SA (alpha; 0 where its triangle faces away).
-    function project(sh, ax, bx, ay, by) {
-      for (let q = 0; q < sh.n; q++) {
-        const t = sh.t[q], i = T[3 * t], j = T[3 * t + 1], k = T[3 * t + 2], w0 = sh.w[3 * q], w1 = sh.w[3 * q + 1], w2 = sh.w[3 * q + 2];
-        SX[q] = ax * (w0 * P[3 * i] + w1 * P[3 * j] + w2 * P[3 * k]) + bx;
-        SY[q] = ay * (w0 * P[3 * i + 1] + w1 * P[3 * j + 1] + w2 * P[3 * k + 1]) + by;
-        SA[q] = TF[t] > 0.02 ? w0 * VA[i] + w1 * VA[j] + w2 * VA[k] : 0;
-      }
+    /* caution zones: faint hatching, shown in proportion to how close a placed or reference point is (cm) */
+    function zoneStrength(z) {
+      let d = Infinity, dg = Infinity;
+      pts.forEach((p) => { d = Math.min(d, -sdist(z.poly, p.c[0], p.c[1])); });
+      ghosts.forEach((g) => { dg = Math.min(dg, -sdist(z.poly, g.cx, g.cy)); });
+      const m = Math.min(d, dg);
+      let a = m <= 0 ? 1 : Math.max(0, 1 - m / 1.0);
+      if (pat && pat.zones.indexOf(z.id) >= 0) a = Math.max(a, 0.7);
+      return { a, d }; // d: placed points only, for the zone's name
     }
-    // Stroke a projected closed outline in runs of similar alpha, so it fades and breaks where the mesh does.
-    const LEVEL = [0, 0.3, 0.65, 1];
-    function strokeRuns(n, w1, s1, w2, s2) {
-      let cur = -1;
-      const flush = () => {
-        if (cur <= 0) return;
-        ctx.globalAlpha = LEVEL[cur];
-        if (w1) { ctx.lineWidth = w1; ctx.strokeStyle = s1; ctx.stroke(); }
-        ctx.lineWidth = w2; ctx.strokeStyle = s2; ctx.stroke();
-      };
-      for (let a = 0; a < n; a++) {
-        const b = a + 1 === n ? 0 : a + 1, m = SA[a] < SA[b] ? SA[a] : SA[b], l = m > 0.8 ? 3 : m > 0.45 ? 2 : m > 0.12 ? 1 : 0;
-        if (l !== cur) { flush(); cur = l; ctx.beginPath(); ctx.moveTo(SX[a], SY[a]); }
-        ctx.lineTo(SX[b], SY[b]);
+    // Project a bound outline into ZX/ZY (screen pixels); returns its mean facing.
+    function projectRing(bs, ax, bx, ay, by) {
+      let face = 0;
+      for (let q = 0; q < bs.length; q++) {
+        const b = bs[q], t = b.t, i = 3 * T[3 * t], j = 3 * T[3 * t + 1], k = 3 * T[3 * t + 2], w = b.w;
+        ZX[q] = ax * (w[0] * P[i] + w[1] * P[j] + w[2] * P[k]) + bx;
+        ZY[q] = ay * (w[0] * P[i + 1] + w[1] * P[j + 1] + w[2] * P[k + 1]) + by;
+        face += TF[t];
       }
-      flush();
-      ctx.globalAlpha = 1;
+      return face / bs.length;
     }
-    // Without WebGL: flat fills on the 2D canvas, skipped for an outline that is mostly turned away.
-    function fillFlat(n, style) {
-      let s = 0;
-      for (let q = 0; q < n; q++) s += SA[q];
-      if (s / n < 0.5) return;
+    const shownZones = [];
+    function drawZones(ax, bx, ay, by, unit) {
+      shownZones.length = 0;
+      G.zones.forEach((z) => {
+        const { a, d } = zoneStrength(z);
+        if (a <= 0.02) return;
+        const face = projectRing(z.b, ax, bx, ay, by);
+        if (face < 0.3) return; // turned away
+        let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+        for (let q = 0; q < z.n; q++) { if (ZX[q] < x0) x0 = ZX[q]; if (ZX[q] > x1) x1 = ZX[q]; if (ZY[q] < y0) y0 = ZY[q]; if (ZY[q] > y1) y1 = ZY[q]; }
+        const k = a * Math.min(1, (face - 0.3) / 0.25);
+        ctx.save();
+        ctx.beginPath();
+        for (let q = 0; q < z.n; q++) q ? ctx.lineTo(ZX[q], ZY[q]) : ctx.moveTo(ZX[q], ZY[q]);
+        ctx.closePath();
+        ctx.fillStyle = `rgba(${cautionRGB},${0.1 * k})`;
+        ctx.fill();
+        ctx.clip();
+        ctx.beginPath();
+        const step = Math.max(4, 5 * unit);
+        for (let s = x0 + y0 - (y1 - y0); s < x1 + y1; s += step) { ctx.moveTo(s - y0, y0); ctx.lineTo(s - y1, y1); }
+        ctx.lineWidth = Math.max(0.8, 0.9 * unit); ctx.strokeStyle = `rgba(${cautionRGB},${0.6 * k})`;
+        ctx.stroke();
+        ctx.restore();
+        shownZones.push({ key: z.key, id: z.id, a: k, near: d < 0.4, x: (x0 + x1) / 2, y: (y0 + y1) / 2 });
+      });
+    }
+    function tag(text, x, y, align, small) {
+      ctx.font = `${small ? 500 : 600} ${small ? 11 : 12.5}px system-ui, sans-serif`;
+      const w = ctx.measureText(text).width + 12, h = small ? 18 : 21;
+      const W = el.clientWidth, left = Math.max(4, Math.min(W - w - 4, align === 'left' ? x : align === 'right' ? x - w : x - w / 2));
+      ctx.fillStyle = 'rgba(0,0,0,.6)';
       ctx.beginPath();
-      for (let q = 0; q < n; q++) q ? ctx.lineTo(SX[q], SY[q]) : ctx.moveTo(SX[q], SY[q]);
-      ctx.closePath(); ctx.fillStyle = style; ctx.fill();
+      if (ctx.roundRect) ctx.roundRect(left, y - h / 2, w, h, h / 2); else ctx.rect(left, y - h / 2, w, h);
+      ctx.fill();
+      ctx.fillStyle = '#fff'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+      ctx.fillText(text, left + 6, y + 0.5);
     }
 
     function draw() {
@@ -809,42 +1141,75 @@
       }
       // camera pixel -> screen is affine per axis (mirror, cover scale, frozen zoom): sx = ax x + bx, sy = ay y + by
       const o = v.to(O0), u = v.to(O1), ax = u[0] - o[0], bx = o[0], ay = u[1] - o[1], by = o[1];
-      // line weights scale with the face on screen: 106 is the outer eye corner span in the drawing
-      const unit = Math.max(0.6, Math.min(2, (v.s * Math.hypot(P[3 * 263] - P[3 * 33], P[3 * 263 + 1] - P[3 * 33 + 1])) / 106));
-      const used = {}, sp = pts.find((p) => p.id === sel);
+      // sizes scale with the face on screen: 8.9 cm is the canonical outer eye corner span
+      const pxcm = (Math.abs(ax) * Math.hypot(P[3 * 263] - P[3 * 33], P[3 * 263 + 1] - P[3 * 33 + 1])) / 8.9;
+      const unit = Math.max(0.6, Math.min(2, pxcm / 32));
+      const used = {}, sp = pts.find((p) => p.id === sel), inPat = {};
       pts.forEach((p) => (used[p.siteId ? BT.site(p.siteId).id : ''] = 1));
+      ghosts.forEach((g) => (inPat[g.siteId] = 1));
       const selM = sp && sp.siteId ? BT.site(sp.siteId).id : null;
 
       if (gl) {
-        paintTex(used, selM);
-        for (let k = 0, n = NV; k < n; k++) { glData[3 * k] = P[3 * k]; glData[3 * k + 1] = P[3 * k + 1]; glData[3 * k + 2] = VA[k]; }
+        G.regions.forEach((r, i) => { K[i] = r.id === selM ? 0.95 : used[r.id] ? 0.72 : pat ? (inPat[r.id] ? 0.8 : 0.3) : 0.55; });
+        const { VT, VW, NVm } = G;
+        for (let q = 0; q < NVm; q++) {
+          const t = VT[q], i = 3 * T[3 * t], j = 3 * T[3 * t + 1], k = 3 * T[3 * t + 2], w0 = VW[3 * q], w1 = VW[3 * q + 1], w2 = VW[3 * q + 2], o5 = 5 * q;
+          dyn[o5] = w0 * P[i] + w1 * P[j] + w2 * P[k];
+          dyn[o5 + 1] = w0 * P[i + 1] + w1 * P[j + 1] + w2 * P[k + 1];
+          dyn[o5 + 2] = w0 * NN[i] + w1 * NN[j] + w2 * NN[k];
+          dyn[o5 + 3] = w0 * NN[i + 1] + w1 * NN[j + 1] + w2 * NN[k + 1];
+          dyn[o5 + 4] = w0 * NN[i + 2] + w1 * NN[j + 2] + w2 * NN[k + 2];
+        }
         gl.viewport(0, 0, cw, ch);
         gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT);
-        gl.bindBuffer(gl.ARRAY_BUFFER, glBuf); gl.bufferSubData(gl.ARRAY_BUFFER, 0, glData);
+        gl.bindBuffer(gl.ARRAY_BUFFER, dynBuf); gl.bufferSubData(gl.ARRAY_BUFFER, 0, dyn);
         gl.uniform4f(uXf, (ax * 2) / v.W, (bx * 2) / v.W - 1, (-ay * 2) / v.H, 1 - (by * 2) / v.H);
+        gl.uniform1fv(uK, K);
         // the mirror and the clip-space y flip each reverse the winding
         gl.frontFace(FRONT * Math.sign(ax) * -Math.sign(ay) > 0 ? gl.CCW : gl.CW);
-        gl.drawElements(gl.TRIANGLES, T.length, gl.UNSIGNED_SHORT, 0);
+        gl.drawElements(gl.TRIANGLES, G.IDX.length, gl.UNSIGNED_SHORT, 0);
         glShown = true;
+      } else {
+        // Without WebGL: flat translucent fills of the regions that face the camera (no outline either way).
+        G.regions.forEach((r) => {
+          const face = projectRing(r.ob, ax, bx, ay, by);
+          if (face < 0.35) return;
+          ctx.beginPath();
+          for (let q = 0; q < r.ob.length; q++) q ? ctx.lineTo(ZX[q], ZY[q]) : ctx.moveTo(ZX[q], ZY[q]);
+          ctx.closePath();
+          ctx.fillStyle = `rgba(209,77,69,${(r.id === selM ? 0.5 : used[r.id] ? 0.38 : 0.26) * Math.min(1, (face - 0.35) / 0.25)})`;
+          ctx.fill();
+        });
       }
 
       ctx.lineJoin = 'round';
-      S.muscles.forEach((m) => {
-        project(m, ax, bx, ay, by);
-        if (!gl) fillFlat(m.n, `rgba(${muscleRGB},${m.id === selM ? 0.5 : used[m.id] ? 0.36 : 0.2})`);
-        strokeRuns(m.n, 2 * unit, 'rgba(0,0,0,.2)', 0.9 * unit, 'rgba(255,255,255,.78)');
-      });
-      ctx.setLineDash([4 * unit, 3 * unit]);
-      S.caution.forEach((z) => {
-        project(z, ax, bx, ay, by);
-        if (!gl) fillFlat(z.n, `rgba(${cautionRGB},.12)`);
-        strokeRuns(z.n, 0, '', 1.1 * unit, `rgba(${cautionRGB},.95)`);
-      });
-      ctx.setLineDash([]);
-      S.features.forEach((b) => { project(b, ax, bx, ay, by); strokeRuns(b.n, 0, '', 1 * unit, 'rgba(255,255,255,.5)'); });
+      drawZones(ax, bx, ay, by, unit);
+
+      // reference pattern: soft ghost markers with their reference range
+      if (ghosts.length) {
+        const r = 6.5 * Math.min(1.4, unit), done = [];
+        ghosts.forEach((g) => {
+          const q = placeCam(g.b);
+          if (!q) return;
+          const x = ax * q[0] + bx, y = ay * q[1] + by;
+          ctx.beginPath(); ctx.arc(x, y, r, 0, 7);
+          ctx.fillStyle = 'rgba(255,255,255,.28)'; ctx.fill();
+          ctx.setLineDash([3, 2.5]); ctx.lineWidth = 1.5; ctx.strokeStyle = 'rgba(255,255,255,.95)'; ctx.stroke(); ctx.setLineDash([]);
+          ctx.beginPath(); ctx.arc(x, y, 1.8, 0, 7); ctx.fillStyle = '#fff'; ctx.fill();
+          // one range label per cluster: skip it when the same text is already drawn close by; point it inward near an edge
+          const text = PT.fmtUnits(g.units);
+          if (pxcm <= 12 || done.some((q) => q.text === text && Math.hypot(q.x - x, q.y - y) < 60)) return;
+          done.push({ text, x, y });
+          const out = x >= v.W / 2 ? 1 : -1, side = (out > 0 ? v.W - x : x) < 80 ? -out : out;
+          tag(text, x + side * (r + 3), y, side > 0 ? 'left' : 'right', true);
+        });
+      }
+
+      // zone names only beside a point that is in or right next to one
+      const selZ = sp && sp.caution;
+      shownZones.forEach((z) => { if (z.near && z.a > 0.6 && z.id !== selZ) tag(zoneText(z.id).label, z.x, z.y, 'center', true); });
 
       const order = pts.slice().sort((a, b) => (a.id === sel) - (b.id === sel));
-      ctx.font = `600 ${Math.round(12 * Math.min(1.3, unit))}px system-ui, sans-serif`;
       ctx.textBaseline = 'middle';
       order.forEach((p) => {
         const q = placeCam(p.b);
@@ -853,12 +1218,16 @@
         if (p.id === sel) { ctx.beginPath(); ctx.arc(x, y, r + 4, 0, 7); ctx.lineWidth = 2; ctx.strokeStyle = '#fff'; ctx.stroke(); }
         ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.fillStyle = accent; ctx.fill(); ctx.lineWidth = 1.6; ctx.strokeStyle = '#fff'; ctx.stroke();
         const label = String(Math.round((+p.units || 0) * 10) / 10);
+        ctx.font = `600 ${Math.round(12 * Math.min(1.3, unit))}px system-ui, sans-serif`;
         ctx.textAlign = side > 0 ? 'left' : 'right';
         ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(0,0,0,.6)'; ctx.strokeText(label, x + side * (r + 4), y);
         ctx.fillStyle = '#fff'; ctx.fillText(label, x + side * (r + 4), y);
+        // the muscle name, only for the selected (just placed or tapped) point
+        if (p.id === sel) tag(p.caution ? zoneText(p.caution).label + ' (caution)' : p.siteId ? BT.site(p.siteId).label : 'Outside the mapped muscles', x, y - r - 16, 'center');
       });
       const dt = performance.now() - tA;
       stats.drawMs = stats.drawMs ? stats.drawMs * 0.9 + dt * 0.1 : dt;
+      if (DEBUG) { (stats.drawHist ||= []).push(dt); if (stats.drawHist.length > 300) stats.drawHist.shift(); }
     }
 
     /* taps: select a nearby point, or add one where the face is. While frozen, two fingers pinch-zoom and
@@ -916,10 +1285,11 @@
       if (!loc) return;
       const [x, y] = atD(loc), fm = BT.faceMap;
       if (!fm.inFace(x, y)) { if (sel) { sel = null; opts.onSelect && opts.onSelect(null); } return; }
-      const info = fm.hitInfo(x, y), siteId = info.caution ? '' : info.muscle;
+      // the muscle drawn under the finger, from the same landmark-space regions the view shows
+      const c = atC(loc), info = regionAt(c[0], c[1]), siteId = info.caution ? '' : info.muscle;
       const np = { id: BT.uid(), siteId, x: Math.round(x * 10) / 10, y: Math.round(y * 10) / 10, units: Math.max(1, Math.round(BT.site(siteId).range[0] / 2)) };
-      if (info.caution) { np.caution = info.caution; const z = (BT.cautionZones || []).find((q) => q.id === info.caution); if (z) BT.toast(`Caution: ${z.label}. ${z.note}`); }
-      pts = [...pts, { ...np, b: loc }];
+      if (info.caution) { np.caution = info.caution; const z = zoneText(info.caution); BT.toast(`Caution: ${z.label}. ${z.note}`); }
+      pts = [...pts, { ...np, b: loc, c }];
       sel = np.id;
       opts.onChange && opts.onChange(plain());
       opts.onSelect && opts.onSelect(sel);
@@ -930,7 +1300,7 @@
     canvas.addEventListener('pointerup', onUp);
     canvas.addEventListener('pointercancel', onCancel);
     canvas.addEventListener('wheel', onWheel, { passive: false });
-    const plain = () => pts.map(({ b, ...p }) => p);
+    const plain = () => pts.map(({ b, c, ...p }) => p);
 
     // Release the camera while the app is in the background.
     const onVis = () => { if (dead) return; if (document.hidden) stop(); else if (!stream) start(); };
@@ -943,18 +1313,19 @@
       video.srcObject = null;
       resetZoom();
       zw.remove(); canvas.remove(); zbar.remove();
-      glc.remove(); pill.remove(); prog.subs.delete(showPill);
+      glc.remove(); pill.remove(); ref.remove(); if (panel) panel.remove(); prog.subs.delete(showPill);
       const lose = gl && gl.getExtension('WEBGL_lose_context');
       if (lose) lose.loseContext();
       gl = null;
-      el.classList.remove('lc-frozen', 'lc-zoomed');
+      el.classList.remove('lc-frozen', 'lc-zoomed', 'lc-hasref');
     }
 
     start();
-    return {
+    const api = {
       setPoints(list) { pts = bindPts(list || []); if (sel && !pts.some((p) => p.id === sel)) sel = null; },
       select(id) { sel = id && pts.some((p) => p.id === id) ? id : null; },
       setOpacity(k) { canvas.style.opacity = k; glc.style.opacity = k; },
+      setPattern,
       setFrozen(f) {
         frozen = !!f;
         touches.clear(); pz = null; pinched = false; down = null;
@@ -974,7 +1345,21 @@
       },
       destroy,
     };
+    // ?lcdebug: screen positions for tests and on-device checks
+    if (DEBUG) {
+      const scr = (q) => { if (!q) return null; const v = view(), o = v.to(O0), u = v.to(O1); return [(u[0] - o[0]) * q[0] + o[0], (u[1] - o[1]) * q[1] + o[1]]; };
+      api.debug = {
+        lm: (i) => (mesh ? scr([P[3 * i], P[3 * i + 1]]) : null),
+        regions: () => G.regions.map((r) => ({ id: r.id, at: scr(placeCam(r.cb)), facing: mesh ? TF[r.cb.t] : 0 })),
+        ghosts: () => ghosts.map((g) => ({ siteId: g.siteId, units: g.units, x: g.x, y: g.y, at: scr(placeCam(g.b)) })),
+        zones: () => shownZones.map((z) => ({ key: z.key, a: z.a })),
+        points: () => pts.map((p) => ({ id: p.id, siteId: p.siteId, caution: p.caution || null, c: p.c, at: scr(placeCam(p.b)) })),
+        zoneDist: () => G.zones.map((z) => ({ key: z.key, d: Math.min(...pts.map((p) => -sdist(z.poly, p.c[0], p.c[1]))) })),
+      };
+      BT.liveCam.last = api;
+    }
+    return api;
   }
 
-  BT.liveCam = { supported, mount, preload: () => landmarker().catch(() => null), stats };
+  BT.liveCam = { supported, mount, preload: () => landmarker().catch(() => null), stats, geometry: () => stats.geometry };
 })();

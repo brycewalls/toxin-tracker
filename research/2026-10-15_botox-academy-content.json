@@ -3475,6 +3475,12 @@
       "rule": "records_365d"
     },
     {
+      "id": "ten-resources",
+      "title": "Curious reader",
+      "description": "Opened 10 videos, labels, papers or articles from the Academy.",
+      "rule": "resources_opened>=10"
+    },
+    {
       "id": "graduate",
       "title": "Academy graduate",
       "description": "Finished every course and earned your certificate.",

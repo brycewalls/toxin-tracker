@@ -59,12 +59,22 @@
 .lg-ph-note{aspect-ratio:3/4;border-radius:14px;background:var(--card-2);color:var(--muted);display:grid;place-items:center;align-content:center;gap:6px;text-align:center;font-size:12.5px;padding:10px}
 .lg-tu{display:flex;align-items:center;gap:10px;padding:12px 0;border-bottom:1px solid var(--line);width:100%;text-align:left;min-height:48px}
 .lg-tu:last-of-type{border-bottom:0}
+.lg-pt.unc .stepper input{color:var(--muted);font-style:italic;border-style:dashed}
+.lg-sug{font-size:12px;color:var(--muted);display:flex;align-items:center;gap:2px;flex-wrap:wrap}
+.lg-sug .link-btn{padding:4px 6px;min-height:32px;font-size:12.5px}
+.lg-over{margin-top:6px;font-size:12.5px;line-height:1.4;color:var(--amber);background:var(--amber-soft);border:1px solid var(--amber);border-radius:12px;padding:8px 10px}
+.lg-unc-box{display:grid;gap:10px;font-size:13.5px;background:var(--amber-soft);border:1px solid var(--amber);color:var(--amber);border-radius:14px;padding:12px 14px}
+.lg-unc-box[hidden]{display:none}
+.lg-unc-box .row{display:flex;gap:8px;flex-wrap:wrap}
 `;
     document.head.appendChild(st);
   }
 
   /* ---------- helpers ---------- */
   const esc = BT.esc;
+  // The muscle ranges used below (BT.muscles[].range, defined in core.js) are educational reference values
+  // from research/2026-10-14_botox-injection-anatomy.md. They have NOT been reviewed by a clinician yet;
+  // clinician review is pending (issue #61). Always show them as "reference only", never as a dose.
   const fmtN = (n) => String(Math.round((+n || 0) * 10) / 10);
   const rangeOf = (siteId, prod) => {
     const s = BT.site(siteId);
@@ -72,7 +82,14 @@
     const k = prod ? prod.ratio : 1;
     return [Math.round(s.range[0] * k), Math.round(s.range[1] * k)];
   };
-  const rangeText = (siteId, prod) => { const r = rangeOf(siteId, prod); return r ? `Common ${r[0]} to ${r[1]} U` : ''; };
+  const rangeText = (siteId, prod) => { const r = rangeOf(siteId, prod); return r ? `Common ${r[0]} to ${r[1]} U (reference only)` : ''; };
+  // Over-range check: the group total against the top of the reference range, scaled by the product ratio.
+  // Not blocking. A single point over the range always puts its group over too, so one note covers both.
+  const overNote = (siteId, units, prod) => {
+    const s = BT.site(siteId), r = rangeOf(siteId, prod);
+    if (!siteId || !r || units <= s.range[1] * (prod ? prod.ratio : 1) + 1e-9) return '';
+    return `Above the usual reference range (${r[0]} to ${r[1]} U). Check with your injector.`;
+  };
   // A new point gets the muscle's midpoint dose split across its typical number of points.
   const defaultUnits = (siteId, prod) => {
     const s = BT.site(siteId), n = String(s.points || '1').match(/\d+/g) || ['1'];
@@ -104,7 +121,7 @@
 
     if (editing) {
       st.at = editing.at; st.provider = editing.provider || ''; st.productId = editing.productId; st.vialId = editing.vialId || '';
-      st.points = (editing.sites || []).map((s) => ({ id: s.id || BT.uid(), siteId: s.siteId || '', x: s.x, y: s.y, units: +s.units || 0 }));
+      st.points = (editing.sites || []).map((s) => ({ id: s.id || BT.uid(), siteId: s.siteId || '', x: s.x, y: s.y, units: +s.units || 0, confirmed: s.confirmed !== false }));
       st.notes = editing.notes || ''; st.cost = editing.cost != null && editing.cost !== '' ? String(editing.cost) : '';
       BT.data.photos.filter((p) => p.injectionId === editing.id).forEach((p) => { if (p.kind === 'before' || p.kind === 'after') st.existing[p.kind] = p; });
     } else {
@@ -120,7 +137,7 @@
     }
     const pre = Array.isArray(prefill.points) && prefill.points.length ? prefill.points : prefill.sites;
     if (Array.isArray(pre) && pre.length) {
-      st.points = pre.map((s) => ({ id: s.id || BT.uid(), siteId: s.siteId || '', x: s.x, y: s.y, units: +s.units || defaultUnits(s.siteId || '', BT.product(st.productId)) }));
+      st.points = pre.map((s) => ({ id: s.id || BT.uid(), siteId: s.siteId || '', x: s.x, y: s.y, units: +s.units || defaultUnits(s.siteId || '', BT.product(st.productId)), confirmed: s.confirmed === true && +s.units > 0 }));
     }
     if (prefill.photoFile) { st.files.before = prefill.photoFile; urls.before = URL.createObjectURL(prefill.photoFile); }
 
@@ -160,6 +177,7 @@
         <div data-sites></div>
         <div class="lg-total"><span class="muted">Total units</span><span class="big-num num" data-total>0<small>U</small></span></div>
         <div class="callout" data-warn hidden style="background:var(--amber-soft);border-color:var(--amber);color:var(--amber)"></div>
+        <div class="lg-unc-box" data-unc hidden role="alert"></div>
         <div class="lg-err" data-err-sites hidden></div>
       </section>
       <section class="card" data-sec="photos">
@@ -213,6 +231,7 @@
     $('[data-products]').onclick = (e) => {
       const b = e.target.closest('[data-id]'); if (!b || b.dataset.id === st.productId) return;
       st.productId = b.dataset.id; st.vialId = pickVial(st.productId);
+      st.points.forEach((p) => { if (!p.confirmed) p.units = defUnits(p.siteId); }); // suggestions follow the product; confirmed values never change
       renderProducts(); renderVials(); renderPoints(); pushMap(); updateTotals();
     };
     $('[data-vial]').onchange = (e) => { st.vialId = e.target.value; updateTotals(); };
@@ -254,10 +273,11 @@
         const m = g.muscle, r = g.id ? rangeOf(g.id, prod()) : null;
         const per = m.side === 'c' ? 'in total' : 'per side';
         return `<div class="lg-grp" data-grp="${esc(g.id)}">
-          <div class="lg-grp-h"><div class="grow"><div class="li-title">${esc(m.label)}</div>${m.treats ? `<div class="li-sub">${esc(m.treats)}</div>` : ''}${r ? `<div class="tiny muted">Common ${r[0]} to ${r[1]} U ${per}, reference only</div>` : ''}</div><div class="num li-title" data-sub>${esc(fmtN(sumU(g.points)))}U</div></div>
+          <div class="lg-grp-h"><div class="grow"><div class="li-title">${esc(m.label)}</div>${m.treats ? `<div class="li-sub">${esc(m.treats)}</div>` : ''}${r ? `<div class="tiny muted">Common ${r[0]} to ${r[1]} U ${per}, reference only</div>` : ''}${g.id && BT.academyLearn ? BT.academyLearn(g.id, 'peek') : ''}</div><div class="num li-title" data-sub>${esc(fmtN(sumU(g.points)))}U</div></div>
+          <div class="lg-over" data-over ${overNote(g.id, sumU(g.points), prod()) ? '' : 'hidden'}>${esc(overNote(g.id, sumU(g.points), prod()))}</div>
           ${m.caution ? `<div class="tiny lg-caut">${esc(m.caution)}</div>` : ''}
-          ${g.points.map((p, i) => `<div class="lg-site lg-pt" data-pt="${esc(p.id)}">
-            <div class="grow li-title">Point ${i + 1}</div>
+          ${g.points.map((p, i) => `<div class="lg-site lg-pt${p.confirmed ? '' : ' unc'}" data-pt="${esc(p.id)}">
+            <div class="grow"><div class="li-title">Point ${i + 1}</div>${p.confirmed ? '' : `<div class="lg-sug">Suggested <button type="button" class="link-btn" data-conf aria-label="Confirm ${esc(fmtN(p.units))} units for point ${i + 1}, ${esc(m.label)}">Confirm</button></div>`}</div>
             <div class="stepper"><button type="button" data-dec aria-label="Fewer units for point ${i + 1}, ${esc(m.label)}">-</button><input type="number" inputmode="decimal" step="any" min="0" value="${esc(fmtN(p.units))}" aria-label="Units for point ${i + 1}, ${esc(m.label)}"><button type="button" data-inc aria-label="More units for point ${i + 1}, ${esc(m.label)}">+</button></div>
             <button type="button" class="icon-btn" data-rm aria-label="Remove point ${i + 1}, ${esc(m.label)}">${BT.icon('close', 18)}</button></div>`).join('')}
         </div>`;
@@ -266,7 +286,10 @@
     }
     const updateSubs = () => $$('[data-grp]').forEach((g) => {
       const s = $$('[data-sub]').find((x) => x.closest('[data-grp]') === g);
-      if (s) s.textContent = fmtN(sumU(st.points.filter((p) => keyOf(p) === g.dataset.grp))) + 'U';
+      const tot = sumU(st.points.filter((p) => keyOf(p) === g.dataset.grp));
+      if (s) s.textContent = fmtN(tot) + 'U';
+      const o = g.querySelector('[data-over]'), t = overNote(g.dataset.grp, tot, prod());
+      if (o) { o.hidden = !t; o.textContent = t; }
     });
     const renderFallback = () => {
       $('[data-help]').textContent = 'Pick the muscle for each injection point.';
@@ -284,7 +307,7 @@
             defaultUnits: (id) => defUnits(id),
             onChange: (next) => {
               const old = new Map(st.points.map((p) => [p.id, p]));
-              st.points = (next || []).map((p) => ({ id: p.id || BT.uid(), siteId: p.siteId || '', x: p.x, y: p.y, units: old.has(p.id) ? old.get(p.id).units : (p.units == null ? defUnits(p.siteId) : +p.units) }));
+              st.points = (next || []).map((p) => ({ id: p.id || BT.uid(), siteId: p.siteId || '', x: p.x, y: p.y, units: old.has(p.id) ? old.get(p.id).units : (p.units == null ? defUnits(p.siteId) : +p.units), confirmed: old.has(p.id) ? old.get(p.id).confirmed : false }));
               if (selId && !st.points.some((p) => p.id === selId)) selId = null;
               renderPoints(); updateTotals();
             },
@@ -298,16 +321,24 @@
     $('[data-map]').addEventListener('click', (e) => {
       if (!fallback) return;
       const b = e.target.closest('[data-s]'); if (!b) return;
-      const p = { id: BT.uid(), siteId: b.dataset.s, units: defUnits(b.dataset.s) };
+      const p = { id: BT.uid(), siteId: b.dataset.s, units: defUnits(b.dataset.s), confirmed: false };
       st.points.push(p); renderPoints(); selectPoint(p.id, true); updateTotals();
     });
 
-    const setUnits = (p, v) => { p.units = Math.max(0, Math.round(v * 2) / 2); pushMap(); updateSubs(); updateTotals(); };
+    // Touching a value (type, step) confirms it; the Confirm button confirms the suggestion as it stands.
+    const confirmPt = (p) => {
+      if (p.confirmed) return;
+      p.confirmed = true;
+      const row = $$('[data-pt]').find((x) => x.dataset.pt === p.id);
+      if (row) { row.classList.remove('unc'); const sg = row.querySelector('.lg-sug'); if (sg) sg.remove(); }
+    };
+    const setUnits = (p, v) => { confirmPt(p); p.units = Math.max(0, Math.round(v * 2) / 2); pushMap(); updateSubs(); updateTotals(); };
     $('[data-sites]').addEventListener('click', (e) => {
       const row = e.target.closest('[data-pt]'); if (!row) return;
       const id = row.dataset.pt, p = st.points.find((x) => x.id === id); if (!p) return;
       const inp = row.querySelector('input');
-      if (e.target.closest('[data-inc]')) { setUnits(p, (+p.units || 0) + 1); inp.value = fmtN(p.units); selectPoint(id); }
+      if (e.target.closest('[data-conf]')) { confirmPt(p); selectPoint(id); updateTotals(); }
+      else if (e.target.closest('[data-inc]')) { setUnits(p, (+p.units || 0) + 1); inp.value = fmtN(p.units); selectPoint(id); }
       else if (e.target.closest('[data-dec]')) { setUnits(p, (+p.units || 0) - 1); inp.value = fmtN(p.units); selectPoint(id); }
       else if (e.target.closest('[data-rm]')) {
         st.points = st.points.filter((x) => x.id !== id);
@@ -318,7 +349,7 @@
     $('[data-sites]').addEventListener('input', (e) => {
       const inp = e.target.closest('input'); if (!inp) return;
       const row = inp.closest('[data-pt]'); const p = row && st.points.find((x) => x.id === row.dataset.pt); if (!p) return;
-      p.units = Math.max(0, +inp.value || 0); updateSubs(); updateTotals();
+      confirmPt(p); p.units = Math.max(0, +inp.value || 0); updateSubs(); updateTotals();
     });
     $('[data-sites]').addEventListener('change', (e) => {
       const inp = e.target.closest('input'); if (!inp) return;
@@ -331,7 +362,7 @@
     $('[data-same]').onclick = () => {
       const l = BT.sortedInjections().find((i) => !editing || i.id !== editing.id);
       if (!l || !(l.sites || []).length) { BT.toast('No earlier treatment to copy'); return; }
-      st.points = placePts(l.sites.map((s) => ({ id: BT.uid(), siteId: s.siteId || '', x: s.x, y: s.y, units: +s.units || 0 })));
+      st.points = placePts(l.sites.map((s) => ({ id: BT.uid(), siteId: s.siteId || '', x: s.x, y: s.y, units: +s.units || 0, confirmed: true })));
       selId = null; renderPoints(); pushMap(); updateTotals();
     };
     $('[data-clear]').onclick = () => {
@@ -348,7 +379,23 @@
         w.textContent = `This is ${fmtN(total - adjRemaining(v))}U more than the ${fmtN(adjRemaining(v))}U left in the selected vial.`;
       } else w.hidden = true;
       if (total > 0) $('[data-err-sites]').hidden = true;
+      renderUnc();
     }
+    // Save with suggested units shows this prompt instead of saving. Once shown it tracks the count live.
+    let uncShown = false;
+    const unconf = () => st.points.filter((p) => !p.confirmed);
+    function renderUnc() {
+      const box = $('[data-unc]'), u = unconf();
+      if (!uncShown || !u.length) { box.hidden = true; uncShown = uncShown && u.length > 0; return; }
+      box.hidden = false;
+      box.innerHTML = `<div>${u.length} ${u.length === 1 ? 'point still has a suggested unit count' : 'points still have suggested units'}. Confirm or edit ${u.length === 1 ? 'it' : 'them'}.</div>
+        <ul style="margin:0;padding-left:18px">${u.map((p) => `<li>${esc(BT.site(p.siteId).label)}: ${esc(fmtN(p.units))}U</li>`).join('')}</ul>
+        <div class="row"><button type="button" class="btn sm primary" data-conf-all>Confirm all</button><button type="button" class="btn sm" data-review>Review</button></div>`;
+    }
+    $('[data-unc]').addEventListener('click', (e) => {
+      if (e.target.closest('[data-conf-all]')) { unconf().forEach(confirmPt); uncShown = false; renderUnc(); updateTotals(); return; }
+      if (e.target.closest('[data-review]')) { const p = unconf()[0]; if (p) { selectPoint(p.id); const r = $$('[data-pt]').find((x) => x.dataset.pt === p.id); const i = r && r.querySelector('input'); if (i) i.focus({ preventScroll: true }); } }
+    });
     renderPoints(); mountMap(); updateTotals();
 
     /* --- step 4 --- */
@@ -388,9 +435,13 @@
       $('[data-err-when]').hidden = true; $('[data-err-sites]').hidden = true;
       const at = parseLocal($('[data-at]').value);
       if (at == null) { showErr('[data-err-when]', 'Enter a valid date and time.'); return; }
-      const sites = st.points.map((p) => ({ id: p.id, siteId: p.siteId || '', x: p.x, y: p.y, units: Number(p.units) || 0 }));
+      const sites = st.points.map((p) => ({ id: p.id, siteId: p.siteId || '', x: p.x, y: p.y, units: Number(p.units) || 0, confirmed: true }));
       if (!sites.some((s) => s.units > 0)) { showErr('[data-err-sites]', 'Add at least one point with units above 0.'); return; }
       const act = sheet.el.querySelector('[data-act]'), sv = $('[data-save]');
+      if (unconf().length) {
+        uncShown = true; renderUnc();
+        const b = $('[data-unc]'); b.scrollIntoView({ block: 'center', behavior: 'smooth' }); return;
+      }
       st.busy = true; if (act) { act.disabled = true; act.textContent = 'Saving'; } sv.disabled = true; sv.textContent = 'Saving';
       try {
         const costRaw = $('[data-cost]').value.trim();
@@ -589,7 +640,7 @@
         <section class="card">
           <div class="card-h"><h3>Units by muscle</h3></div>
           <div>
-            <div class="lg-tbl-r head eyebrow"><span>Muscle</span><span class="n">Points</span><span class="n">Units</span><span class="r">Common range</span></div>
+            <div class="lg-tbl-r head eyebrow"><span>Muscle</span><span class="n">Points</span><span class="n">Units</span><span class="r">Reference only</span></div>
             ${groups.map((g) => { const r = g.muscle.id ? rangeOf(g.muscle.id, prod) : null; return `<div class="lg-tbl-r"><span>${esc(g.muscle.label)}</span><span class="n">${g.points.length}</span><span class="n">${esc(fmtN(g.units))}</span><span class="r">${r ? `${r[0]} to ${r[1]} U` : ''}</span></div>`; }).join('')}
             <div class="lg-tbl-r"><span class="li-title">Total</span><span class="n li-title">${(inj.sites || []).length}</span><span class="n li-title">${esc(fmtN(total))}</span><span class="r"></span></div>
           </div>

@@ -10,12 +10,13 @@
    and permission-denied turns the account away. Sign-out, the idle timeout and a denied account all end in
    endSession(), which signs out of Auth and runs wipeLocal(): Firestore's offline cache, the runtime caches
    and the in-memory log go, then the page reloads. Exports ask for a fresh sign-in (requireRecentAuth).
-   End-to-end encryption (#66): every record is sealed on the phone with a 256-bit AES-GCM data key before it is
-   written. The data key is stored only wrapped, in users/{uid}/meta/keys: once with a key derived from the person's
-   passphrase (PBKDF2-SHA256, 600,000 iterations, random 16-byte salt) and once with a recovery key shown at setup.
-   Neither the passphrase nor the recovery key leaves the phone. After one unlock per device the key lives in this
-   device's IndexedDB (tt-keys) as a non-extractable CryptoKey; wipeLocal() deletes it with everything else.
-   BT_CLOUD.ready resolves only once the key is unlocked, with {uid, user, col, db, audit, device, seal, open}. */
+   End-to-end encryption (#66), behind ENCRYPTION below: records are sealed on the phone with a 256-bit AES-GCM data
+   key before they are written. The data key is stored only wrapped, in users/{uid}/meta/keys: once with a key derived
+   from the person's passphrase (PBKDF2-SHA256, 600,000 iterations, random 16-byte salt) and once with a recovery key
+   shown at setup. Neither the passphrase nor the recovery key leaves the phone. After one unlock per device the key
+   lives in this device's IndexedDB (tt-keys) as a non-extractable CryptoKey; wipeLocal() deletes it with everything
+   else. BT_CLOUD.ready resolves once the key is unlocked (or the account is still unencrypted), with
+   {uid, user, col, db, audit, device, encrypted, seal, open, isSealed, sealLeaf, openLeaf}. */
 (function () {
   const config = {
     apiKey: 'AIzaSyD7Gau0dd-D2UqsQlzZAOcc3k1ZqUmJadk',
@@ -28,11 +29,23 @@
     appId: '1:752573115739:web:6eda4d7ed2fa9911373e7e',
   };
 
+  // Two-step rollout of encryption (#66, PR #79). 'off': an account with no meta/keys stays unencrypted and is
+  // never asked to set it up; an account that already has keys (set up on another device) is unlocked as usual, so
+  // this build can always read an encrypted log. 'on': an account with no keys gets the setup screen on its next
+  // start and its records are encrypted in place after it. Step 1 ships 'off'; step 2 is a PR that sets 'on'.
+  // tools/build.mjs --encryption on|off overrides it for one build (tests).
+  const ENCRYPTION = 'off';
+  // Local tests only: tools/build.mjs --emulators points the app at the Auth and Firestore emulators of a demo-
+  // project. Never set in a deployed build.
+  const EMULATORS = null;
   // App Check (#60), off until a reCAPTCHA v3 site key is registered in the Firebase console (see README).
   // Turning it on also needs the app-check compat SDK vendored next to the others (tools/vendor.lock.json, build.mjs).
   const APP_CHECK_SITE_KEY = '';
 
   const WIPE = 'tt-wipe-pending'; // a flag only, never data: a sign-out's local wipe has not finished yet
+  const WARM = 'tt-cache-synced'; // a flag only: the offline cache has had a full server snapshot since the last wipe (#83)
+  const HOLD = 'tt-wipe-after-sync'; // a flag only: an idle sign-out is waiting for unsynced changes to reach the server (#83)
+  const SYNC_WAIT_MS = 5000;
   const NOTICE = 'tt-notice'; // sessionStorage, a reason code only ('idle' or 'denied'), shown on the sign-in screen after the reload
   const IDLE_KEY = 'tt-idle-minutes', ACTIVE_KEY = 'tt-last-active'; // localStorage: this device's choice, and a timestamp
   const IDLE_DEFAULT = 30, WARN_MS = 60 * 1000, RECENT_MS = 10 * 60 * 1000;
@@ -83,7 +96,8 @@
     background: radial-gradient(120% 70% at 85% 0%, var(--hero-2) 0%, transparent 60%), linear-gradient(170deg, var(--hero-1), color-mix(in srgb, var(--hero-1) 55%, #000));
     padding: calc(env(safe-area-inset-top, 0px) + 48px) 24px calc(env(safe-area-inset-bottom, 0px) + 32px); }
   .gate-in { max-width: 420px; width: 100%; margin: 0 auto; display: grid; align-content: center; gap: 14px; }
-  .gate-mark { width: 64px; height: 64px; border-radius: 20px; display: grid; place-items: center; background: color-mix(in srgb, var(--hero-fg) 14%, transparent); border: 1px solid color-mix(in srgb, var(--hero-fg) 25%, transparent); }
+  .gate-mark { width: 76px; height: 76px; border-radius: 17px; overflow: hidden; box-shadow: 0 0 0 1px color-mix(in srgb, var(--hero-fg) 30%, transparent), 0 10px 28px rgba(0, 0, 0, .28); }
+  .gate-mark img { display: block; width: 100%; height: 100%; }
   .gate h1 { font-size: 34px; font-weight: 500; letter-spacing: -.02em; margin-top: 10px; }
   .gate p { margin: 0; color: color-mix(in srgb, var(--hero-fg) 75%, transparent); font-size: 16px; line-height: 1.5; }
   .gate-foot { max-width: 420px; width: 100%; margin: 0 auto; display: grid; gap: 14px; }
@@ -113,7 +127,7 @@
       gate = document.createElement('section');
       gate.className = 'gate';
       gate.setAttribute('aria-label', 'Sign in');
-      gate.innerHTML = `<div class="gate-in"><div class="gate-mark">${window.BT ? BT.icon('syringe', 30) : ''}</div>
+      gate.innerHTML = `<div class="gate-in"><div class="gate-mark"><img src="icon.svg" alt="" width="76" height="76"></div>
         <h1>Toxin Tracker</h1>
         <p>Log every treatment on a muscle map, keep your vials and reactions in one place, and know when you can work out again.</p></div>
         <div class="gate-foot"><div class="gate-err" role="status" hidden></div>
@@ -149,8 +163,12 @@
     try { for (const key of await caches.keys()) if (!key.startsWith('tt-shell-')) await caches.delete(key); } catch (e) {}
     await keyStore.drop(); // the unlocked encryption key (#66)
     if (window.BT && BT.data) for (const k of Object.keys(BT.data)) BT.data[k] = Array.isArray(BT.data[k]) ? [] : {};
-    ls.del(ACTIVE_KEY);
+    ls.del(ACTIVE_KEY); ls.del(WARM); ls.del(HOLD);
   };
+  // Read by core.js (#83): whether a snapshot from the offline cache is the whole log for this account.
+  cloud.cacheWarm = () => ls.get(WARM) === '1';
+  cloud.markWarm = () => ls.set(WARM, '1');
+  cloud.deleteField = () => firebase.firestore.FieldValue.delete();
 
   // The SDK comes from gstatic. The service worker keeps a copy (#52), so this only fails on a first visit with
   // no connection (or a worker that could not store it). Say so instead of leaving 'Loading your log' up.
@@ -168,6 +186,7 @@
     'deleted-data': 'Your data was deleted. The account itself could not be removed; sign in and delete again to remove it.' };
   let firstGate = notice && NOTICES[notice];
 
+  if (EMULATORS) config.projectId = EMULATORS.projectId;
   firebase.initializeApp(config);
   if (APP_CHECK_SITE_KEY) {
     try { firebase.appCheck().activate(new firebase.appCheck.ReCaptchaV3Provider(APP_CHECK_SITE_KEY), true); }
@@ -175,11 +194,13 @@
   }
   const auth = firebase.auth();
   const db = firebase.firestore();
+  if (EMULATORS) { auth.useEmulator(EMULATORS.auth, { disableWarnings: true }); db.useEmulator(EMULATORS.firestore[0], EMULATORS.firestore[1]); }
   // Offline cache. synchronizeTabs lets a Safari tab and the home-screen app share it. The default 40 MB size
   // is kept: garbage collection only drops documents no listener watches, and core.js watches every record.
   // It opens only once someone is signed in, so a signed-out device (after a wipe, or never signed in) holds
   // no Firestore database at all. A wipe that could not finish last time is completed first.
   const wipe = ls.get(WIPE) === '1';
+  if (wipe) ls.del(WARM);
   const cleared = wipe ? Promise.all([keyStore.drop(), db.clearPersistence()]).then(() => ls.del(WIPE)).catch(() => {}) : Promise.resolve();
   let dbReady = null;
   const openDb = () => dbReady || (dbReady = cleared.then(() => db.enablePersistence({ synchronizeTabs: true }).catch(() => {}))); // fails harmlessly in private windows
@@ -203,26 +224,84 @@
     }
   };
 
-  let signingOut = false;
+  /* ---------- unsynced changes at sign-out (#83) ----------
+     The wipe deletes Firestore's offline cache, which is the only copy of any change the server has not
+     confirmed yet. drain(ms) resolves true once there is none: settings changes core.js is still holding for
+     the first load have been handed to Firestore, then Firestore's own queue is empty (waitForPendingWrites).
+     It resolves false if that has not happened within ms. Offline, a short wait is enough to tell: with nothing
+     queued, waitForPendingWrites resolves at once. */
+  const later = (ms, v) => new Promise((r) => setTimeout(() => r(v), ms));
+  async function drain(ms) {
+    const all = (async () => {
+      if (window.BT && BT.whenLoaded) await BT.whenLoaded();
+      await db.waitForPendingWrites();
+      return true;
+    })().catch(() => false);
+    return Promise.race([all, later(ms, false)]);
+  }
+  const waitMs = () => (navigator.onLine ? SYNC_WAIT_MS : 800);
+
+  let signingOut = false, holding = false;
   // The one way a session ends (#54): sign-out, the idle timeout and a denied account all come here.
   async function endSession(reason) {
     if (signingOut) return;
     signingOut = true; cloud.signingOut = true;
     idle.stop();
     if (reason) ss.set(NOTICE, reason);
-    // Idle: give changes made while online a moment to reach the server before their only copy is wiped.
-    if (reason === 'idle' && navigator.onLine) await Promise.race([db.waitForPendingWrites().catch(() => {}), new Promise((r) => setTimeout(r, 5000))]);
+    // Idle: changes the server has not confirmed must not be wiped. Wait for them; if they cannot sync now
+    // (offline, or the server does not answer in time), lock the app and wipe once they have (holdForSync).
+    if (reason === 'idle' && !(await drain(waitMs()))) return holdForSync();
     try { await auth.signOut(); } catch (e) {}
     await cloud.wipeLocal();
     location.reload();
   }
   cloud.endSession = endSession;
   cloud.denyAccess = () => endSession('denied');
+
+  /* An idle timeout with unsynced changes. Signing out of Auth now would make Firestore's queued writes fail
+     on the server (they need the session), and the wipe would delete them, so the session stays signed in to
+     Firebase but the app is locked: the sign-in screen covers it with no button, the records listener stops,
+     the log leaves memory and the screen under the gate is cleared. Firestore keeps sending the queued writes;
+     once they are confirmed (checked on 'online' and every 15 seconds) the usual sign-out and wipe run and the
+     page reloads to the sign-in screen. HOLD survives a relaunch, so closing the app in the meantime brings
+     back the lock, not the log. */
+  const HOLD_MSG = 'Signed out after a while without use. Some changes have not synced yet; this phone\'s copy of your log will be cleared as soon as they reach the server. Connect to the internet to finish.';
+  function holdForSync() {
+    if (holding) return; holding = true;
+    signingOut = true; cloud.signingOut = true; idle.stop();
+    ls.set(HOLD, '1'); ss.set(NOTICE, 'idle');
+    document.querySelectorAll('.sheet-wrap').forEach((w) => w.remove());
+    if (window.BT) { if (BT.stopSync) BT.stopSync(); if (BT.data) for (const k of Object.keys(BT.data)) BT.data[k] = Array.isArray(BT.data[k]) ? [] : {}; }
+    const view = document.getElementById('view'); if (view) view.innerHTML = '';
+    showGate(HOLD_MSG, true);
+    let trying = false;
+    const retry = async () => {
+      if (trying || !navigator.onLine) return; trying = true;
+      const ok = await drain(SYNC_WAIT_MS);
+      trying = false;
+      if (!ok) return;
+      try { await auth.signOut(); } catch (e) {}
+      await cloud.wipeLocal();
+      location.reload();
+    };
+    addEventListener('online', retry);
+    setInterval(retry, 15000);
+    retry();
+  }
+
+  // Sign-out from Settings or the 'Still there?' sheet. Online, it waits up to 5 seconds for unsynced changes to
+  // reach the server. If some are still waiting (offline, or a slow server), it asks before wiping them.
+  let leaving = false;
   cloud.signOut = async () => {
-    // Changes made offline that have not reached the server live only in the cache the wipe removes.
-    if (window.BT && BT.sync && BT.sync.pending &&
-      !(await BT.confirm('Some changes have not synced yet. Signing out now removes them from this phone.', 'Sign out'))) return;
-    await endSession('');
+    if (leaving || signingOut) return;
+    leaving = true;
+    try {
+      const note = setTimeout(() => window.BT && BT.toast('Syncing your last changes…'), 400);
+      const synced = await drain(waitMs());
+      clearTimeout(note);
+      if (!synced && !(await BT.confirm('Some changes have not synced yet. Sign out anyway?', 'Sign out'))) return;
+      await endSession('');
+    } finally { leaving = false; }
   };
 
   /* ---------- idle timeout (#54) ----------
@@ -253,7 +332,7 @@
       s.body.innerHTML = `<p class="muted" style="margin:0 0 20px" data-left></p><div class="row gap"><button class="btn ghost grow" data-out>Sign out now</button><button class="btn primary grow" data-stay>Stay signed in</button></div>`;
       s.body.querySelector('[data-left]').textContent = text;
       s.body.querySelector('[data-stay]').onclick = () => { closeWarn(); mark(true); };
-      s.body.querySelector('[data-out]').onclick = () => { closeWarn(); endSession(''); };
+      s.body.querySelector('[data-out]').onclick = () => { closeWarn(); cloud.signOut(); };
     }
     function check() {
       if (!running || signingOut) return;
@@ -353,17 +432,24 @@
     if (started || signingOut) return;
     started = true;
     await openDb();
-    // A session that sat unused past the limit while the app was closed ends before anything is shown.
-    if (idle.expired()) return endSession('idle');
+    // A session that sat unused past the limit while the app was closed ends before anything is shown, and so
+    // does one whose idle sign-out was still waiting for changes to sync when the app closed (HOLD).
+    if (ls.get(HOLD) === '1' || idle.expired()) return endSession('idle');
     if ((await probe(user.uid)) === 'denied') return endSession('denied');
     cloud.user = { uid: user.uid, name: user.displayName || '', email: user.email || '', photo: user.photoURL || '' };
     idle.start();
-    const key = await unlockFlow(user.uid);
-    if (!key) return; // signing out
+    const unlocked = await unlockFlow(user.uid);
+    if (!unlocked) return; // signing out
+    const key = unlocked.key || null;
     if (gate) { gate.remove(); gate = null; }
+    cloud.keys = key ? keysApi : null; // Settings shows the encryption card only when the log is encrypted
     const udoc = db.collection('users').doc(user.uid);
     resolveReady({ uid: user.uid, user: cloud.user, col: udoc.collection('records'), audit: udoc.collection('audit'), db,
-      device: deviceId(), seal: (id, obj) => seal(key, id, obj), open: (id, enc) => unseal(key, id, enc), isSealed });
+      device: deviceId(), encrypted: !!key, isSealed,
+      seal: (id, obj) => (key ? seal(key, id, obj) : Promise.resolve(JSON.parse(JSON.stringify(obj)))),
+      open: (id, enc) => (isSealed(enc) ? (key ? unseal(key, id, enc) : Promise.reject(Object.assign(new Error('locked'), { code: 'tt-locked' }))) : Promise.resolve(enc)),
+      sealLeaf: (aad, v) => (key ? sealLeaf(key, aad, v) : Promise.resolve(v)),
+      openLeaf: (aad, s) => (key ? openLeaf(key, aad, s) : Promise.reject(Object.assign(new Error('locked'), { code: 'tt-locked' }))) });
   });
 
   /* ---------- end-to-end encryption (#66) ---------- */
@@ -408,6 +494,20 @@
     const raw = new Uint8Array(await subtle.exportKey('raw', k));
     try { return await subtle.importKey('raw', raw, { name: 'AES-GCM' }, false, ['encrypt', 'decrypt']); } finally { raw.fill(0); }
   };
+  // Settings are merged field by field (#83), so they cannot be one ciphertext: each leaf value is sealed on its own
+  // as a string 'tt-e1:<iv>:<ct>', bound to the field's path, and the map keys above it (field names, lesson and
+  // achievement ids) stay plain field names, so two devices' merges still combine.
+  const LEAF = 'tt-e1:';
+  async function sealLeaf(key, aad, v) {
+    const iv = rand(12);
+    const ct = await subtle.encrypt({ name: 'AES-GCM', iv, additionalData: te.encode(aad) }, key, te.encode(JSON.stringify(v === undefined ? null : v)));
+    return LEAF + b64(iv) + ':' + b64(new Uint8Array(ct));
+  }
+  async function openLeaf(key, aad, s) {
+    const [iv, ct] = s.slice(LEAF.length).split(':');
+    const pt = await subtle.decrypt({ name: 'AES-GCM', iv: unb64(iv), additionalData: te.encode(aad) }, key, unb64(ct));
+    return JSON.parse(td.decode(pt));
+  }
   const checkKey = async (key, keys) => { try { return (await unseal(key, CHECK_AAD, keys.check)).c === CHECK; } catch (e) { return false; } };
 
   // A random id for this browser's writes (the rules let a device build on its own last write, #58). Not personal.
@@ -450,8 +550,13 @@
     catch (e) { if (e && e.code === 'permission-denied') { endSession('denied'); return { unknown: true, stop: true }; } return { unknown: true }; }
   }
 
-  // Resolves the unlocked data key, or null when the session ends instead.
+  // Resolves {key} (unlocked), {plain: true} (no encryption on this account and ENCRYPTION is 'off'), or null when
+  // the session ends instead.
   async function unlockFlow(uid) {
+    const k = await keyFlow(uid);
+    return k === null ? null : k === 'plain' ? { plain: true } : { key: k };
+  }
+  async function keyFlow(uid) {
     const ref = db.collection('users').doc(uid).collection('meta').doc('keys');
     const held = await keyStore.get(uid);
     for (;;) {
@@ -466,12 +571,16 @@
       }
       if (r.none) {
         if (held) await keyStore.drop();
+        if (ENCRYPTION !== 'on') return 'plain';
         const key = await setupScreen(uid, ref);
         if (key === 'exists') continue; // another device finished setup first: unlock with its passphrase
         return key;
       }
       // Offline and this device has never seen the keys: a key already unlocked here still opens the log.
       if (held) return held;
+      // Step 1 of the rollout: an account that may well have no keys opens unencrypted. If it does have them, its
+      // records show once this device has been online (core.js says so if it meets one it cannot open).
+      if (ENCRYPTION !== 'on') return 'plain';
       await new Promise((res) => {
         const p = showPanel(`<div class="gate-in">${mark()}<h1>Connect once</h1><p>Your log is encrypted. Connect to the internet once to unlock it on this device. After that, it opens without a connection.</p></div>
           <div class="gate-foot"><button class="gate-btn" type="button" data-retry><span>Try again</span></button><button class="gate-link" type="button" data-out>Sign out</button></div>`);
@@ -623,7 +732,7 @@
     await change(next, dataKey);
     await ref.set({ ...next, at: firebase.firestore.FieldValue.serverTimestamp() });
   }
-  cloud.keys = {
+  const keysApi = {
     groups,
     waitMs: () => fails.wait(),
     async changePassphrase(current, nextPass) {
@@ -650,12 +759,14 @@
   cloud.deleteEverything = async (onStep = () => {}) => {
     const user = auth.currentUser;
     if (!user || !navigator.onLine) throw Object.assign(new Error('offline'), { code: 'unavailable' });
+    // Changes still on their way would land after the deletes and leave records behind.
+    if (!(await drain(SYNC_WAIT_MS))) throw Object.assign(new Error('unsynced'), { code: 'unavailable' });
     if (window.BT && BT.stopSync) BT.stopSync();
     const u = db.collection('users').doc(user.uid), meta = u.collection('meta');
     const FV = firebase.firestore.FieldValue;
     onStep('Starting');
     await meta.doc('erase').set({ at: FV.serverTimestamp() });
-    const drain = async (colRef, per, label) => {
+    const sweep = async (colRef, per, label) => {
       for (let round = 0; round < 1000; round++) {
         const snap = await colRef.limit(per * 5).get({ source: 'server' });
         if (snap.empty) return;
@@ -665,9 +776,9 @@
         await Promise.all(jobs);
       }
     };
-    await drain(u.collection('records'), 100, 'Deleting records and photos');
+    await sweep(u.collection('records'), 100, 'Deleting records and photos');
     // Small batches: each audit delete is checked against meta/erase by the rules.
-    await drain(u.collection('audit'), 10, 'Deleting the change history');
+    await sweep(u.collection('audit'), 10, 'Deleting the change history');
     await meta.doc('keys').delete();
     await meta.doc('erase').delete();
     onStep('Checking');

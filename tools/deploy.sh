@@ -9,5 +9,8 @@ if [ "$branch" != "main" ] && [ "${1:-}" != "--any-branch" ]; then
   echo "On '$branch', not main. Merge first, or pass --any-branch to deploy it anyway." >&2
   exit 1
 fi
+# The approved accounts live in firebase/allowlist.local (git-ignored, one address per line),
+# never in the public repo. Build the deployable rules from the template here.
+node tools/rules.mjs
 firebase deploy --only hosting,firestore:rules --project toxin-tracker-bw
 echo "Live: https://toxin-tracker-bw.web.app"

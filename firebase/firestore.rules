@@ -1,23 +1,32 @@
 rules_version = '2';
+// __ALLOWED_EMAILS__ is replaced at deploy time by tools/deploy.sh from firebase/allowlist.local
+// (one address per line, git-ignored). The repo is public, so the addresses never live in it.
 // Each signed-in person reads and writes only their own data under users/{uid}:
 //   records/{kind__id}  one document per record: {kind, rec, updatedAt, base, by, aid}
 //   audit/{autoId}      append-only change log: {kind, recordId, action, at, conflict?}, never record contents (#58)
 //   meta/keys           the wrapped encryption key (#66); meta/erase marks a 'Delete all my data' in progress (#59)
-// rec is always ciphertext {v: 1, iv, ct} (AES-GCM, sealed on the phone); only kind is plain (#66, #60).
-// Nothing else in the database is reachable from the app.
+// rec is ciphertext {v: 1, iv, ct} for an encrypted account, and the plain record before encryption is turned on.
+// Settings (settings__settings) are merged field by field (#83), so their rec is a map whose leaves are sealed one
+// by one ('tt-e1:<iv>:<ct>') once encrypted. Nothing else in the database is reachable from the app.
 // The app is private to the approved Google accounts in member() (#22). This is the only place the list lives (#53):
 // this file deploys to Firestore, not to Hosting, so it is never served to the public. Keep addresses out of comments.
 // The app checks access by reading one of the person's own records and treats permission-denied as no access.
-// Tests: tools/firestore_rules_test.mjs (Firestore emulator).
+// Tests: bash tools/emulator_test.sh (Firestore and Auth emulators, throwaway example.invalid accounts).
 service cloud.firestore {
   match /databases/{database}/documents {
     function member() {
       return request.auth != null
         && request.auth.token.email_verified == true
-        && request.auth.token.email.lower() in ['owner@example.invalid', 'second-user@example.invalid'];
+        && request.auth.token.email.lower() in __ALLOWED_EMAILS__;
     }
     function owner(uid) {
       return member() && request.auth.uid == uid;
+    }
+    // Rollout of encryption (#66, PR #79). While true, these rules also accept records in plain form: the writes
+    // of app 0.14 ({kind, rec} only, no audit entry) and of 0.15 with encryption off. Set it to false only after
+    // every device runs an encrypted build and every account has migrated (step 3 in README, Deploy).
+    function plainAllowed() {
+      return true;
     }
     // A Google sign-in in the last 10 minutes (auth_time is in seconds). Guards the destructive and key writes.
     function recentAuth() {
@@ -28,7 +37,7 @@ service cloud.firestore {
     }
     // Ciphertext size caps in base64 characters. A Firestore document is at most 1 MiB in all.
     function cap(kind) {
-      return kind == 'photos' ? 1000000 : (kind == 'settings' ? 300000 : 150000);
+      return kind == 'photos' ? 1000000 : 150000;
     }
     function b64(s, lo, hi) {
       return s is string && s.size() >= lo && s.size() <= hi && s.matches('[A-Za-z0-9+/]+={0,2}');
@@ -39,11 +48,27 @@ service cloud.firestore {
         && rec.v == 1 && b64(rec.iv, 16, 16)
         && rec.ct is string && rec.ct.size() >= 24 && rec.ct.size() <= cap(kind);
     }
+    // A sealed settings leaf, or absent. Rules cannot walk a map, so once plain records are refused this checks
+    // the top-level fields that hold personal values; the app seals every leaf the same way.
+    function sealedLeaf(rec, f) {
+      return !(f in rec) || (rec[f] is string && rec[f].matches('tt-e1:[A-Za-z0-9+/]{16}:[A-Za-z0-9+/]+={0,2}'));
+    }
+    function recShape(d) {
+      return d.kind == 'settings'
+        ? d.rec is map && (plainAllowed() || (sealedLeaf(d.rec, 'name') && sealedLeaf(d.rec, 'intervalWeeks') && sealedLeaf(d.rec, 'checkinDay') && sealedLeaf(d.rec, 'customProducts')))
+        : sealed(d.rec, d.kind) || (plainAllowed() && d.rec is map);
+    }
+    function idMatches(d, docId) {
+      return d.kind in kinds() && docId.size() <= 120
+        && (d.kind == 'settings' ? docId == 'settings__settings' : docId.matches(d.kind + '__[^/]+'));
+    }
 
     match /users/{uid}/records/{docId} {
-      allow read, delete: if owner(uid);
-      allow create: if owner(uid) && validRecord(uid, docId);
-      allow update: if owner(uid) && validRecord(uid, docId) && notStale();
+      allow read: if owner(uid);
+      // Deletes carry no fields to check; the app writes an audit entry for each in the same commit.
+      allow delete: if owner(uid);
+      allow create: if owner(uid) && (validRecord(uid, docId) || legacyCreate(docId));
+      allow update: if owner(uid) && ((validRecord(uid, docId) && notStale()) || legacyUpdate(docId));
     }
     // Shape, a server updatedAt, and an audit entry for this exact record created in the same commit (aid).
     function validRecord(uid, docId) {
@@ -51,10 +76,8 @@ service cloud.firestore {
       let audit = getAfter(/databases/$(database)/documents/users/$(uid)/audit/$(d.aid));
       return d.keys().hasOnly(['kind', 'rec', 'updatedAt', 'base', 'by', 'aid'])
         && d.keys().hasAll(['kind', 'rec', 'updatedAt', 'base', 'by', 'aid'])
-        && d.kind in kinds()
-        && docId.size() <= 120
-        && (d.kind == 'settings' ? docId == 'settings__settings' : docId.matches(d.kind + '__[^/]+'))
-        && sealed(d.rec, d.kind)
+        && idMatches(d, docId)
+        && recShape(d)
         && d.updatedAt == request.time
         && (d.base == null || d.base is timestamp)
         && d.by is string && d.by.size() >= 8 && d.by.size() <= 40
@@ -62,13 +85,25 @@ service cloud.firestore {
         && audit.data.at == request.time
         && d.kind + '__' + audit.data.recordId == docId;
     }
+    // App 0.14 (live before this change): {kind, rec} with a plain rec and no audit entry. A whole-record set leaves
+    // only those two keys; a settings merge onto a document a newer build wrote changes only rec.
+    function legacyCreate(docId) {
+      let d = request.resource.data;
+      return plainAllowed() && d.keys().hasOnly(['kind', 'rec']) && idMatches(d, docId) && d.rec is map;
+    }
+    function legacyUpdate(docId) {
+      let d = request.resource.data;
+      return plainAllowed() && idMatches(d, docId) && d.rec is map
+        && (d.keys().hasOnly(['kind', 'rec']) || (d.kind == 'settings' && d.diff(resource.data).affectedKeys().hasOnly(['rec'])));
+    }
     // Stale updates are refused (#58). base is the server updatedAt this device last saw for the document. A device
     // may always build on its own last write (by matches), so offline edits queued on one phone never lock each
     // other out; an edit made on top of an older version than another device's write is refused, and the app
-    // shows it as Not saved with Retry. Documents from before #58 have no updatedAt and accept the migration write.
+    // shows it as Not saved with Retry. Documents from before #58 have no updatedAt and accept the next write.
+    // Settings are merged field by field (#83), so two devices' changes combine and nothing there is stale.
     function notStale() {
       let d = request.resource.data;
-      return !('updatedAt' in resource.data) || resource.data.by == d.by || d.base == resource.data.updatedAt;
+      return d.kind == 'settings' || !('updatedAt' in resource.data) || resource.data.by == d.by || d.base == resource.data.updatedAt;
     }
 
     match /users/{uid}/audit/{auditId} {

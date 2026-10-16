@@ -38,7 +38,13 @@
 .hist-strip { display: flex; gap: 8px; overflow-x: auto; padding: 2px 2px 6px; scrollbar-width: none; }
 .hist-strip::-webkit-scrollbar { display: none; }
 .hist-th { position: relative; flex: none; width: 62px; height: 78px; border-radius: 12px; overflow: hidden; border: 2px solid transparent; background: var(--card-2); }
+.hist-th { cursor: pointer; border-color: var(--line); }
 .hist-th.on { border-color: var(--accent); }
+.hist-side-h { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 34px; }
+.hist-side-h .acts { display: flex; gap: 6px; flex: none; }
+.hist-hint { display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: 12.5px; }
+.hist-slot { display: grid; gap: 10px; justify-items: center; text-align: center; padding: 18px 12px; border: 1.5px dashed var(--line); border-radius: 14px; color: var(--muted); font-size: 13.5px; }
+.hist-chg { display: grid; gap: 14px; }
 .hist-th img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .hist-th span { position: absolute; left: 0; right: 0; bottom: 0; font-size: 9.5px; text-align: center; padding: 8px 0 2px; color: var(--bg); background: linear-gradient(transparent, color-mix(in srgb, var(--fg) 65%, transparent)); }
 .hist-stage { position: relative; aspect-ratio: 3 / 4; width: 100%; border-radius: 18px; overflow: hidden; background: var(--card-2); touch-action: pan-y; user-select: none; -webkit-user-select: none; }
@@ -64,6 +70,7 @@
   let cmpMode = 'Slider';
   let sliderPos = 50;
   let cmp = { key: null, b: null, a: null };
+  const kindOf = (w) => (w === 'a' ? 'after' : 'before');
 
   /* ---------- helpers ---------- */
   const injLabel = (inj) => `${BT.fmt.date(inj.at)} · ${BT.product(inj.productId).name}`;
@@ -288,6 +295,11 @@
     return { b: b && b.id, a: a && a.id };
   }
 
+  // The newest photo of this side's kind, skipping the other side's photo and one being removed.
+  function nextOfKind(w, otherId, skipId) {
+    return photosSorted().find((p) => p.kind === kindOf(w) && p.id !== otherId && p.id !== skipId) || null;
+  }
+
   BT.screen('compare', {
     title: 'Before & After',
     render(root, injectionId) {
@@ -295,19 +307,25 @@
       wrap.className = 'hist';
       root.appendChild(wrap);
       const ph = photosSorted();
-      if (ph.length < 2) {
+      if (!ph.length) {
         wrap.innerHTML = `${BT.navHeader('Before & After')}
-          <div class="card empty">${BT.icon('compare', 34)}<div style="margin-bottom:14px">Comparing needs at least two photos. You have ${ph.length}. Add a before photo and an after photo, ideally in the same light and angle.</div><button type="button" class="btn primary" data-add>${BT.icon('camera', 18)} Add photo</button></div>`;
-        wrap.querySelector('[data-add]').onclick = () => addPhoto({ injectionId, kind: ph.length ? 'after' : 'before' });
+          <div class="card empty">${BT.icon('compare', 34)}<div style="margin-bottom:14px">Comparing needs a before photo and an after photo, ideally in the same light and angle. Add your first one.</div><button type="button" class="btn primary" data-add>${BT.icon('camera', 18)} Add photo</button></div>`;
+        wrap.querySelector('[data-add]').onclick = () => addPhoto({ injectionId, kind: 'before' });
         return;
       }
       const key = injectionId || '';
       const ids = new Set(ph.map((p) => p.id));
-      if (cmp.key !== key || !ids.has(cmp.b) || !ids.has(cmp.a)) cmp = { key, ...pickDefaults(injectionId) };
+      if (cmp.key !== key) cmp = { key, b: null, a: null, ...pickDefaults(injectionId) };
+      // A side whose photo is gone (deleted here, in History, or by sync) falls back to the next photo of its kind.
+      ['b', 'a'].forEach((w) => {
+        if (cmp[w] && !ids.has(cmp[w])) cmp[w] = (nextOfKind(w, cmp[w === 'b' ? 'a' : 'b']) || {}).id || null;
+      });
 
       wrap.innerHTML = `${BT.navHeader('Before & After')}
-        <section class="card stack"><div class="stack-s"><span class="eyebrow">Before photo</span><div class="hist-strip" data-strip="b"></div></div>
-        <div class="stack-s"><span class="eyebrow">After photo</span><div class="hist-strip" data-strip="a"></div></div></section>
+        <section class="card stack">
+          ${['b', 'a'].map((w) => `<div class="stack-s"><div class="hist-side-h"><span class="eyebrow">${photoKindLabel(kindOf(w))} photo</span><span class="acts" data-acts="${w}"></span></div><div class="hist-strip" data-strip="${w}"></div></div>`).join('')}
+          <div class="hist-hint">${BT.icon('info', 15)}<span>Tap a photo to compare it</span></div>
+        </section>
         <div class="row" style="justify-content:center" data-mode></div>
         <div data-view class="stack"></div>
         <button type="button" class="btn" data-add>${BT.icon('camera', 18)} Add photo</button>`;
@@ -315,20 +333,72 @@
       wrap.querySelector('[data-add]').onclick = () => addPhoto({ injectionId });
 
       const byId = (id) => ph.find((p) => p.id === id);
+      const drawActs = () => {
+        ['b', 'a'].forEach((w) => {
+          const el = wrap.querySelector(`[data-acts="${w}"]`), has = !!byId(cmp[w]), lab = photoKindLabel(kindOf(w)).toLowerCase();
+          el.innerHTML = `<button type="button" class="btn sm" data-chg aria-label="Change ${lab} photo">${BT.icon('edit', 15)} Change</button>${has ? `<button type="button" class="btn sm danger" data-rm aria-label="Delete ${lab} photo">${BT.icon('trash', 15)} Delete</button>` : ''}`;
+          el.querySelector('[data-chg]').onclick = () => changeSide(w);
+          const rm = el.querySelector('[data-rm]');
+          if (rm) rm.onclick = () => deleteSide(w);
+        });
+      };
       const drawStrips = () => {
         ['b', 'a'].forEach((w) => {
           const el = wrap.querySelector(`[data-strip="${w}"]`);
-          el.innerHTML = ph.map((p) => `<button type="button" class="hist-th ${p.id === cmp[w] ? 'on' : ''}" data-id="${E(p.id)}" aria-label="${photoKindLabel(p.kind)} ${BT.fmt.date(p.at)}"><img src="${E(p.src)}" alt=""><span>${BT.fmt.date(p.at)}</span></button>`).join('');
-          el.onclick = (e) => { const t = e.target.closest('[data-id]'); if (!t) return; cmp[w] = t.dataset.id; drawStrips(); drawView(); };
+          el.innerHTML = ph.map((p) => `<button type="button" class="hist-th ${p.id === cmp[w] ? 'on' : ''}" data-id="${E(p.id)}" aria-pressed="${p.id === cmp[w]}" aria-label="${photoKindLabel(p.kind)} ${BT.fmt.date(p.at)}"><img src="${E(p.src)}" alt=""><span>${BT.fmt.date(p.at)}</span></button>`).join('');
+          el.onclick = (e) => { const t = e.target.closest('[data-id]'); if (!t) return; cmp[w] = t.dataset.id; drawActs(); drawStrips(); drawView(); };
         });
       };
+      async function savePicked(w, file) {
+        const old = byId(cmp[w]);
+        const src = await BT.photo.store(file);
+        const rec = BT.save('photos', { kind: kindOf(w), at: Date.now(), src, injectionId: (old && old.injectionId) || injectionId || null });
+        cmp[w] = rec.id;
+        BT.toast('Photo saved');
+      }
+      function changeSide(w) {
+        const lab = photoKindLabel(kindOf(w)).toLowerCase();
+        const s = BT.sheet({ title: `Change ${lab} photo`, onClose: refreshHere });
+        s.body.innerHTML = `<div class="hist-chg">
+          <div class="stack-s"><span class="eyebrow">Pick one you already have</span><div class="hist-strip" data-pick></div></div>
+          <div class="stack-s"><span class="eyebrow">Or add a new one</span>
+            <div class="row gap"><button type="button" class="btn grow" data-cam>${BT.icon('camera', 18)} Take photo</button><button type="button" class="btn grow" data-lib>${BT.icon('image', 18)} Choose photo</button></div></div></div>`;
+        const pick = s.body.querySelector('[data-pick]');
+        pick.innerHTML = ph.map((p) => `<button type="button" class="hist-th ${p.id === cmp[w] ? 'on' : ''}" data-id="${E(p.id)}" aria-label="${photoKindLabel(p.kind)} ${BT.fmt.date(p.at)}"><img src="${E(p.src)}" alt=""><span>${BT.fmt.date(p.at)}</span></button>`).join('');
+        pick.onclick = (e) => { const t = e.target.closest('[data-id]'); if (!t) return; cmp[w] = t.dataset.id; s.close(); };
+        const add = (capture) => async () => {
+          const file = await BT.photo.pick(capture ? { capture: true } : {});
+          if (!file) return;
+          try { await savePicked(w, file); s.close(); } catch (err) { console.error(err); BT.toast('Could not save that photo'); }
+        };
+        s.body.querySelector('[data-cam]').onclick = add(true);
+        s.body.querySelector('[data-lib]').onclick = add(false);
+      }
+      async function deleteSide(w) {
+        const p = byId(cmp[w]);
+        if (!p) return;
+        if (!(await BT.confirm(`This removes the ${photoKindLabel(kindOf(w)).toLowerCase()} photo from ${BT.fmt.dateLong(p.at)} from your history. It cannot be undone.`))) return;
+        const next = nextOfKind(w, cmp[w === 'b' ? 'a' : 'b'], p.id);
+        cmp[w] = next ? next.id : null;
+        BT.remove('photos', p.id);
+        refreshHere();
+      }
       const dayText = (a) => {
         const inj = a.injectionId && BT.data.injections.find((i) => i.id === a.injectionId);
         return inj ? `Day ${Math.max(0, Math.round((a.at - inj.at) / BT.DAY))} after treatment` : '';
       };
       const drawView = () => {
         const b = byId(cmp.b), a = byId(cmp.a), view = wrap.querySelector('[data-view]');
-        if (!b || !a) return;
+        if (!b || !a) {
+          const miss = !b ? 'before' : 'after';
+          view.innerHTML = `<div class="hist-slot">${BT.icon('compare', 28)}<span>Add a ${miss} photo to compare. The other side is ready.</span><button type="button" class="btn primary" data-fill>${BT.icon('camera', 18)} Add photo</button></div>`;
+          view.querySelector('[data-fill]').onclick = async () => {
+            const file = await BT.photo.pick();
+            if (!file) return;
+            try { await savePicked(!b ? 'b' : 'a', file); refreshHere(); } catch (err) { console.error(err); BT.toast('Could not save that photo'); }
+          };
+          return;
+        }
         const dt = dayText(a);
         const caption = `<div class="hist-side">
           <div class="hist-cap"><span class="eyebrow">Before</span><span>${E(BT.fmt.dateLong(b.at))}</span></div>
@@ -364,6 +434,7 @@
             <div class="cell"><div class="pic"><img src="${E(a.src)}" alt="After"><span class="hist-lab" style="left:8px">AFTER</span></div></div></div>${caption}`;
         }
       };
+      drawActs();
       drawStrips();
       drawView();
     },

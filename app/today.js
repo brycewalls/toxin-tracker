@@ -42,8 +42,10 @@
 .t-moods { display:grid; grid-template-columns:repeat(5,1fr); gap:8px; }
 .t-mood { display:grid; justify-items:center; gap:6px; padding:12px 0; border-radius:14px; border:1px solid var(--line); background:var(--card); min-height:64px; font-size:11px; color:var(--muted); }
 .t-mood.on { border-color:var(--accent); background:var(--accent-soft); color:var(--accent); }
-.t-short { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; }
-.t-short button { display:grid; justify-items:center; gap:8px; padding:14px 6px; min-height:84px; text-align:center; font-size:12.5px; border-radius:var(--r); background:var(--card); border:1px solid color-mix(in srgb, var(--line) 50%, transparent); box-shadow:var(--shadow); }
+.t-hbtns { display:flex; gap:8px; flex:none; }
+.t-rx .t-ci-acts { grid-template-columns:1fr 1fr; }
+.t-short { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:8px; }
+.t-short button { display:grid; justify-items:center; align-content:start; gap:8px; padding:14px 4px; min-height:84px; text-align:center; font-size:12px; line-height:1.25; min-width:0; overflow-wrap:anywhere; border-radius:var(--r); background:var(--card); border:1px solid color-mix(in srgb, var(--line) 50%, transparent); box-shadow:var(--shadow); }
 .t-short .ic { color:var(--accent); }
 .t-banner { display:flex; align-items:center; gap:10px; justify-content:space-between; background:var(--amber-soft); color:var(--amber); border-radius:14px; padding:10px 12px 10px 14px; font-size:13.5px; }
 .t-card-tap { cursor:pointer; text-align:left; width:100%; display:block; }
@@ -81,6 +83,33 @@
   const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
   const intervalWeeks = () => BT.data.settings.intervalWeeks || 12;
   const effectMax = (t) => BT.data.injections.reduce((m, i) => Math.max(m, BT.effectAt(i, t)), 0);
+  // "Now forward" window for the Effect level chart (#87): starts a few days before the latest treatment's rise
+  // (or a few days before today when nothing is active), runs through the expected wear-off, and never puts
+  // today past the first third, so there is no long zero lead-in. Null with no treatments.
+  function effectWindow(now) {
+    const inj = BT.sortedInjections();
+    if (!inj.length) return null;
+    const wearEnd = Math.max(...inj.map((i) => i.at + BT.product(i.productId).wearWeeks * WEEK));
+    const end = Math.max(wearEnd + 7 * BT.DAY, now + 14 * BT.DAY), ahead = end - now;
+    let start = wearEnd > now ? inj[0].at - 3 * BT.DAY : now - 3 * BT.DAY;
+    start = Math.min(Math.max(start, now - ahead / 3), now - 3 * BT.DAY);
+    return { start, end };
+  }
+  // Small Today-card chart: curve over the window, a dashed line and a prominent dot for today with its percent.
+  function nowChart(win, now) {
+    const W = 200, H = 84, L = 8, R = 8, T = 22, B = 6, pw = W - L - R, ph = H - T - B, N = 90;
+    const sx = (t) => L + ((t - win.start) / (win.end - win.start)) * pw, sy = (v) => T + (1 - v) * ph;
+    const pts = []; for (let k = 0; k <= N; k++) { const t = win.start + ((win.end - win.start) * k) / N; pts.push([sx(t), sy(effectMax(t))]); }
+    const line = pts.map((q, i) => `${i ? 'L' : 'M'}${q[0].toFixed(1)},${q[1].toFixed(1)}`).join(' ');
+    const id = 'g' + BT.uid(), tx = sx(now), cur = effectMax(now), ty = sy(cur);
+    return `<svg viewBox="0 0 ${W} ${H}" width="100%" class="area" role="img" aria-label="Effect level from now through the expected wear-off" data-now-chart>
+      <defs><linearGradient id="${id}" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="var(--accent)" stop-opacity=".28"/><stop offset="1" stop-color="var(--accent)" stop-opacity="0"/></linearGradient></defs>
+      <path d="${line} L${pts[N][0].toFixed(1)},${T + ph} L${pts[0][0].toFixed(1)},${T + ph} Z" fill="url(#${id})"/>
+      <line x1="${tx}" x2="${tx}" y1="${T - 4}" y2="${T + ph}" stroke="var(--faint)" stroke-width="1" stroke-dasharray="2 3"/>
+      <path d="${line}" fill="none" stroke="var(--accent)" stroke-width="1.8" stroke-linejoin="round"/>
+      <circle cx="${tx}" cy="${ty}" r="5" fill="var(--accent)" stroke="var(--card)" stroke-width="2.5" data-today-dot/>
+      <text x="${tx}" y="${Math.max(12, ty - 10)}" text-anchor="${tx < 30 ? 'start' : 'middle'}" font-size="11" font-weight="600" fill="var(--fg)">${Math.round(cur * 100)}%</text></svg>`;
+  }
   const moodLabels = ['Rough', 'Low', 'Okay', 'Good', 'Great'];
 
   function intervalStepper(onChange) {
@@ -171,6 +200,44 @@
     return el;
   }
 
+  /* ---------- Reaction reminders (#3) ----------
+     In-app only. An open reaction asks whether it has cleared (Still there snoozes it two days, stored as followUpAt on the
+     reaction record). After a treatment, a gentle nudge on day 1, 3, 7 and 14 asks how it is landing (settings.rxNudge[injectionId]
+     holds the last day answered). Nothing new is stored in new kinds, so the rules stay as they are. */
+  const RX_DAYS = [1, 3, 7, 14], RX_SNOOZE = 2 * BT.DAY;
+  const rxDue = (now) => BT.data.reactions.filter((r) => !r.resolvedAt && now - r.at >= BT.DAY && !(r.followUpAt && r.followUpAt > now)).sort((a, b) => a.at - b.at).slice(0, 2);
+  function rxCards(now) {
+    const due = rxDue(now);
+    let h = due.map((r) => {
+      const days = Math.floor((now - r.at) / BT.DAY), site = r.siteId ? BT.site(r.siteId).label : 'General';
+      return `<section class="card t-rx" data-rxc="${BT.esc(r.id)}"><div class="card-h"><h3>Has it cleared up?</h3><span class="pill amber">Day ${days}</span></div>
+        <div><div class="li-title">${BT.esc(r.kind)}</div><div class="li-sub">${BT.esc(site)} · started ${BT.esc(BT.fmt.date(r.at))}</div></div>
+        <div class="t-ci-acts"><button class="btn primary" data-rx-res>${BT.icon('check', 18)} Resolved</button><button class="btn" data-rx-still>Still there</button></div></section>`;
+    }).join('');
+    const last = BT.sortedInjections()[0];
+    if (last && !due.length) {
+      const age = Math.floor((now - last.at) / BT.DAY), ms = RX_DAYS.filter((m) => m <= age).pop();
+      if (ms && age <= 16 && ((BT.data.settings.rxNudge || {})[last.id] || 0) < ms) {
+        h += `<section class="card t-rx" data-rxn="${BT.esc(last.id)}" data-ms="${ms}"><div class="card-h"><h3>How is it landing?</h3><span class="pill blue">Day ${age}</span></div>
+          <div class="small muted">Note any bruising, headaches or other reactions from your ${BT.esc(BT.fmt.date(last.at))} treatment, and how strong the effect feels. It helps to log them while they are fresh.</div>
+          <div class="t-ci-acts"><button class="btn primary" data-rxn-log>${BT.icon('plus', 18)} Log a reaction</button><button class="btn" data-rxn-ok>All good</button></div></section>`;
+      }
+    }
+    return h;
+  }
+  function bindRx(root) {
+    root.querySelectorAll('[data-rxc]').forEach((card) => {
+      const r = BT.data.reactions.find((x) => x.id === card.dataset.rxc); if (!r) return;
+      card.querySelector('[data-rx-res]').onclick = () => { BT.save('reactions', { ...r, resolvedAt: Date.now(), followUpAt: null }); BT.toast('Marked as resolved'); };
+      card.querySelector('[data-rx-still]').onclick = () => { BT.save('reactions', { ...r, followUpAt: Date.now() + RX_SNOOZE }); BT.toast('Okay, I will ask again in 2 days'); };
+    });
+    root.querySelectorAll('[data-rxn]').forEach((card) => {
+      const ack = () => BT.save('settings', { rxNudge: { ...(BT.data.settings.rxNudge || {}), [card.dataset.rxn]: +card.dataset.ms } });
+      card.querySelector('[data-rxn-log]').onclick = () => { ack(); BT.openReaction({ injectionId: card.dataset.rxn }); };
+      card.querySelector('[data-rxn-ok]').onclick = () => { ack(); BT.toast('Glad it is going well'); };
+    });
+  }
+
   /* ---------- TODAY ---------- */
   BT.screen('today', {
     title: 'Today',
@@ -190,7 +257,7 @@
 
       let h = `<section class="hero">
         <div class="t-hero-top"><div><div class="muted t-date">${BT.esc(dateLine)}</div><div class="t-greet">${greet}${(s.name || (BT.account?.name || '').split(' ')[0]) ? ', ' + BT.esc(s.name || BT.account.name.split(' ')[0]) : ''}</div></div>
-        <button class="t-gear" data-go="settings" aria-label="Settings">${BT.icon('gear', 20)}</button></div>
+        <div class="t-hbtns"><button class="t-gear" data-go="academy" aria-label="Botox Academy">${BT.icon('cap', 20)}</button><button class="t-gear" data-go="settings" aria-label="Settings">${BT.icon('gear', 20)}</button></div></div>
         <div class="rings">
           ${ring(daysSince ?? '--', 'Days since treatment', daysSince === null ? '' : 'd')}
           ${ring(lastUnits ?? '--', 'Units last session', lastUnits === null ? '' : 'U')}
@@ -201,6 +268,9 @@
 
       // Day 7 check-in, one card per treatment that reached it (#15, #18)
       h += CI.pending(now).map((i) => checkinCard(i, now)).join('');
+
+      // Reaction reminders, in-app only (#3)
+      h += rxCards(now);
 
       // Aftercare runs from the latest session, touch-ups included; the countdowns above skip them.
       const last = BT.sortedInjections()[0] || null;
@@ -242,13 +312,16 @@
       h += `<section class="card"><div class="card-h"><h3>How are you?</h3><span class="tiny muted">Tap a day</span></div><div class="t-days">${days}</div></section>`;
 
       // Effect
-      if (last) {
-        const cur = Math.round(BT.effectAt(last, now) * 100), p = BT.product(last.productId);
-        const pts = []; for (let k = 120; k >= 0; k--) pts.push({ x: 120 - k, y: effectMax(now - k * BT.DAY) });
+      const ewin = effectWindow(now);
+      if (ewin) {
+        const cur = Math.round(effectMax(now) * 100), p = BT.product(last.productId);
         h += `<button class="card t-card-tap" data-go="effect"><div class="card-h"><span class="eyebrow">Effect level</span>${BT.icon('chevron', 18)}</div>
           <div class="row between" style="align-items:flex-end;gap:12px"><div><div class="big-num">${cur}<small>%</small></div><div class="small muted" style="margin-top:6px">${BT.esc(p.name)}, estimated</div></div>
-          <div style="width:58%">${BT.areaChart(pts, { w: 200, h: 70, yMax: 1 })}</div></div>
-          <div class="tiny faint" style="margin-top:8px">Last 120 days</div></button>`;
+          <div style="width:58%">${nowChart(ewin, now)}</div></div>
+          <div class="tiny faint" style="margin-top:8px">${BT.esc(BT.fmt.date(ewin.start))} to ${BT.esc(BT.fmt.date(ewin.end))}, through the expected wear-off</div></button>`;
+      } else {
+        h += `<section class="card"><div class="card-h"><span class="eyebrow">Effect level</span></div>
+          <div class="small muted" data-effect-empty>Log a treatment to see your estimated effect and when it wears off.</div></section>`;
       }
 
       // Next treatment
@@ -276,7 +349,7 @@
       if (BT.academyCard) h += BT.academyCard();
 
       // Shortcuts
-      h += `<div class="t-short"><button data-go="calculator">${BT.icon('calc', 24)}<span>Dilution Calculator</span></button><button data-go="compare">${BT.icon('compare', 24)}<span>Before / After</span></button><button data-go="settings">${BT.icon('gear', 24)}<span>Settings</span></button></div>`;
+      h += `<div class="t-short"><button data-go="calculator">${BT.icon('calc', 24)}<span>Dilution Calculator</span></button><button data-go="compare">${BT.icon('compare', 24)}<span>Before / After</span></button><button data-go="academy">${BT.icon('cap', 24)}<span>Academy</span></button><button data-go="settings">${BT.icon('gear', 24)}<span>Settings</span></button></div>`;
 
       if (BT.hasSample()) h += `<div class="t-banner"><span>You are looking at sample data</span><button class="btn sm" data-clear>Clear sample</button></div>`;
       h += `<p class="disclaimer">For personal tracking only. Not medical advice.</p>`;
@@ -288,6 +361,7 @@
       if (BT.bindWhatsNewCard) BT.bindWhatsNewCard(root);
       if (BT.bindAcademyCard) BT.bindAcademyCard(root);
       bindCheckins(root);
+      bindRx(root);
       root.querySelectorAll('[data-inj]').forEach((b) => (b.onclick = () => BT.go('injection', b.dataset.inj)));
       root.querySelectorAll('[data-mood]').forEach((b) => (b.onclick = () => moodSheet(b.dataset.mood)));
       const clr = root.querySelector('[data-clear]'); if (clr) clr.onclick = () => BT.clearSample();
@@ -311,18 +385,25 @@
   }
 
   /* ---------- EFFECT TIMELINE ---------- */
-  let effRange = '90';
+  let effRange = 'now';
   BT.screen('effect', {
     title: 'Effect Timeline',
     render(root) {
-      const ranges = [['30', '30d'], ['90', '90d'], ['182', '6m'], ['365', '1y']];
+      const ranges = [['now', 'Now'], ['30', '30d'], ['90', '90d'], ['182', '6m'], ['365', '1y']];
       root.innerHTML = `${BT.navHeader('Effect Timeline')}
         <div class="chips" data-r>${ranges.map(([v, l]) => `<button class="chip ${v === effRange ? 'on' : ''}" data-v="${v}">${l}</button>`).join('')}</div>
         <section class="card"><div data-chart></div><p class="tiny muted" style="margin:10px 0 0">Curve is an illustrative estimate based on typical onset, peak and duration.</p></section>
         <section class="card"><div class="card-h"><h3>Treatments</h3></div><div class="list" data-leg></div></section>
         <p class="disclaimer">For personal tracking only. Not medical advice.</p>`;
       const draw = () => {
-        const days = +effRange, now = Date.now(), start = now - days * BT.DAY, end = now + days * 0.2 * BT.DAY;
+        const now = Date.now(), win = effRange === 'now' ? effectWindow(now) : null;
+        if (effRange === 'now' && !win) {
+          root.querySelector('[data-chart]').innerHTML = '<div class="empty" style="padding:24px 12px" data-effect-empty>No treatments yet. Log one and your estimated effect shows up here.</div>';
+          root.querySelector('[data-leg]').innerHTML = '<div class="empty" style="padding:16px">No treatments logged.</div>';
+          return;
+        }
+        const days = effRange === 'now' ? (win.end - win.start) / BT.DAY : +effRange;
+        const start = win ? win.start : now - days * BT.DAY, end = win ? win.end : now + days * 0.2 * BT.DAY;
         const W = 340, H = 230, L = 36, R = 10, T = 14, B = 28, pw = W - L - R, ph = H - T - B;
         const sx = (t) => L + ((t - start) / (end - start)) * pw, sy = (v) => T + (1 - v) * ph;
         const N = 160, pts = [];
@@ -337,7 +418,9 @@
           svg += `<line x1="${x}" x2="${x}" y1="${T}" y2="${T + ph}" stroke="${p.color}" stroke-width="1.2" stroke-dasharray="3 3"/><circle cx="${x}" cy="${T + ph}" r="3.5" fill="${p.color}" stroke="var(--card)" stroke-width="1.5"/>`;
         });
         const tx = sx(now);
-        svg += `<line x1="${tx}" x2="${tx}" y1="${T}" y2="${T + ph}" stroke="var(--fg)" stroke-width="1.2"/><text x="${tx}" y="${T - 3}" text-anchor="middle" font-size="10" font-weight="600" fill="var(--fg)">Today</text>`;
+        const cur = effectMax(now), cy = sy(cur), tl = tx - L < 44 ? 'start' : W - R - tx < 44 ? 'end' : 'middle';
+        svg += `<line x1="${tx}" x2="${tx}" y1="${T}" y2="${T + ph}" stroke="var(--fg)" stroke-width="1.2"/><text x="${tx}" y="${T - 3}" text-anchor="${tl}" font-size="10" font-weight="600" fill="var(--fg)">Today, ${Math.round(cur * 100)}%</text>`
+          + `<circle cx="${tx}" cy="${cy}" r="5.5" fill="var(--accent)" stroke="var(--card)" stroke-width="2.5" data-today-dot/>`;
         const ticks = 4;
         for (let k = 0; k <= ticks; k++) {
           const t = start + ((end - start) * k) / ticks, anchor = k === 0 ? 'start' : k === ticks ? 'end' : 'middle';
