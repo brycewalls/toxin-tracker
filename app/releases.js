@@ -6,6 +6,14 @@
 (function () {
   BT.RELEASES = [
     {
+      version: '0.16', date: '2026-10-16', title: 'Encrypted on your phone',
+      items: [
+        'Your log is now encrypted on your phone before it is saved, with a passphrase only you know. Nobody else can read it, including the app\'s owner and Google.',
+        'The next time you open the app, choose a passphrase and save your recovery key somewhere safe. If you lose both, your log cannot be opened again.',
+        'Each phone asks for the passphrase once. Change it, or make a new recovery key, in Settings.',
+      ],
+    },
+    {
       version: '0.15.1', date: '2026-10-16', title: 'Stay signed in',
       items: [
         'The app no longer signs you out on its own. To have it sign out after a while without use, pick a time under Sign out automatically in Settings. A phone that already has a time set keeps it.',
@@ -156,9 +164,7 @@
     },
   ];
   // Planned work, shown under "Coming next". Keep it short and drop items once they ship.
-  BT.UPCOMING = [
-    'Encrypt your log on your phone with a passphrase only you know. Use Export everything first so you have a backup.',
-  ];
+  BT.UPCOMING = [];
   BT.VERSION = BT.RELEASES[0].version;
   BT.release = (v) => BT.RELEASES.find((r) => r.version === v) || null;
 

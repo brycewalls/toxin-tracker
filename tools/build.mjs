@@ -93,7 +93,7 @@ for (const f of readdirSync(app)) if (f.endsWith('.js')) copyFileSync(join(app, 
 if (ENC || EMU) {
   let c = readFileSync(join(dist, 'cloud.js'), 'utf8');
   const sub = (from, to) => { if (!c.includes(from)) throw new Error(`app/cloud.js no longer has "${from}"; update tools/build.mjs`); c = c.replace(from, to); };
-  if (ENC) sub("const ENCRYPTION = 'off';", `const ENCRYPTION = '${ENC}';`);
+  if (ENC) { const re = /const ENCRYPTION = '(on|off)';/; if (!re.test(c)) throw new Error('app/cloud.js no longer has "const ENCRYPTION = \'on|off\';"; update tools/build.mjs'); c = c.replace(re, `const ENCRYPTION = '${ENC}';`); }
   if (EMU) sub('const EMULATORS = null;', "const EMULATORS = { projectId: 'demo-toxin-tracker', auth: 'http://127.0.0.1:9099', firestore: ['127.0.0.1', 8080] };");
   writeFileSync(join(dist, 'cloud.js'), c);
   console.log(`Test build: encryption ${ENC || 'as in app/cloud.js'}${EMU ? ', emulators' : ''}`);
