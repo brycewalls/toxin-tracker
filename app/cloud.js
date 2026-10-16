@@ -34,8 +34,9 @@
   // this build can always read an encrypted log. 'on': an account with no keys gets the setup screen on its next
   // start and its records are encrypted in place after it. Step 1 ships 'off'; step 2 is a PR that sets 'on'.
   // tools/build.mjs --encryption on|off overrides it for one build (tests).
-  // Step 2 shipped in 0.16 (2026-10-16): on.
-  const ENCRYPTION = 'on';
+  // 0.16 turned it on; 0.16.1 turned it back off the same day at Bryce's request (no passphrase prompt for new
+  // setups). Accounts that already have keys still unlock as usual.
+  const ENCRYPTION = 'off';
   // Local tests only: tools/build.mjs --emulators points the app at the Auth and Firestore emulators of a demo-
   // project. Never set in a deployed build.
   const EMULATORS = null;
