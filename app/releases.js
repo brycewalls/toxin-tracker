@@ -13,6 +13,7 @@
         'Delete all my data in Settings removes everything from the server and this phone, and removes your account from the app.',
         'If the server ever refuses a change, you now see it: a Not saved bar with Retry and Discard, and the change stays on screen.',
         'Every change is noted in a private change history (what changed and when, never the details).',
+        'Opening the app no longer flashes a different screen, like What\'s New, before your log loads. It shows a loading screen until your log is ready.',
       ],
     },
     {
@@ -150,7 +151,7 @@
   ];
   // Planned work, shown under "Coming next". Keep it short and drop items once they ship.
   BT.UPCOMING = [
-    'Encrypt your log on your phone with a passphrase only you know, plus a full export of everything.',
+    'Encrypt your log on your phone with a passphrase only you know. Use Export everything first so you have a backup.',
   ];
   BT.VERSION = BT.RELEASES[0].version;
   BT.release = (v) => BT.RELEASES.find((r) => r.version === v) || null;
