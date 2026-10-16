@@ -6,6 +6,12 @@
 (function () {
   BT.RELEASES = [
     {
+      version: '0.16.1', date: '2026-10-16', title: 'Passphrase setup paused',
+      items: [
+        'The app no longer asks you to set an encryption passphrase. Your log is still stored encrypted by Google, as it always has been.',
+      ],
+    },
+    {
       version: '0.16', date: '2026-10-16', title: 'Encrypted on your phone',
       items: [
         'Your log is now encrypted on your phone before it is saved, with a passphrase only you know. Nobody else can read it, including the app\'s owner and Google.',
