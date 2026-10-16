@@ -146,6 +146,10 @@ input[type=date]::-webkit-date-and-time-value, input[type=datetime-local]::-webk
 .grow { flex: 1; min-width: 0; } .stack { display: grid; gap: 12px; } .stack-s { display: grid; gap: 6px; }
 .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .empty { text-align: center; color: var(--muted); padding: 32px 16px; }
+.boot-load { display: grid; justify-items: center; align-content: center; gap: 10px; min-height: 60vh; color: var(--muted); }
+.boot-load img { width: 64px; height: 64px; border-radius: 15px; animation: boot-pulse 1.6s ease-in-out infinite; }
+.boot-load p { margin: 0; font-size: 15px; } .boot-slow { display: grid; justify-items: center; gap: 10px; }
+@keyframes boot-pulse { 50% { opacity: .45; } }
 .empty .ic { margin: 0 auto 10px; color: var(--faint); }
 .sample-tag { font-size: 10px; letter-spacing: .06em; text-transform: uppercase; color: var(--amber); background: var(--amber-soft); padding: 2px 6px; border-radius: 6px; }
 .area { display: block; overflow: visible; }

@@ -597,6 +597,7 @@
   BT.back = () => { const prev = stack.pop() || { name: 'today' }; BT.route = prev; BT.render(); };
   BT.render = () => {
     BT._stale = false;
+    if (BT.booting) return BT.renderBooting(); // hosted app, before the first full load (#101): no screen from default data
     const root = document.getElementById('view'), s = BT.screens[BT.route.name];
     BT.$$('.tab').forEach((t) => t.classList.toggle('on', t.dataset.tab === BT.route.name));
     root.dataset.screen = BT.route.name;
