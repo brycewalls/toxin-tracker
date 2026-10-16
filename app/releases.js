@@ -6,6 +6,12 @@
 (function () {
   BT.RELEASES = [
     {
+      version: '0.15.1', date: '2026-10-16', title: 'Stay signed in',
+      items: [
+        'The app no longer signs you out on its own. To have it sign out after a while without use, pick a time under Sign out automatically in Settings. A phone that already has a time set keeps it.',
+      ],
+    },
+    {
       version: '0.15', date: '2026-10-16', title: 'Your data, your copy',
       items: [
         'Export everything in Settings downloads your whole log as a file, photos included. Keep it somewhere private: it is your backup.',
